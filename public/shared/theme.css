@@ -1,0 +1,72 @@
+/* Thème « Radiance » partagé (écran TV, accueil, connexion).
+   Inspiré de la DA Riftbound – Radiance : nuit profonde, bleu Riftbound, or lumineux.
+   Remplacer ces valeurs par celles de la charte officielle quand UVS la fournira. */
+
+@import url('/fonts/cinzel/600.css');
+@import url('/fonts/cinzel/700.css');
+@import url('/fonts/cinzel/900.css');
+@import url('/fonts/barlow/400.css');
+@import url('/fonts/barlow/500.css');
+@import url('/fonts/barlow/600.css');
+@import url('/fonts/barlow/700.css');
+@import url('/fonts/barlow-condensed/500.css');
+@import url('/fonts/barlow-condensed/600.css');
+@import url('/fonts/barlow-condensed/700.css');
+
+:root {
+  /* Fonds */
+  --rb-night: #050a1c;
+  --rb-deep: #0a1534;
+  --rb-panel: #0f1d45;
+  --rb-panel-2: #142757;
+  --rb-line: rgba(140, 180, 255, 0.18);
+
+  /* Bleu Riftbound (panneaux du stand) */
+  --rb-blue: #1f5fd6;
+  --rb-azure: #3fa9ff;
+  --rb-cyan: #7fe3ff;
+
+  /* Or « Radiance » */
+  --rb-gold: #f2c14e;
+  --rb-gold-light: #ffe7a3;
+  --rb-gold-deep: #b8862b;
+  --rb-radiant: #fff6d6;
+
+  /* Texte */
+  --rb-text: #eef3ff;
+  --rb-muted: #9fb0d6;
+  --rb-faint: #6b7ba3;
+
+  /* États */
+  --rb-success: #4ade80;
+  --rb-warning: #ffb547;
+  --rb-danger: #ff5d6c;
+
+  /* Typographie */
+  --rb-font-display: 'Cinzel', 'Times New Roman', serif;
+  --rb-font-body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --rb-font-condensed: 'Barlow Condensed', 'Arial Narrow', 'Barlow', sans-serif;
+
+  /* Effets */
+  --rb-glow-gold: 0 0 24px rgba(242, 193, 78, 0.45);
+  --rb-glow-blue: 0 0 28px rgba(63, 169, 255, 0.35);
+  --rb-radius: 14px;
+  --rb-radius-sm: 8px;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--rb-night);
+  color: var(--rb-text);
+  font-family: var(--rb-font-body);
+  -webkit-font-smoothing: antialiased;
+}

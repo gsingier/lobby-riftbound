@@ -12,6 +12,7 @@ const { createAuth } = require('./auth');
 const { buildCsv } = require('./csv');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const FONTS_DIR = path.join(path.dirname(require.resolve('@fontsource/cinzel/package.json')), '..');
 const TICK_MS = 1000;
 
 // Actions de l'accueil reçues via Socket.IO : `action` { type, payload } → ack.
@@ -108,6 +109,10 @@ function createApp({ dbFile = ':memory:', password, sessionSecret, now = () => D
     res.send(buildCsv(lobby.exportRows()));
   });
 
+  // Polices auto-hébergées (pas de dépendance à Google Fonts sur le stand).
+  for (const font of ['cinzel', 'barlow', 'barlow-condensed']) {
+    app.use(`/fonts/${font}`, express.static(path.join(FONTS_DIR, font), { maxAge: '30d', immutable: true }));
+  }
   app.use(express.static(PUBLIC_DIR, { index: false, extensions: false }));
 
   const server = http.createServer(app);
