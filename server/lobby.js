@@ -59,8 +59,10 @@ function toId(value) {
 function displayName(firstName, lastName) {
   const first = cleanName(firstName);
   const last = cleanName(lastName);
-  // Array.from : premier caractère complet (pas une moitié de paire de substitution).
-  const initial = last ? `${Array.from(last)[0].toLocaleUpperCase('fr-FR')}.` : '';
+  // Initiale = première lettre (« d'Artagnan » → « D. ») ; à défaut, premier caractère complet.
+  const chars = Array.from(last);
+  const letter = chars.find((c) => /\p{L}/u.test(c)) || chars[0];
+  const initial = letter ? `${letter.toLocaleUpperCase('fr-FR')}.` : '';
   return [first, initial].filter(Boolean).join(' ');
 }
 

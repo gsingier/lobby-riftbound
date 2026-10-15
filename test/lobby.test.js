@@ -247,3 +247,9 @@ test('helpers de normalisation et d’affichage', () => {
   assert.equal(displayName('Éloïse', 'école'), 'Éloïse É.');
   assert.equal(normalizeTicket(' ab-12 34.5_6 '), 'AB123456');
 });
+
+test('l’initiale affichée est la première lettre du nom', () => {
+  assert.equal(displayName('Zélie', '<b>Quartz</b>'), 'Zélie B.');
+  assert.equal(displayName('Jean', "d'Artagnan"), 'Jean D.');
+  assert.equal(displayName('Ana', '123'), 'Ana 1.');
+});

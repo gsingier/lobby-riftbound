@@ -4,7 +4,9 @@
   'use strict';
 
   function connect({ onState, onStatus, onSession } = {}) {
-    const socket = window.io({ transports: ['websocket', 'polling'] });
+    // Transports par défaut (long-polling puis passage au WebSocket) : l'écran se connecte
+    // même si un proxy ou le Wi-Fi du salon bloque les WebSockets.
+    const socket = window.io();
     let offset = 0;
     let lastState = null;
 
