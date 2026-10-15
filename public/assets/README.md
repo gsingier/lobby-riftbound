@@ -1,46 +1,52 @@
-# Visuels de l'écran TV (`public/assets/`)
+# Visuels (`public/assets/`)
 
-Les fichiers de ce dossier sont des **visuels de remplacement** créés pour le
-projet : ils ne sont **pas** les logos officiels. Les logos et illustrations
-Riftbound / Radiance appartiennent à Riot Games et UVS Games et ne doivent être
-utilisés qu'avec leur accord (fichiers fournis par UVS pour l'événement).
+Les logos et illustrations Riftbound / Radiance appartiennent à Riot Games et
+UVS Games ; ils ne sont utilisés qu'avec leur accord, à partir des fichiers
+fournis pour l'événement.
 
-Pour passer aux visuels officiels, il suffit de **remplacer les fichiers en
-gardant le même nom** : aucune modification de code n'est nécessaire.
+## Fichiers en place
 
-## Fichiers à remplacer
+| Fichier | Statut | Où il apparaît |
+|---|---|---|
+| `riftbound-logo.webp` | **Logo officiel** (542 × 238, fond transparent) | En-tête de l'écran TV (dans une carte nacrée), barre du haut de l'accueil, page de connexion |
+| `radiance-keyart.jpg` | Visuel Radiance fourni, **basse résolution** (597 × 335, logo incrusté) | Non affiché : il a servi de référence pour la direction artistique (fond nacré, halo irisé, cercles concentriques) |
 
-| Fichier | Où il apparaît | Format conseillé | Taille conseillée |
-|---|---|---|---|
-| `logo-riftbound.svg` | En-tête de l'écran TV, en haut à gauche | SVG (idéal) ou PNG à fond transparent | PNG : au moins **1200 px de large** ; version claire/dorée lisible sur fond bleu nuit |
-| `logo-radiance.svg` | En-tête, à droite du logo Riftbound | SVG ou PNG à fond transparent | PNG : au moins **800 px de large** |
-| `background.svg` | Fond décoratif de toute la page (affiché à 50 % d'opacité) | SVG, ou image JPG/WebP | Image : **3840 × 2160 px** (16:9), sombre, < 1 Mo |
+Le logo officiel est conçu pour un **fond clair** (le gris « League of
+Legends » disparaît sur un fond sombre) : il est toujours posé sur blanc ou sur
+la carte nacrée `.rb-logo-card` (`public/shared/theme.css`), jamais recoloré ni
+déformé (hauteur fixée, largeur proportionnelle).
 
-Détails d'affichage :
+Le mot **RADIANCE** de l'en-tête de l'écran TV est un texte stylé (dégradé
+bleu-argent, classe `.rb-radiance`), en attendant le logotype officiel du set.
+Le halo irisé et les cercles concentriques sont dessinés en CSS (dégradés
+statiques) : aucun fichier d'image n'est nécessaire.
 
-- **Logos** : la hauteur est fixée (environ 5 % de la hauteur de l'écran pour
-  Riftbound, 3,5 % pour Radiance, soit ~56 px et ~37 px en Full HD) et la largeur
-  suit les proportions du fichier. N'importe quel format de logo convient
-  (horizontal de préférence) ; recadrez au plus près du dessin, sans marge
-  transparente inutile, sinon le logo paraîtra plus petit.
-- **Fond** : affiché en mode « couvrir » (`cover`), centré en haut. En portrait
-  (1080 × 1920), les côtés de l'image sont rognés : gardez l'essentiel au centre.
-  Préférez une image sombre et peu contrastée (les tables et les noms passent
-  par-dessus). Une illustration du set (Ekko, Evelynn, Seraphine…) assombrie
-  fonctionne très bien.
+## Visuels encore attendus d'UVS
 
-### Utiliser un autre format (PNG, WebP…)
+| Visuel | Usage prévu | Format conseillé |
+|---|---|---|
+| Logotype **RADIANCE** haute définition | Remplacer le mot stylé « Radiance » de l'en-tête TV | SVG, ou PNG à fond transparent d'au moins 1200 px de large ; version pour fond clair |
+| **Key art Radiance HD** sans logo incrusté | Éventuel fond ou bandeau (l'actuel, trop petit, n'est pas affiché) | JPG/WebP, 3840 × 2160 px (16:9), < 1 Mo |
+| Logo Riftbound en **SVG** (facultatif) | Netteté parfaite en 4K | SVG |
+| Charte (couleurs, polices officielles), si elle existe | Ajuster les variables `--rb-*` de `public/shared/theme.css` | — |
 
-Un PNG simplement renommé en `.svg` ne s'affichera pas. Si le fichier officiel
-n'est pas un SVG, déposez-le avec sa vraie extension (ex. `logo-riftbound.png`)
-puis modifiez le chemin correspondant :
+## Remplacer ou ajouter un visuel
 
-- logos : attribut `src` des balises `<img>` dans `public/ecran/index.html` ;
-- fond : `url('/assets/background.svg')` dans `public/ecran/ecran.css`
-  (règle `.backdrop`).
+- **Logo Riftbound** : remplacer `riftbound-logo.webp` par un fichier du même
+  nom. Pour un autre format (SVG, PNG), déposer le fichier avec sa vraie
+  extension et modifier l'attribut `src` des balises `<img>` dans
+  `public/ecran/index.html`, `public/accueil/index.html` et `public/login.html`.
+  Recadrer au plus près du dessin (pas de marge transparente inutile) : la
+  hauteur est fixée, une marge rendrait le logo plus petit.
+- **Logotype RADIANCE** : dans `public/ecran/index.html`, remplacer
+  `<p class="rb-radiance wordmark">Radiance</p>` par
+  `<img class="wordmark-img" src="/assets/radiance-logo.svg" alt="Radiance">`
+  (la classe `.wordmark-img` est déjà prévue dans `public/ecran/ecran.css`,
+  avec la bonne hauteur en paysage et en portrait).
 
-Les couleurs et polices du thème (bleu nuit, bleu Riftbound, or « Radiance »,
-Cinzel / Barlow) se règlent dans `public/shared/theme.css` (variables `--rb-*`).
+Les couleurs, le halo et la police (Inter, auto-hébergée) se règlent dans
+`public/shared/theme.css` (variables `--rb-*`, classes `.rb-halo`,
+`.rb-logo-card`, `.rb-radiance`).
 
 ## Tester après remplacement
 
@@ -53,8 +59,7 @@ Cinzel / Barlow) se règlent dans `public/shared/theme.css` (variables `--rb-*`)
    - paysage : fenêtre en 1920 × 1080 (plein écran avec F11) ;
    - portrait : `http://localhost:3000/ecran?orientation=portrait`, ou outils de
      développement du navigateur (Ctrl + Maj + M) en 1080 × 1920.
-4. Contrôler que les logos sont nets, lisibles de loin et ne sont pas coupés,
-   et que le fond ne gêne pas la lecture des noms et des comptes à rebours.
+4. Contrôler que les logos sont nets, lisibles de loin et ne sont pas coupés.
 
 Astuce : sur une TV montée à la verticale dont la source (Chromecast, mini-PC)
 ne sait pas pivoter l'image, utiliser `/ecran?rotation=90` (ou `-90`) : la page

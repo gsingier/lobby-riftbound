@@ -1,9 +1,12 @@
-// Interface d'accueil (hôtesse).
+// Interface d'accueil (hôtesse), /accueil.
+// Organisée autour de la boucle de travail : 01 Inscrire · 02 Appeler · 03 Remettre les goodies ;
+// le plan des tables et la file d'attente servent de référence.
 // Principes :
 //  - le formulaire d'inscription et les modales ne sont JAMAIS re-rendus par un nouvel état ;
-//  - les zones dynamiques (tables, file, goodies, recherche) ne sont réécrites que si leurs
-//    données ont changé, en conservant le focus clavier ;
-//  - les comptes à rebours sont mis à jour chaque seconde sans re-rendu.
+//  - les zones dynamiques (tables, panneau d'emplacement, file, goodies, à appeler, recherche) ne sont
+//    réécrites que si leurs données ont changé, en conservant le focus clavier (data-focus) ;
+//  - les comptes à rebours sont mis à jour chaque seconde sans re-rendu ;
+//  - toute donnée saisie est échappée (escapeHtml / textContent).
 (function () {
   'use strict';
 
@@ -21,17 +24,23 @@
   const DEFAULT_NO_SHOW_MS = 15 * MIN; // si l'état ne précise pas settings.noShowWindowMs
   const FIELDS = ['firstName', 'lastName', 'email', 'ticket'];
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const LOGIN_URL = '/login';
+  const CALLS_KEY = 'rb-accueil-a-appeler-v2';
+  const OLD_CALLS_KEYS = ['rb-accueil-a-appeler-v1'];
+  const TITLE = document.title;
+  const ICON = (id, cls = 'ic') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 
   let client = null;
   let state = null;
   let stateSeq = 0;
   let where = new Map(); // participantId → emplacement actuel (table, file, goodies)
-  let etas = new Map(); // entryId → heure de passage estimée
+  let etas = new Map(); // entryId → heure de passage estimée (LobbyClient.estimate)
   let lastRegistration = null;
   let searchResults = null;
   let searchQuery = '';
-  let lastSearchSeq = 0; // numéro de l'état pour lequel la recherche a été faite
+  let lastSearchSeq = 0;
   const ownMatches = new Set(); // parties créées par une action de l'hôtesse (déjà annoncées)
+  const ownPlayers = new Set(); // joueurs inscrits depuis ce poste (présents au comptoir)
 
   // ================================================================ utilitaires
 
@@ -60,7 +69,6 @@
     if (p.displayName) return p.displayName;
     const first = cleanName(p.firstName);
     const last = cleanName(p.lastName);
-    // Même règle que le serveur : première lettre du nom, à défaut premier caractère.
     const chars = Array.from(last);
     const letter = chars.find((c) => /\p{L}/u.test(c)) || chars[0];
     return [first, letter ? `${letter.toLocaleUpperCase('fr-FR')}.` : ''].filter(Boolean).join(' ');
@@ -87,7 +95,6 @@
     minute: '2-digit',
   });
 
-  // Date du calendrier à Paris (« 2026-10-15 »), pour savoir si un horodatage date d'un jour précédent.
   const parisDayFmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris',
     year: 'numeric',
@@ -105,21 +112,29 @@
     return `${h} h ${String(m).padStart(2, '0')}`;
   }
 
+  // Attente arrondie (même règle que l'écran TV) : à la minute supérieure sous 10 min, puis aux
+  // 5 minutes supérieures (12 min → « ~15 min ») : on ne sous-estime jamais l'attente.
+  function waitLabel(ms) {
+    let minutes = Math.max(1, Math.ceil(ms / MIN));
+    if (minutes >= 10) minutes = Math.ceil(minutes / 5) * 5;
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
+  }
+
   function now() {
     return client ? client.now() : Date.now();
   }
 
-  // Stand fermé (le soir) : plus aucun placement automatique.
   const isPaused = () => !!(state && state.settings && state.settings.placementsPaused);
 
-  // Délai après le début d'une partie pendant lequel un joueur peut être déclaré « Absent ».
   function noShowWindow() {
     const ms = state && state.settings ? Number(state.settings.noShowWindowMs) : NaN;
     return Number.isFinite(ms) && ms >= 0 ? ms : DEFAULT_NO_SHOW_MS;
   }
 
-  // Le matin, journée de la veille encore en cours (« Nouvelle journée » pas encore faite) :
-  // la journée a commencé un jour précédent (heure de Paris) ou il y a plus de STALE_MS.
+  // Le matin, journée de la veille encore en cours (« Nouvelle journée » pas encore faite).
   const STALE_MS = 14 * 60 * MIN;
   const isOld = (ms, t) => Number.isFinite(ms) && (parisDate(ms) !== parisDate(t) || t - ms > STALE_MS);
 
@@ -127,7 +142,6 @@
     return !!(state && state.day) && isOld(Number(state.day.startedAt), now());
   }
 
-  // Joueurs de la file inscrits la veille (ou depuis plus de STALE_MS).
   function staleQueuePlayers() {
     if (!state) return 0;
     const t = now();
@@ -139,6 +153,12 @@
     if (isPaused()) return 'paused';
     if (!table.enabled) return 'disabled';
     return state.queue.some((e) => e.ready) ? 'reassigned' : 'nobody';
+  }
+
+  function freeSlotCount() {
+    let free = 0;
+    for (const t of state.tables) if (t.enabled) for (const s of SLOTS) if (!t.slots[s]) free++;
+    return free;
   }
 
   // Remplace le contenu d'une zone seulement si `key` a changé ; conserve le focus clavier
@@ -160,17 +180,14 @@
     return $$('dialog').some((d) => d.open);
   }
 
-  // La colonne de gauche (inscription + recherche) défile seule : fait défiler la colonne, et non la
-  // page, juste assez pour montrer `el`, sans faire sortir le haut de `keep` par le haut, sauf s'il
-  // le faut pour montrer au moins `must` (fenêtre très basse).
-  const colLeft = $('.col-left');
+  // Le panneau d'inscription défile seul (fenêtre basse) : on y montre `el` sans faire sortir `keep`.
+  const colLeft = $('.panel-register');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function revealInColumn(el, { keep = null, must = null } = {}) {
     if (!el || el.hidden || !colLeft.contains(el)) return;
     const behavior = reducedMotion.matches ? 'auto' : 'smooth';
     if (colLeft.scrollHeight <= colLeft.clientHeight + 1) {
-      // Colonne sans défilement propre (écran étroit : c'est la page qui défile).
       el.scrollIntoView({ block: 'nearest', behavior });
       return;
     }
@@ -182,22 +199,25 @@
     else if (r.bottom > col.bottom - pad) delta = r.bottom - col.bottom + pad;
     if (keep) delta = Math.min(delta, keep.getBoundingClientRect().top - col.top - pad);
     if (must) delta = Math.max(delta, must.getBoundingClientRect().bottom - col.bottom + pad);
-    // Cible absolue : un second appel pendant l'animation ne cumule pas les décalages.
     if (Math.abs(delta) >= 1) colLeft.scrollTo({ top: colLeft.scrollTop + delta, behavior });
   }
 
   // ================================================================ toasts
 
+  // Une seule notification à la fois, posée sur la barre du haut (au-dessus des statistiques) :
+  // elle ne recouvre jamais un panneau de travail, un menu ni le panneau d'un emplacement. Elle
+  // laisse passer les clics (seule la croix est cliquable) et s'estompe sous la souris. Les
+  // placements à annoncer et le résultat d'une inscription ont leurs propres zones persistantes.
   const toastBox = $('#toasts');
-  const MAX_TOASTS = 3;
-  const MAX_TOASTS_WITH_CALLS = 5;
 
-  // `keep` : notification « À appeler », que la limite d'affichage ne retire qu'en dernier recours.
-  function toast(message, type = 'success', timeout, { keep = false } = {}) {
+  function toast(message, type = 'success', timeout) {
+    for (const old of toastBox.children) {
+      old.classList.add('is-leaving');
+      setTimeout(() => old.remove(), 200);
+    }
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     el.setAttribute('role', type === 'error' ? 'alert' : 'status');
-    if (keep) el.dataset.keep = '';
     const msg = document.createElement('div');
     msg.className = 'toast-msg';
     msg.textContent = message;
@@ -208,35 +228,17 @@
     close.textContent = '×';
     el.append(msg, close);
     toastBox.append(el);
-    trimToasts();
     requestAnimationFrame(updateToastPeek);
     const dismiss = () => {
       if (!el.isConnected) return;
       el.classList.add('is-leaving');
-      setTimeout(() => el.remove(), 260);
+      setTimeout(() => el.remove(), 220);
     };
     close.addEventListener('click', dismiss);
-    setTimeout(dismiss, timeout || (type === 'error' ? 7000 : type === 'info' ? 6000 : 3500));
+    setTimeout(dismiss, timeout || (type === 'error' ? 8000 : type === 'info' ? 6000 : 4000));
   }
 
-  // Au-delà de 3 toasts, on retire d'abord ceux qui disparaissent déjà, puis les plus anciens
-  // hors « À appeler » (jamais celui qui vient d'arriver). Un appel n'est retiré qu'au-delà de 5 toasts.
-  function trimToasts() {
-    let items = Array.from(toastBox.children);
-    while (items.length > MAX_TOASTS) {
-      const older = items.slice(0, -1);
-      const victim =
-        older.find((t) => t.classList.contains('is-leaving')) ||
-        older.find((t) => !('keep' in t.dataset)) ||
-        (items.length > MAX_TOASTS_WITH_CALLS ? items[0] : null);
-      if (!victim) break;
-      victim.remove();
-      items = items.filter((t) => t !== victim);
-    }
-  }
-
-  // Les toasts laissent passer les clics (seule la croix est cliquable, cf. CSS) ; sous la souris,
-  // ils s'estompent pour laisser voir les boutons du plan qu'ils recouvrent.
+  // Sous la souris, la notification s'estompe (on voit et on clique ce qu'elle recouvre).
   let pointer = null;
   let peekFrame = 0;
   const inside = (r, p) => p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
@@ -282,6 +284,8 @@
   // ================================================================ modales
 
   function openDialog(dialog, focusEl) {
+    closeRowMenu();
+    closeMoreMenu();
     if (!dialog.open) dialog.showModal();
     if (focusEl) setTimeout(() => focusEl.focus(), 0);
   }
@@ -296,7 +300,7 @@
     });
   }
 
-  // Confirmation générique. `body` : texte, ou { html } déjà échappé.
+  // Confirmation générique. `html` : contenu déjà échappé.
   const confirmDialog = (() => {
     const dialog = $('#confirm-dialog');
     const title = $('#confirm-title');
@@ -322,7 +326,7 @@
       title.textContent = t;
       body.innerHTML = html;
       ok.textContent = okLabel;
-      ok.className = `btn ${tone === 'danger' ? 'btn-danger' : tone === 'warn' ? 'btn-warn-ghost' : 'btn-primary'}`;
+      ok.className = `btn ${tone === 'danger' ? 'btn-danger' : tone === 'warn' ? 'btn-primary' : 'btn-dark'}`;
       return new Promise((resolve) => {
         resolver = resolve;
         openDialog(dialog, focus === 'cancel' ? cancel : ok);
@@ -345,31 +349,6 @@
     return map;
   }
 
-  // Heure de passage estimée de chaque entrée prête : on simule les libérations
-  // d'emplacements (fin prévue des parties en cours, puis parties de la durée réglée).
-  function computeEtas(s) {
-    const t0 = now();
-    const free = [];
-    if (s.settings.placementsPaused) return new Map(); // stand fermé : personne ne sera placé
-    for (const t of s.tables) {
-      if (!t.enabled) continue;
-      for (const slot of SLOTS) {
-        const m = t.slots[slot];
-        free.push(m ? Math.max(m.endsAt, t0) : t0);
-      }
-    }
-    const map = new Map();
-    if (!free.length) return map;
-    for (const e of s.queue) {
-      if (!e.ready) continue;
-      free.sort((a, b) => a - b);
-      const at = free.shift();
-      map.set(e.entryId, at);
-      free.push(at + s.settings.matchDurationMs);
-    }
-    return map;
-  }
-
   function etaText(entryId) {
     const at = etas.get(entryId);
     if (at === undefined) return null;
@@ -381,6 +360,148 @@
     const loc = where.get(id);
     if (loc) return loc.player;
     return (searchResults || []).find((p) => p.id === id) || null;
+  }
+
+  function findMatch(matchId) {
+    for (const t of state.tables) {
+      for (const slot of SLOTS) {
+        const m = t.slots[slot];
+        if (m && m.matchId === matchId) return { table: t, slot, match: m };
+      }
+    }
+    return null;
+  }
+
+  function matchNames(m, full = true) {
+    const names = m.players.map(full ? fullName : shortName);
+    if (m.vsAnimator) names.push('Animateur');
+    return names;
+  }
+
+  // ================================================================ « À appeler » (mémorisé sur ce poste)
+
+  // Parties placées automatiquement que l'hôtesse doit annoncer (y compris le joueur seul qui
+  // attendait ailleurs et que l'on vient d'associer, ou le joueur « placé quand même »).
+  // Mémorisées dans le navigateur (survivent à un rechargement) ; au premier état reçu (nouvel
+  // appareil, stockage effacé, autre base), les placements de moins de 3 minutes sont repris.
+  // Retirées par « Installés », « Tout marquer installés » ou à la fin de la partie.
+  //
+  // Une base remise à zéro (ou restaurée depuis une sauvegarde) réattribue les mêmes numéros de
+  // journée et de partie : la mémoire est donc rattachée à la base (« id:début » de la journée) et
+  // chaque partie est reconnue par son numéro ET son heure de début, jamais par son numéro seul.
+  const RECENT_CALL_MS = 3 * MIN;
+  const SEEN_MAX = 500;
+  const calls = new Map(); // matchId → heure de début de la partie (null : pas encore reçue)
+  let callsSeen = new Map(); // matchId → heure de début des parties déjà examinées
+  let callsBase = null; // « jour.id:jour.startedAt » de la base dont viennent ces numéros
+  let callsSynced = false;
+
+  const baseKey = (day) => (day ? `${day.id}:${day.startedAt}` : null);
+  const isStamp = (v) => v === null || Number.isFinite(v);
+
+  function loadCalls() {
+    try {
+      for (const k of OLD_CALLS_KEYS) window.localStorage.removeItem(k); // format sans base : ignoré
+      const raw = window.localStorage.getItem(CALLS_KEY);
+      const data = raw ? JSON.parse(raw) : null;
+      if (data && typeof data.base === 'string' && Array.isArray(data.pending) && Array.isArray(data.seen)) {
+        callsBase = data.base;
+        for (const c of data.pending) {
+          if (c && Number.isSafeInteger(c.matchId) && isStamp(c.startedAt)) calls.set(c.matchId, c.startedAt);
+        }
+        for (const c of data.seen) {
+          if (Array.isArray(c) && Number.isSafeInteger(c[0]) && isStamp(c[1])) callsSeen.set(c[0], c[1]);
+        }
+      }
+    } catch {
+      /* stockage indisponible (navigation privée…) : la liste ne survit simplement pas au rechargement */
+    }
+  }
+
+  function saveCalls() {
+    if (callsBase === null) return; // rien de fiable à rattacher avant le premier état
+    while (callsSeen.size > SEEN_MAX) callsSeen.delete(callsSeen.keys().next().value);
+    try {
+      window.localStorage.setItem(CALLS_KEY, JSON.stringify({
+        base: callsBase,
+        pending: [...calls].map(([matchId, startedAt]) => ({ matchId, startedAt })),
+        seen: [...callsSeen],
+      }));
+    } catch {
+      /* idem */
+    }
+  }
+
+  // Heure de début d'une partie en cours (null si l'état ne la contient pas encore).
+  function matchStartedAt(matchId) {
+    for (const t of state?.tables || []) {
+      for (const s of SLOTS) if (t.slots[s]?.matchId === matchId) return t.slots[s].startedAt;
+    }
+    return null;
+  }
+
+  function addCall(matchId) {
+    const startedAt = callsSeen.get(matchId) ?? matchStartedAt(matchId);
+    callsSeen.delete(matchId);
+    callsSeen.set(matchId, startedAt);
+    if (!calls.has(matchId)) calls.set(matchId, startedAt);
+    saveCalls();
+  }
+
+  function removeCall(matchId) {
+    if (!calls.delete(matchId)) return false;
+    saveCalls();
+    return true;
+  }
+
+  // Ajoute les nouveaux placements à annoncer, oublie les parties terminées et ce qui vient d'une
+  // autre journée ou d'une autre base. Renvoie le nombre de nouveaux appels.
+  function syncCalls(s) {
+    let changed = false;
+    const base = baseKey(s.day);
+    if (callsBase !== base) {
+      calls.clear();
+      callsSeen = new Map();
+      callsSynced = false;
+      callsBase = base;
+      changed = true;
+    }
+    const t0 = now();
+    const active = new Map();
+    for (const t of s.tables) for (const slot of SLOTS) if (t.slots[slot]) active.set(t.slots[slot].matchId, t.slots[slot]);
+    let fresh = 0;
+    for (const [id, m] of active) {
+      const known = callsSeen.has(id) ? callsSeen.get(id) : undefined;
+      if (known === m.startedAt) continue;
+      changed = true;
+      if (known === null) {
+        // Ajoutée par une action de ce poste avant de recevoir l'état : on note son heure de début.
+        callsSeen.set(id, m.startedAt);
+        if (calls.has(id)) calls.set(id, m.startedAt);
+        continue;
+      }
+      // Numéro inconnu, ou déjà vu pour une AUTRE partie (sauvegarde restaurée) : nouvelle partie.
+      calls.delete(id);
+      callsSeen.delete(id);
+      callsSeen.set(id, m.startedAt);
+      // Partie lancée par l'inscription faite au comptoir : rien à annoncer… sauf si un joueur seul
+      // déjà en file (absent du comptoir) a été associé aux nouveaux inscrits.
+      if (ownMatches.has(id) && m.players.every((p) => ownPlayers.has(p.id))) continue;
+      // Premier état reçu : seules les parties qui viennent de commencer restent à appeler.
+      if (!callsSynced && t0 - m.startedAt > RECENT_CALL_MS) continue;
+      calls.set(id, m.startedAt);
+      if (callsSynced) fresh++;
+    }
+    for (const [id, startedAt] of [...calls]) {
+      const m = active.get(id);
+      if (!m || (startedAt !== null && startedAt !== m.startedAt)) {
+        calls.delete(id);
+        changed = true;
+      }
+    }
+    callsSynced = true;
+    if (changed) saveCalls();
+    return fresh;
   }
 
   // ================================================================ connexion & état
@@ -395,6 +516,7 @@
     connLabel.textContent = online ? 'Connecté' : 'Déconnecté';
     connEl.title = online ? 'Connecté au serveur (temps réel)' : 'Déconnecté du serveur – reconnexion en cours';
     offlineBanner.hidden = online || !everConnected;
+    document.body.classList.toggle('is-offline', !online && everConnected);
     if (online) everConnected = true;
   }
 
@@ -403,14 +525,15 @@
     state = next;
     stateSeq++;
     where = buildWhere(next);
-    etas = computeEtas(next);
+    etas = LC.estimate(next, now()).etas;
     if (prev) notifyChanges(prev, next);
+    const fresh = syncCalls(next);
     renderAll();
+    if (fresh) flashCalls();
     for (const resolve of stateWaiters.splice(0)) resolve();
   }
 
-  // Résout à la réception du prochain état (au plus tard après `ms`) : le serveur envoie l'accusé
-  // d'une action juste avant l'état qui en découle, et ils peuvent arriver dans un ordre ou l'autre.
+  // Résout à la réception du prochain état (au plus tard après `ms`).
   const stateWaiters = [];
   function nextState(ms = 2000) {
     return new Promise((resolve) => {
@@ -425,48 +548,33 @@
     });
   }
 
-  // Signale les placements automatiques et les fins de partie (goodies) survenus sans action de l'hôtesse.
-  // Un même état peut en apporter plusieurs (parties lancées dans la même seconde) : ils sont regroupés
-  // en un toast par catégorie pour qu'aucun appel ne soit chassé par la limite d'affichage.
+  // Fins de partie → courte notification « goodies à remettre » (la liste 03 fait foi).
+  // Les placements automatiques vont dans la liste persistante « À appeler » (syncCalls).
   function notifyChanges(prev, next) {
     if (prev.day.id !== next.day.id) return;
-    const prevMatches = new Set();
-    for (const t of prev.tables) for (const s of SLOTS) if (t.slots[s]) prevMatches.add(t.slots[s].matchId);
-    const calls = [];
-    for (const t of next.tables) {
-      for (const s of SLOTS) {
-        const m = t.slots[s];
-        if (!m || prevMatches.has(m.matchId) || ownMatches.has(m.matchId)) continue;
-        const names = m.players.map(shortName);
-        if (m.vsAnimator) names.push('Animateur');
-        calls.push(`${joinNames(names)} → Table ${t.no}, emplacement ${s}`);
-      }
-    }
-    if (calls.length) {
-      toast(calls.length === 1 ? `À appeler : ${calls[0]}` : `À appeler :\n${calls.join('\n')}`, 'info', undefined, { keep: true });
-    }
     const prevGoodies = new Set((prev.goodies || []).map((g) => g.id));
-    const fresh = (next.goodies || []).filter((g) => !prevGoodies.has(g.id) && !g.goodiesGivenAt);
+    const ended = (next.goodies || []).filter((g) => !prevGoodies.has(g.id) && !g.goodiesGivenAt);
     const byMatch = new Map();
-    for (const g of fresh) {
+    for (const g of ended) {
       const k = `${g.tableNo}${g.slot}`;
       if (!byMatch.has(k)) byMatch.set(k, { tableNo: g.tableNo, slot: g.slot, names: [] });
       byMatch.get(k).names.push(shortName(g));
     }
-    const ended = [...byMatch.values()];
-    if (ended.length === 1) {
-      const m = ended[0];
-      toast(`Fin de partie Table ${m.tableNo} · ${m.slot} : goodies à remettre à ${joinNames(m.names)}`, 'info');
-    } else if (ended.length) {
-      const lines = ended.map((m) => `Table ${m.tableNo} · ${m.slot} : ${joinNames(m.names)}`);
-      toast(`Fins de partie – goodies à remettre :\n${lines.join('\n')}`, 'info');
+    const groups = [...byMatch.values()];
+    if (groups.length === 1) {
+      const m = groups[0];
+      toast(`Fin de partie Table ${m.tableNo} · ${m.slot} : goodies à remettre à ${joinNames(m.names)} (liste 03).`, 'info');
+    } else if (groups.length) {
+      toast(`${groups.length} fins de partie : ${plural(ended.length, 'joueur', 'joueurs')} à qui remettre les goodies (liste 03).`, 'info');
     }
   }
 
   function renderAll() {
     if (!state) return;
     renderTopbar();
+    renderCalls();
     renderTables();
+    renderSlotPop();
     renderQueue();
     renderGoodies();
     renderLastRegistration();
@@ -493,55 +601,55 @@
   // ---------------------------------------------------------------- « Fermer le stand » / « Rouvrir le stand »
 
   const standBtn = $('#btn-stand');
+  const standLabel = $('.btn-stand-label', standBtn);
   const newDayBtn = $('#btn-newday');
   const closedBanner = $('#closed-banner');
   const closedDetail = $('#closed-detail');
   const closedNewDay = $('#closed-newday');
+  const closedReopen = $('#closed-reopen');
   const formPaused = $('#form-paused');
   let standKey = '';
 
   // Bouton, bandeau et avertissement du formulaire : simples bascules (aucun re-rendu du formulaire).
+  // Stand fermé : le bouton de la barre disparaît, l'action est dans le bandeau (une seule fois).
   // Appelée aussi par tick() : au petit matin, le bandeau passe de lui-même en mode « Nouvelle journée ».
+  const closedTitle = $('#closed-title');
+  const moreDot = $('#more-dot');
+
   function renderStandState() {
     if (!state) return;
     const paused = isPaused();
-    // Stand fermé depuis la veille : c'est « Nouvelle journée » qu'il faut le matin, pas « Rouvrir le stand »
-    // (qui placerait les joueurs restés en file hier soir).
     const morning = paused && staleDay();
     const stalePlayers = morning ? staleQueuePlayers() : 0;
     const key = JSON.stringify([paused, morning, stalePlayers, state.day.number, state.day.startedAt]);
     if (key === standKey) return;
     standKey = key;
     const label = paused ? 'Rouvrir le stand' : 'Fermer le stand';
-    if (standBtn.textContent !== label) standBtn.textContent = label;
-    standBtn.classList.toggle('btn-success', paused && !morning);
-    standBtn.classList.toggle('btn-ghost', morning);
-    standBtn.classList.toggle('btn-warn-ghost', !paused);
-    standBtn.title = morning
-      ? 'Le matin, utilisez plutôt « Nouvelle journée » (elle rouvre aussi le stand)'
-      : paused
-        ? 'Reprendre les placements automatiques (dans la journée)'
-        : 'Le soir, à la fermeture : plus aucun placement automatique';
-    // Le matin, « Nouvelle journée » est l'action attendue : bouton mis en avant.
-    newDayBtn.classList.toggle('btn-primary', morning);
-    newDayBtn.classList.toggle('btn-ghost', !morning);
-    newDayBtn.classList.toggle('btn-danger-ghost', !morning);
+    if (standLabel.textContent !== label) standLabel.textContent = label;
+    standBtn.hidden = paused;
+    standBtn.title = 'Le soir, à la fermeture : plus aucun placement automatique';
+    newDayBtn.classList.toggle('is-morning', morning);
+    moreDot.hidden = !morning;
     closedBanner.hidden = !paused;
     closedBanner.classList.toggle('is-morning', morning);
     closedNewDay.hidden = !morning;
+    closedReopen.textContent = morning ? 'Rouvrir quand même…' : 'Rouvrir le stand';
+    closedReopen.classList.toggle('btn-on-dark', !morning);
+    closedReopen.classList.toggle('btn-ghost-on-dark', morning);
+    closedTitle.textContent = morning
+      ? 'Stand fermé depuis la veille : démarrez la nouvelle journée'
+      : 'Stand fermé : aucun nouveau placement';
     closedDetail.textContent = morning
       ? `Jour ${state.day.number} commencé le ${dateFmt.format(new Date(state.day.startedAt))}` +
-        (stalePlayers
-          ? ` · ${plural(stalePlayers, 'joueur attend', 'joueurs attendent')} depuis la veille`
-          : '') +
-        ' · le matin : « Nouvelle journée », et non « Rouvrir le stand »'
-      : "Les parties en cours vont jusqu'au bout · « Rouvrir le stand » (dans la journée) · le matin : « Nouvelle journée »";
+        (stalePlayers ? ` · ${plural(stalePlayers, 'joueur attend', 'joueurs attendent')} depuis la veille` : '') +
+        ' · « Nouvelle journée » vide la file et rouvre le stand.'
+      : "Les parties en cours vont jusqu'au bout (goodies compris). Le matin : « Nouvelle journée ».";
     formPaused.hidden = !paused;
   }
 
   closedNewDay.addEventListener('click', () => openNewDay());
+  closedReopen.addEventListener('click', () => standBtn.click());
 
-  // Nombre de parties (et de joueurs) lancées dès la réouverture : entrées prêtes × emplacements libres.
   function placementsOnReopen() {
     let free = 0;
     for (const t of state.tables) if (t.enabled) for (const s of SLOTS) if (!t.slots[s]) free++;
@@ -570,7 +678,8 @@
             <li>Les inscriptions restent possibles : les nouveaux inscrits attendront en file.</li>
           </ul>
           <p class="confirm-note">À utiliser le soir, à la fermeture, pour que la file ne soit pas placée pendant la nuit.
-            Le matin, « Nouvelle journée » rouvre le stand ; les joueurs encore en file pourront se réinscrire.</p>`,
+            Le matin, « Nouvelle journée » rouvre le stand ; les joueurs encore en file pourront se réinscrire.
+            Pour une pause en journée, mettez plutôt les tables hors service (Réglages).</p>`,
         ok: 'Fermer le stand',
         tone: 'warn',
         focus: 'cancel',
@@ -614,7 +723,6 @@
       if (!ok) return;
       run('setPlacementsPaused', { paused: false }, {
         button: standBtn,
-        // Les joueurs placés sont annoncés par le toast « À appeler » qui arrive avec le nouvel état.
         success: (r) =>
           r.placed
             ? `Stand rouvert : ${plural(r.placed, 'partie lancée', 'parties lancées')} (voir « À appeler »).`
@@ -622,6 +730,184 @@
       }).catch(() => {});
     }
   });
+
+  // ---------------------------------------------------------------- menu « ⋯ » de la barre
+
+  const moreBtn = $('#btn-more');
+  const moreMenu = $('#more-menu');
+
+  function openMoreMenu() {
+    moreMenu.hidden = false;
+    moreBtn.setAttribute('aria-expanded', 'true');
+    const visible = $$('.menu-item', moreMenu).find((el) => el.offsetParent !== null);
+    if (visible) visible.focus({ preventScroll: true });
+  }
+
+  function closeMoreMenu(restoreFocus = false) {
+    if (moreMenu.hidden) return;
+    moreMenu.hidden = true;
+    moreBtn.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) moreBtn.focus({ preventScroll: true });
+  }
+
+  moreBtn.addEventListener('click', () => (moreMenu.hidden ? openMoreMenu() : closeMoreMenu()));
+  moreMenu.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-newday]')) {
+      closeMoreMenu();
+      openNewDay();
+    } else if (e.target.closest('a, button')) {
+      // Les liens et le formulaire de déconnexion suivent leur cours ; on referme juste le menu.
+      setTimeout(() => closeMoreMenu(), 0);
+    }
+  });
+
+  // Flèches haut/bas dans les menus.
+  function menuKeys(menu, e) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = $$('.menu-item', menu).filter((el) => el.offsetParent !== null);
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? items[(i + 1) % items.length] : items[(i - 1 + items.length) % items.length];
+    next.focus();
+  }
+  moreMenu.addEventListener('keydown', (e) => menuKeys(moreMenu, e));
+
+  // ================================================================ 02 · à appeler
+
+  const callsPanel = $('#panel-calls');
+  const callsList = $('#calls-list');
+  const callsCount = $('#calls-count');
+  const callsSub = $('#calls-sub');
+  const callsClear = $('#calls-clear');
+
+  function callItems() {
+    const items = [];
+    for (const t of state.tables) {
+      for (const s of SLOTS) {
+        const m = t.slots[s];
+        if (m && calls.has(m.matchId)) items.push({ table: t, slot: s, match: m });
+      }
+    }
+    return items.sort((a, b) => a.match.startedAt - b.match.startedAt || a.table.no - b.table.no);
+  }
+
+  function callHtml({ table, slot, match: m }) {
+    const id = m.matchId;
+    const names = joinNames(matchNames(m));
+    const many = m.players.length >= 2;
+    const animator = m.vsAnimator ? '<span class="call-chip">Prévenir un animateur</span>' : '';
+    return `<li class="call" data-match="${id}">
+      <button type="button" class="call-place" data-action="open-slot" data-table="${table.no}" data-slot="${slot}" data-focus="call-open-${id}"
+        title="Ouvrir le panneau de l'emplacement (±5 min, Absent, Libérer)" aria-label="${esc(`Table ${table.no}, emplacement ${slot} : ouvrir le panneau`)}">
+        <span class="plate"><small>Table</small>${table.no}</span><span class="call-slot">${slot}</span>
+      </button>
+      <div class="call-main">
+        <span class="call-names" title="${esc(names)}">${esc(names)}</span>
+        <span class="call-meta"><span>${slot === 'A' ? 'Moitié gauche' : 'Moitié droite'} · ${many ? 'placés' : 'placé'} <span data-ago="${m.startedAt}"></span></span>${animator}</span>
+      </div>
+      <div class="call-actions">
+        <button type="button" class="btn btn-dark" data-action="seated" data-match="${id}" data-focus="call-done-${id}"
+          aria-label="${esc(`${names} : ${many ? 'installés' : 'installé'} à la table ${table.no} ${slot}`)}">${ICON('check')}${many ? 'Installés' : 'Installé'}</button>
+        <button type="button" class="btn btn-ghost btn-icon" data-action="call-menu" data-match="${id}" data-focus="call-menu-${id}"
+          aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`Autres actions (absent…) : table ${table.no} ${slot}`)}">${ICON('more')}</button>
+      </div>
+    </li>`;
+  }
+
+  function renderCalls() {
+    const items = callItems();
+    const n = items.length;
+    callsPanel.classList.toggle('has-calls', n > 0);
+    callsCount.textContent = String(n);
+    callsCount.classList.toggle('is-pending', n > 0);
+    callsClear.hidden = n < 2;
+    callsPanel.classList.toggle('has-many', n >= 2);
+    callsSub.textContent = n
+      ? 'Annoncez la table aux joueurs, puis « Installés »'
+      : 'Personne à appeler pour l’instant';
+    const title = n ? `(${n}) À appeler – ${TITLE}` : TITLE;
+    if (document.title !== title) document.title = title;
+    const key = JSON.stringify(items.map((x) => [x.match.matchId, x.table.no, x.slot, x.match.vsAnimator, x.match.startedAt, x.match.players.map((p) => [p.id, p.firstName, p.lastName])]));
+    patch(callsList, key, () => items.map(callHtml).join(''));
+    if (rowMenuFor && rowMenuFor.matchId !== undefined && !items.some((x) => x.match.matchId === rowMenuFor.matchId)) closeRowMenu();
+  }
+
+  // Nouveaux placements à annoncer : le panneau s'illumine brièvement (la liste fait foi).
+  let flashTimer = null;
+  function flashCalls() {
+    callsPanel.classList.remove('is-flash');
+    void callsPanel.offsetWidth;
+    callsPanel.classList.add('is-flash');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => callsPanel.classList.remove('is-flash'), 2400);
+  }
+
+  function markSeated(matchId) {
+    const focusNext = callsList.contains(document.activeElement);
+    const items = [...callsList.querySelectorAll('.call')];
+    const i = items.findIndex((li) => Number(li.dataset.match) === matchId);
+    if (!removeCall(matchId)) return;
+    renderCalls();
+    renderTables();
+    renderSlotPop();
+    if (focusNext) {
+      const buttons = $$('[data-action="seated"]', callsList);
+      const next = buttons[Math.min(Math.max(i, 0), buttons.length - 1)];
+      (next || inputOf(0, 'firstName')).focus({ preventScroll: true });
+    }
+  }
+
+  callsClear.addEventListener('click', () => {
+    const focusIn = callsPanel.contains(document.activeElement);
+    for (const id of [...calls.keys()]) removeCall(id);
+    renderCalls();
+    renderTables();
+    renderSlotPop();
+    if (focusIn) inputOf(0, 'firstName').focus({ preventScroll: true });
+  });
+
+  function openCallSlot(tableNo, slot) {
+    setTab('plan');
+    const slotBtn = tableEls[tableNo - 1]?.slots[slot];
+    if (slotBtn) {
+      if (popTarget && popTarget.tableNo === tableNo && popTarget.slot === slot) closeSlotPop();
+      openSlotPop(slotBtn, { focus: true });
+    }
+  }
+
+  callsList.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn || !state) return;
+    if (btn.dataset.action === 'seated') markSeated(Number(btn.dataset.match));
+    else if (btn.dataset.action === 'open-slot') openCallSlot(Number(btn.dataset.table), btn.dataset.slot);
+    else if (btn.dataset.action === 'call-menu') openCallMenu(btn);
+  });
+
+  // Menu « ⋯ » d'un appel : « Absent : nom » (pendant les 15 premières minutes) et accès au panneau.
+  function openCallMenu(btn) {
+    const matchId = Number(btn.dataset.match);
+    const found = findMatch(matchId);
+    if (!found) return;
+    if (rowMenuFor && rowMenuFor.matchId === matchId) {
+      closeRowMenu(true);
+      return;
+    }
+    closeRowMenu();
+    const { table, slot, match } = found;
+    const left = match.startedAt + noShowWindow() - now();
+    const items = [];
+    if (left > 0) {
+      for (const p of match.players) {
+        items.push(`<button type="button" class="menu-item is-danger" role="menuitem" data-action="noshow" data-match="${matchId}" data-participant="${p.id}">Absent : ${esc(fullName(p))}<small>retiré sans goodies · encore ${Math.max(1, Math.ceil(left / MIN))} min</small></button>`);
+      }
+    } else {
+      items.push(`<p class="menu-note">« Absent » n'est plus possible : la partie a commencé il y a plus de ${Math.round(noShowWindow() / MIN)} min.</p>`);
+    }
+    items.push('<div class="menu-sep" role="separator"></div>');
+    items.push(`<button type="button" class="menu-item" role="menuitem" data-action="open-slot" data-table="${table.no}" data-slot="${slot}">Ouvrir Table ${table.no} · ${slot}<small>±5 min, Libérer</small></button>`);
+    showRowMenu(btn, items.join(''), { matchId });
+  }
 
   // ================================================================ plan des tables
 
@@ -634,10 +920,10 @@
       card.className = 'table-card';
       card.dataset.table = String(no);
       card.innerHTML = `
-        <div class="table-head"><span class="table-no">Table ${no}</span><span class="table-flag"></span></div>
+        <div class="table-head"><span class="table-no">${no}</span><span class="table-label">Table ${no}</span><span class="table-flag"></span></div>
         <div class="table-slots">
-          <div class="slot" data-slot="A"></div>
-          <div class="slot" data-slot="B"></div>
+          <button type="button" class="slot" data-table="${no}" data-slot="A" aria-haspopup="dialog" aria-expanded="false"></button>
+          <button type="button" class="slot" data-table="${no}" data-slot="B" aria-haspopup="dialog" aria-expanded="false"></button>
         </div>`;
       tablesGrid.append(card);
       tableEls.push({
@@ -648,44 +934,28 @@
     }
   }
 
+  // Contenu d'un emplacement : l'essentiel (état, chrono, noms). Les actions sont dans le panneau.
   function slotHtml(table, slot, m, paused) {
+    const letter = `<span class="slot-letter">${slot}</span>`;
     if (!m) {
-      // Même vocabulaire que l'écran TV : « Hors service » pour une table désactivée.
-      const label = !table.enabled ? 'Hors service' : paused ? 'Libre<span class="slot-free-sub">stand fermé</span>' : 'Libre';
-      return `<div class="slot-head"><span class="slot-letter">${slot}</span></div>
-        <div class="slot-free">${label}</div>`;
+      const label = !table.enabled ? 'Hors service' : paused ? 'Libre<small>stand fermé</small>' : 'Libre';
+      return `<span class="slot-top">${letter}</span><span class="slot-state">${label}</span>`;
     }
-    const id = m.matchId;
-    // « Absent » pendant les premières minutes de la partie ; tick() le masque à l'échéance.
-    const noShowUntil = m.startedAt + noShowWindow();
-    const noShowOpen = now() < noShowUntil;
-    const noShowMin = Math.round(noShowWindow() / MIN);
-    const players = m.players.map((p, i) => {
-      const prefix = i > 0 ? '<span class="vs">vs</span>' : '';
-      const absent = noShowOpen
-        ? `<button type="button" class="btn btn-absent" data-action="noshow" data-match="${id}" data-participant="${p.id}"
-            data-noshow-until="${noShowUntil}" data-focus="noshow-${p.id}"
-            title="${esc(`Ne s'est pas présenté : retiré sans goodies (possible pendant ${noShowMin} min après le début)`)}"
-            aria-label="${esc(`${fullName(p)} absent (table ${table.no} ${slot})`)}">Absent</button>`
-        : '';
-      return `<li title="${esc(`${fullName(p)} – ${p.email || ''}`)}"><span class="p-name">${prefix}${esc(fullName(p))}</span>${absent}</li>`;
-    });
-    if (m.vsAnimator) players.push('<li class="animator"><span class="p-name"><span class="vs">vs</span>Animateur</span></li>');
-    return `
-      <div class="slot-head">
-        <span class="slot-letter">${slot}</span>
-        <span class="badge-new" data-new-until="${m.startedAt + NEW_BADGE_MS}">Nouveau</span>
-        <span class="countdown" data-ends-at="${m.endsAt}" title="Fin prévue à ${clock(m.endsAt)}"></span>
-      </div>
-      <ul class="slot-players">${players.join('')}</ul>
-      <div class="slot-actions">
-        <button type="button" class="btn btn-xs" data-action="adjust" data-match="${id}" data-delta="${-ADJUST_MS}"
-          data-focus="minus-${id}" title="Retirer 5 minutes" aria-label="Retirer 5 minutes (table ${table.no} ${slot})"><span class="lbl-long">−5 min</span><span class="lbl-short">−5</span></button>
-        <button type="button" class="btn btn-xs" data-action="adjust" data-match="${id}" data-delta="${ADJUST_MS}"
-          data-focus="plus-${id}" title="Ajouter 5 minutes" aria-label="Ajouter 5 minutes (table ${table.no} ${slot})"><span class="lbl-long">+5 min</span><span class="lbl-short">+5</span></button>
-        <button type="button" class="btn btn-xs btn-danger-ghost slot-release" data-action="release" data-match="${id}"
-          data-focus="release-${id}" title="Départ anticipé : pas de goodies" aria-label="Libérer la table ${table.no} ${slot}">Libérer</button>
-      </div>`;
+    const names = m.players.map((p) => `<span class="sn">${esc(shortName(p))}</span>`);
+    if (m.vsAnimator) names.push('<span class="sn is-animator">Animateur</span>');
+    const chip = calls.has(m.matchId)
+      ? '<span class="slot-chip chip-call">À appeler</span>'
+      : `<span class="slot-chip chip-new" data-new-until="${m.startedAt + NEW_BADGE_MS}">Nouveau</span>`;
+    return `${chip}<span class="slot-top">${letter}<span class="countdown" data-ends-at="${m.endsAt}"></span></span>
+      <span class="slot-names">${names.join('')}</span>
+      <span class="slot-bar"><i data-start="${m.startedAt}" data-end="${m.endsAt}"></i></span>
+      <span class="slot-end">fin prévue à ${clock(m.endsAt)}</span>`;
+  }
+
+  function slotLabel(table, slot, m, paused) {
+    const place = `Table ${table.no}, emplacement ${slot}`;
+    if (!m) return `${place} : ${!table.enabled ? 'hors service' : paused ? 'libre (stand fermé)' : 'libre'}`;
+    return `${place} : ${joinNames(matchNames(m))}${calls.has(m.matchId) ? ' (à appeler)' : ''}. Ouvrir les actions.`;
   }
 
   function renderTables() {
@@ -693,7 +963,6 @@
     let busyOff = 0;
     let capacity = 0;
     const paused = isPaused();
-    const noShowMs = noShowWindow();
     state.tables.forEach((t, i) => {
       const el = tableEls[i];
       if (!el) return;
@@ -703,52 +972,52 @@
         busy += count;
         capacity += SLOTS.length;
       } else busyOff += count;
-      el.flag.textContent = t.enabled ? `${count}/2` : count ? 'Hors service · fin des parties' : 'Hors service';
+      el.flag.textContent = t.enabled ? `${count}/2` : 'Hors service';
       for (const slot of SLOTS) {
         const m = t.slots[slot];
         const node = el.slots[slot];
-        node.classList.toggle('is-free', !m);
+        node.classList.toggle('is-free', !m && t.enabled && !paused);
+        node.classList.toggle('is-paused-free', !m && t.enabled && paused);
+        node.classList.toggle('is-off', !m && !t.enabled);
         node.classList.toggle('is-busy', !!m);
-        if (!m) node.classList.remove('is-new', 'is-warn'); // tick() les recalcule pour les emplacements occupés
+        node.classList.toggle('is-call', !!m && calls.has(m.matchId));
+        if (!m) node.classList.remove('is-warn', 'is-over');
         const key = JSON.stringify([
           t.enabled,
           !m && paused,
-          m && [m.matchId, m.endsAt, m.startedAt, m.vsAnimator, noShowMs, m.players.map((p) => [p.id, p.firstName, p.lastName, p.email])],
+          m && [m.matchId, m.endsAt, m.startedAt, m.vsAnimator, calls.has(m.matchId), m.players.map((p) => [p.id, p.firstName, p.lastName])],
         ]);
-        patch(node, key, () => slotHtml(t, slot, m, paused));
+        if (patch(node, key, () => slotHtml(t, slot, m, paused))) {
+          node.setAttribute('aria-label', slotLabel(t, slot, m, paused));
+          node.title = m ? joinNames(matchNames(m)) : '';
+        }
       }
     });
     const minutes = Math.round(state.settings.matchDurationMs / MIN);
     const off = state.tables.filter((t) => !t.enabled).length;
     $('#tables-summary').textContent =
-      `${busy}/${capacity} emplacements occupés · parties de ${minutes} min` +
+      `${busy}/${capacity} occupés · parties de ${minutes} min` +
       (off ? ` · ${plural(off, 'table hors service', 'tables hors service')}` : '') +
       (busyOff ? ` (${plural(busyOff, 'partie', 'parties')} en cours dessus)` : '') +
-      (paused ? ' · stand fermé : aucun placement' : '');
+      (paused ? ' · stand fermé' : '');
+    updateOpenSlot();
   }
 
-  function findMatch(matchId) {
-    for (const t of state.tables) {
-      for (const slot of SLOTS) {
-        const m = t.slots[slot];
-        if (m && m.matchId === matchId) return { table: t, slot, match: m };
-      }
-    }
-    return null;
-  }
+  tablesGrid.addEventListener('click', (e) => {
+    const slotBtn = e.target.closest('button.slot');
+    if (!slotBtn || !state) return;
+    openSlotPop(slotBtn, { focus: e.detail === 0 });
+  });
 
-  function matchNames(m, full = true) {
-    const names = m.players.map(full ? fullName : shortName);
-    if (m.vsAnimator) names.push('Animateur');
-    return names;
-  }
+  // ---------------------------------------------------------------- actions d'une partie (panneau)
 
-  tablesGrid.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-action]');
-    if (!btn || !state) return;
+  async function handleSlotAction(btn) {
     const matchId = Number(btn.dataset.match);
     const found = findMatch(matchId);
-    if (!found) return;
+    if (!found) {
+      toast('Cette partie est déjà terminée.', 'error');
+      return;
+    }
     const { table, slot, match } = found;
     const place = `Table ${table.no} · ${slot}`;
 
@@ -756,7 +1025,6 @@
       const delta = Number(btn.dataset.delta);
       const left = match.endsAt - now();
       if (delta < 0 && left <= -delta) {
-        // Seuls les joueurs reçoivent des goodies (jamais l'animateur).
         const owed = match.players.map(fullName);
         const goodiesText = owed.length >= 2
           ? `${joinNames(owed)} auront droit à leurs goodies.`
@@ -772,8 +1040,8 @@
       }
       run('adjustMatch', { matchId, deltaMs: delta }, { button: btn })
         .then((r) => {
-          // Partie terminée : le toast « Fin de partie … goodies » arrive avec le nouvel état.
           if (r.endsAt > now() + 1000) toast(`${place} : ${delta > 0 ? '+5 min' : '−5 min'} · fin prévue à ${clock(r.endsAt)}`);
+          else closeSlotPop();
         })
         .catch(() => {});
     } else if (btn.dataset.action === 'release') {
@@ -784,7 +1052,6 @@
         reassigned: "L'emplacement sera réattribué aux joueurs suivants de la file.",
         nobody: "L'emplacement sera libéré (aucun joueur prêt dans la file pour l'instant).",
       }[slotFate(table)];
-      // Début de partie : des joueurs qui ne sont pas venus se déclarent « Absent » (réinscription possible).
       const noShowLeft = match.startedAt + noShowWindow() - now();
       const noShowHint =
         noShowLeft > 0 && match.players.length
@@ -800,14 +1067,18 @@
           ${noShowHint}`,
         ok: 'Libérer (pas de goodies)',
         tone: 'danger',
-        focus: noShowHint ? 'cancel' : 'ok',
+        focus: 'cancel', // action irréversible : Entrée ne doit pas libérer par réflexe
       });
       if (!ok) return;
-      run('releaseMatch', { matchId }, { success: `${place} libérée.` }).catch(() => {});
+      run('releaseMatch', { matchId }, { success: `${place} libérée.` })
+        .then(() => {
+          if (popTarget && popTarget.matchId === matchId) closeSlotPop({ restoreFocus: true });
+        })
+        .catch(() => {});
     } else if (btn.dataset.action === 'noshow') {
       await declareNoShow(Number(btn.dataset.participant), found, btn);
     }
-  });
+  }
 
   // Joueur placé qui ne s'est pas présenté (premières minutes de la partie) : retiré sans goodies,
   // il pourra se réinscrire. Son partenaire joue contre un animateur ; sinon la partie est annulée.
@@ -822,7 +1093,7 @@
       toast(`La partie a commencé il y a plus de ${minutes} min : utilisez « Libérer ».`, 'error');
       return;
     }
-    const placeNb = place.replace(/ /g, '\u00a0'); // « Table 4 · B » sur une seule ligne
+    const placeNb = place.replace(/ /g, ' ');
     const cancelled = `Plus personne à cette table : la partie est annulée et l'emplacement ${placeNb}`;
     const consequence = partners.length
       ? `Son partenaire, <strong>${esc(joinNames(partners))}</strong>, jouera contre un animateur (même timer, fin prévue à ${clock(match.endsAt)}).`
@@ -843,25 +1114,24 @@
     run('noShow', { participantId }, { button: btn })
       .then(async (r) => {
         if (r.cancelled) {
-          // Le serveur a pu redonner aussitôt l'emplacement à la paire suivante : on regarde l'état qui suit
-          // l'action (l'accusé peut arriver avant lui).
           const slotNow = () => {
             const t = state.tables.find((x) => x.no === table.no);
             return { table: t || table, match: t ? t.slots[slot] : null };
           };
           if (slotNow().match && slotNow().match.matchId === r.matchId) await nextState();
+          if (popTarget && popTarget.matchId === r.matchId) closeSlotPop({ restoreFocus: true });
           const cur = slotNow();
           const head = `${name} absent(e), retiré(e) sans goodies. Partie annulée`;
           if (cur.match && cur.match.matchId !== r.matchId) {
             toast(`${head} ; emplacement ${place} aussitôt redonné à ${joinNames(matchNames(cur.match, false))} (voir « À appeler »).`);
           } else if (cur.match) {
-            toast(`${head} (${place}).`); // état pas encore reçu
+            toast(`${head} (${place}).`);
           } else {
             const why = isPaused() ? ' (stand fermé)' : !cur.table.enabled ? ' (table hors service)' : '';
             toast(`${head} : ${place} est libre${why}.`);
           }
         } else if (r.vsAnimator && partners.length) {
-          toast(`${name} absent(e), retiré(e) sans goodies. ${joinNames(partners)} joue contre un animateur (${place}).`);
+          toast(`${name} absent(e), retiré(e) sans goodies. ${joinNames(partners)} joue contre un animateur (${place}) : prévenez un animateur.`, 'info');
         } else {
           toast(`${name} absent(e), retiré(e) sans goodies.`);
         }
@@ -869,59 +1139,276 @@
       .catch(() => {});
   }
 
+  // ---------------------------------------------------------------- panneau d'emplacement (popover)
+
+  const pop = $('#slot-pop');
+  let popTarget = null; // { tableNo, slot, matchId | null, anchor }
+
+  function openSlotPop(btn, { focus = false } = {}) {
+    if (!state) return;
+    const tableNo = Number(btn.dataset.table);
+    const slot = btn.dataset.slot;
+    if (popTarget && popTarget.tableNo === tableNo && popTarget.slot === slot) {
+      closeSlotPop({ restoreFocus: focus });
+      return;
+    }
+    closeRowMenu();
+    const t = state.tables.find((x) => x.no === tableNo);
+    const m = t && t.slots[slot];
+    popTarget = { tableNo, slot, matchId: m ? m.matchId : null, anchor: btn };
+    pop.__key = null;
+    pop.hidden = false;
+    renderSlotPop();
+    updateOpenSlot();
+    tick();
+    if (focus) {
+      const first = pop.querySelector('.pop-actions .btn, .pop-player .btn');
+      (first || pop).focus({ preventScroll: true });
+    } else {
+      pop.focus({ preventScroll: true });
+    }
+  }
+
+  function closeSlotPop({ restoreFocus = false } = {}) {
+    if (!popTarget) return;
+    const anchor = popTarget.anchor;
+    popTarget = null;
+    pop.hidden = true;
+    pop.innerHTML = '';
+    pop.__key = null;
+    updateOpenSlot();
+    if (restoreFocus && anchor && anchor.isConnected) anchor.focus({ preventScroll: true });
+  }
+
+  function updateOpenSlot() {
+    for (const el of tableEls) {
+      for (const s of SLOTS) {
+        const open = !!popTarget && popTarget.tableNo === Number(el.slots[s].dataset.table) && popTarget.slot === s;
+        el.slots[s].classList.toggle('is-open', open);
+        el.slots[s].setAttribute('aria-expanded', String(open));
+      }
+    }
+  }
+
+  function popHead(table, slot, sub) {
+    return `<div class="pop-head">
+      <span class="pop-plate"><b>${table.no}</b><span>${slot}</span></span>
+      <div class="pop-title" id="slot-pop-title">Table ${table.no} · emplacement ${slot}<small>${sub}</small></div>
+      <button type="button" class="btn btn-ghost btn-icon" data-action="pop-close" aria-label="Fermer le panneau">${ICON('close')}</button>
+    </div>`;
+  }
+
+  function renderSlotPop() {
+    if (!popTarget || !state) return;
+    const table = state.tables.find((x) => x.no === popTarget.tableNo);
+    if (!table) {
+      closeSlotPop();
+      return;
+    }
+    const slot = popTarget.slot;
+    const cur = table.slots[slot];
+    const paused = isPaused();
+    let key;
+    let render;
+
+    if (popTarget.matchId !== null && (!cur || cur.matchId !== popTarget.matchId)) {
+      // La partie affichée s'est terminée entre-temps : aucune action ne doit viser la suivante par erreur.
+      key = JSON.stringify(['gone', popTarget.matchId, cur && cur.matchId]);
+      render = () => `${popHead(table, slot, 'Partie terminée')}
+        <p class="pop-note"><b>Cette partie est terminée</b> (fin du temps, libération ou absence).
+          ${cur ? `L'emplacement a été redonné à ${esc(joinNames(matchNames(cur)))}.` : "L'emplacement est maintenant libre."}</p>
+        <div class="pop-actions"><button type="button" class="btn btn-outline span-2" data-action="pop-refresh" data-focus="pop-refresh">Afficher l'emplacement actuel</button></div>`;
+    } else if (cur) {
+      const m = cur;
+      const id = m.matchId;
+      const noShowUntil = m.startedAt + noShowWindow();
+      const noShowOpen = now() < noShowUntil;
+      const called = calls.has(id);
+      key = JSON.stringify(['busy', id, m.endsAt, m.startedAt, m.vsAnimator, called, noShowOpen, table.enabled, paused,
+        m.players.map((p) => [p.id, p.firstName, p.lastName, p.email, p.ticket])]);
+      render = () => {
+        // Places à table (comme sur l'écran TV) ; contre un animateur, la place n'est pas imposée.
+        const seats = m.players.length >= 2 ? ['Joueur 1 · chaise du haut', 'Joueur 2 · chaise du bas'] : ['Joueur', 'Adversaire'];
+        const players = m.players.map((p, i) => {
+          const absent = noShowOpen
+            ? `<button type="button" class="btn btn-danger-outline btn-absent" data-action="noshow" data-match="${id}" data-participant="${p.id}"
+                data-noshow-until="${noShowUntil}" data-focus="pop-noshow-${p.id}"
+                title="${esc(`Ne s'est pas présenté : retiré sans goodies, pourra se réinscrire (possible pendant ${Math.round(noShowWindow() / MIN)} min après le début)`)}"
+                aria-label="${esc(`${fullName(p)} absent`)}">Absent <small data-noshow-left="${noShowUntil}"></small></button>`
+            : '';
+          return `<li class="pop-player"><div class="pop-player-main">
+              <span class="pop-seat">${seats[i] || 'Joueur'}</span>
+              <span class="pop-player-name">${esc(fullName(p))}</span>
+              <span class="pop-player-meta">${esc(p.email || '')}${p.ticket ? ` · billet ${esc(p.ticket)}` : ''}</span>
+            </div>${absent}</li>`;
+        });
+        if (m.vsAnimator) {
+          players.push(`<li class="pop-player is-animator"><div class="pop-player-main">
+            <span class="pop-seat">${seats[1]}</span>
+            <span class="pop-player-name">Animateur</span>
+            <span class="pop-player-meta">Prévenir un animateur : il joue contre ${esc(joinNames(m.players.map(fullName)) || 'le joueur')}</span>
+          </div></li>`);
+        }
+        const seated = called
+          ? `<button type="button" class="btn btn-dark span-2" data-action="seated" data-match="${id}" data-focus="pop-seated">${ICON('check')}Joueurs installés</button>`
+          : '';
+        const notes = [];
+        if (noShowOpen) {
+          notes.push(`<p class="pop-note" data-noshow-until="${noShowUntil}">Joueur pas venu&nbsp;? <b>«&nbsp;Absent&nbsp;»</b> à côté de son nom&nbsp;: il pourra se réinscrire
+            (son partenaire jouera contre un animateur).</p>`);
+        } else {
+          notes.push('<p class="pop-note">Joueur absent après 15&nbsp;min&nbsp;: si son partenaire est là, <b>laissez jouer</b> contre un animateur&nbsp;; «&nbsp;Libérer&nbsp;» sort les deux joueurs.</p>');
+        }
+        if (!table.enabled) notes.push("<p class=\"pop-note\">Table hors service : l'emplacement restera libre après cette partie.</p>");
+        return `${popHead(table, slot, `Démarrée à\u00a0${clock(m.startedAt)} · fin\u00a0prévue\u00a0à\u00a0${clock(m.endsAt)}`)}
+          <div class="pop-time"><span class="countdown" data-ends-at="${m.endsAt}"></span><small>restantes</small></div>
+          <div class="pop-bar"><i data-start="${m.startedAt}" data-end="${m.endsAt}"></i></div>
+          <ul class="pop-players">${players.join('')}</ul>
+          <div class="pop-actions">
+            ${seated}
+            <button type="button" class="btn btn-outline" data-action="adjust" data-match="${id}" data-delta="${-ADJUST_MS}" data-focus="pop-minus"
+              aria-label="Retirer 5 minutes">−5 min</button>
+            <button type="button" class="btn btn-outline" data-action="adjust" data-match="${id}" data-delta="${ADJUST_MS}" data-focus="pop-plus"
+              aria-label="Ajouter 5 minutes">+5 min</button>
+          </div>
+          ${notes.join('')}
+          <div class="pop-danger">
+            <button type="button" class="btn btn-danger-outline" data-action="release" data-match="${id}" data-focus="pop-release"
+              title="Départ anticipé : pas de goodies, pas de réinscription">Libérer l'emplacement…</button>
+            <small>Départ avant la fin : pas de goodies</small>
+          </div>`;
+      };
+    } else {
+      const ready = state.queue.filter((e) => e.ready).length;
+      key = JSON.stringify(['free', table.enabled, paused, ready > 0]);
+      render = () => {
+        const info = !table.enabled
+          ? 'Table hors service : plus personne n’y est placé.'
+          : paused
+            ? 'Emplacement libre. Stand fermé : personne n’y sera placé.'
+            : ready
+              ? 'Emplacement libre : les prochains joueurs prêts y seront placés automatiquement.'
+              : 'Emplacement libre. Aucun joueur prêt dans la file pour l’instant.';
+        const toggle = table.enabled
+          ? `<button type="button" class="btn btn-outline span-2" data-action="table-toggle" data-table="${table.no}" data-enabled="0" data-focus="pop-toggle">Mettre la table ${table.no} hors service</button>`
+          : `<button type="button" class="btn btn-cyan span-2" data-action="table-toggle" data-table="${table.no}" data-enabled="1" data-focus="pop-toggle">Remettre la table ${table.no} en service</button>`;
+        return `${popHead(table, slot, !table.enabled ? 'Hors service' : 'Libre')}
+          <p class="pop-note">${info}</p>
+          <div class="pop-actions">${toggle}</div>`;
+      };
+    }
+    if (patch(pop, key, render)) tick();
+    positionSlotPop();
+  }
+
+  function positionSlotPop() {
+    if (!popTarget || pop.hidden) return;
+    const anchor = popTarget.anchor;
+    if (!anchor.isConnected || anchor.offsetParent === null) {
+      closeSlotPop();
+      return;
+    }
+    const a = anchor.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const m = 10;
+    const topMin = Math.min($('#top-sticky').getBoundingClientRect().bottom + 6, vh - h - m);
+    let left;
+    let top;
+    if (a.right + m + w <= vw - m) left = a.right + m;
+    else if (a.left - m - w >= m) left = a.left - m - w;
+    if (left !== undefined) {
+      top = Math.min(Math.max(a.top - 12, topMin), vh - h - m);
+    } else {
+      // Pas de place à côté : dessous (ou dessus) de l'emplacement.
+      left = Math.min(Math.max(m, a.left + a.width / 2 - w / 2), vw - w - m);
+      top = a.bottom + m + h <= vh - m ? a.bottom + m : Math.max(topMin, a.top - m - h);
+    }
+    pop.style.left = `${Math.round(left)}px`;
+    pop.style.top = `${Math.round(Math.max(m, top))}px`;
+  }
+
+  pop.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn || !state || !popTarget) return;
+    const action = btn.dataset.action;
+    if (action === 'pop-close') closeSlotPop({ restoreFocus: true });
+    else if (action === 'pop-refresh') {
+      const table = state.tables.find((x) => x.no === popTarget.tableNo);
+      const cur = table && table.slots[popTarget.slot];
+      popTarget.matchId = cur ? cur.matchId : null;
+      renderSlotPop();
+    } else if (action === 'seated') markSeated(Number(btn.dataset.match));
+    else if (action === 'table-toggle') {
+      const tableNo = Number(btn.dataset.table);
+      const enabled = btn.dataset.enabled === '1';
+      run('setTableEnabled', { tableNo, enabled }, {
+        button: btn,
+        success: enabled ? `Table ${tableNo} remise en service.` : `Table ${tableNo} hors service.`,
+      }).catch(() => {});
+    } else {
+      await handleSlotAction(btn);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    positionSlotPop();
+    positionRowMenu();
+    if (!searchPop.hidden) positionSearch();
+  });
+  document.addEventListener('scroll', () => {
+    positionSlotPop();
+    closeRowMenu();
+  }, true);
+
+  // Clic en dehors : referme le panneau, les menus et la recherche.
+  document.addEventListener('pointerdown', (e) => {
+    const t = e.target;
+    if (t.closest('dialog') || t.closest('.toast')) return;
+    if (popTarget && !pop.contains(t) && !t.closest('.slot') && !t.closest('.call-place')) closeSlotPop();
+    if (rowMenuFor && !rowMenu.contains(t) && !t.closest('[data-action="row-menu"], [data-action="call-menu"]')) closeRowMenu();
+    if (!moreMenu.hidden && !moreMenu.contains(t) && !moreBtn.contains(t)) closeMoreMenu();
+    if (!searchPop.hidden && !searchPop.contains(t) && !searchTrigger.contains(t)) closeSearch();
+  });
+
   // ================================================================ file d'attente
 
   const queueList = $('#queue-list');
 
   function queueEntryHtml(e, isNext) {
     const isSolo = e.kind === 'solo';
-    const classes = ['q-entry'];
+    const names = e.players
+      .map((p) => `<span class="q-name" title="${esc(`${p.email || ''} · billet ${p.ticket || ''}`)}">${esc(fullName(p))}</span>`)
+      .join('<span class="q-amp">&amp;</span>');
     const tags = [];
-    if (isNext) {
-      classes.push('is-next');
-      tags.push('<span class="tag tag-next">Prochain</span>');
-    }
-    if (e.kind === 'pair') tags.unshift('<span>Paire</span>');
-    else if (e.vsAnimator) {
-      classes.push('is-animator');
-      tags.unshift('<span>Joueur seul</span>', '<span class="tag tag-animator">Prêt contre un animateur</span>');
-    } else {
-      classes.push('is-solo');
-      tags.unshift('<span>Joueur seul</span>', '<span class="tag tag-solo">Cherche un partenaire</span>');
-    }
-
-    const players = e.players
-      .map(
-        (p) => `<li class="q-player">
-          <span class="q-name" title="${esc(`${p.email || ''} · billet ${p.ticket || ''}`)}">${esc(fullName(p))}</span>
-          <span class="q-player-actions">
-            <button type="button" class="btn btn-ghost" data-action="edit" data-participant="${p.id}" data-focus="edit-${p.id}">Modifier</button>
-            <button type="button" class="btn btn-danger-ghost" data-action="remove" data-participant="${p.id}" data-focus="remove-${p.id}">Retirer</button>
-          </span>
-        </li>`,
-      )
-      .join('');
-
+    if (isNext) tags.push('<span class="tag tag-next">Prochain</span>');
+    if (!isSolo) tags.push('<span class="tag tag-pair">Paire</span>');
+    else if (e.vsAnimator) tags.push('<span class="tag tag-animator">Seul · prêt vs animateur</span>');
+    else tags.push('<span class="tag tag-solo">Seul · cherche un partenaire</span>');
     const eta = etaText(e.entryId);
-    const status = e.ready
-      ? eta
-        ? `<strong>${esc(eta)}</strong>`
-        : ''
-      : '<strong>Attend un partenaire</strong> – les paires suivantes passent devant';
-
-    let actions = '';
+    const status = e.ready ? (eta ? `<strong>${esc(eta)}</strong>` : '') : 'les paires suivantes passent devant';
+    let main = '';
     if (isSolo) {
-      actions = e.vsAnimator
-        ? `<button type="button" class="btn btn-sm btn-ghost" data-action="cancel-anyway" data-entry="${e.entryId}" data-focus="cancel-${e.entryId}">Annuler animateur</button>`
-        : `<button type="button" class="btn btn-sm btn-warn-ghost" data-action="place-anyway" data-entry="${e.entryId}" data-focus="anyway-${e.entryId}">Placer quand même (vs animateur)</button>`;
+      main = e.vsAnimator
+        ? `<div class="q-main-action"><button type="button" class="btn btn-sm btn-outline" data-action="cancel-anyway" data-entry="${e.entryId}" data-focus="cancel-${e.entryId}">Annuler animateur</button></div>`
+        : `<div class="q-main-action"><button type="button" class="btn btn-sm btn-warn" data-action="place-anyway" data-entry="${e.entryId}" data-focus="anyway-${e.entryId}">Placer quand même (vs animateur)</button></div>`;
     }
-
+    const classes = ['q-row'];
+    if (isNext) classes.push('is-next');
+    if (isSolo && !e.vsAnimator) classes.push('is-solo');
     return `<li class="${classes.join(' ')}" data-entry="${e.entryId}">
       <span class="q-rank" title="Rang dans la file">${e.rank}</span>
-      <div class="q-kind">${tags.join('')}</div>
-      <ul class="q-players">${players}</ul>
-      <div class="q-meta">Inscrit à ${clock(e.createdAt)} · attend depuis <span data-since="${e.createdAt}"></span>${status ? ` · ${status}` : ''}</div>
-      ${actions ? `<div class="q-entry-actions">${actions}</div>` : ''}
+      <div class="q-main">
+        <div class="q-names">${names}</div>
+        <div class="q-meta">${tags.join('')}${status ? `<span>${status}</span>` : ''}<span>attend <span data-since="${e.createdAt}"></span></span></div>
+        ${main}
+      </div>
+      <div class="q-actions">
+        <button type="button" class="btn btn-ghost btn-icon btn-sm q-more" data-action="row-menu" data-entry="${e.entryId}" data-focus="more-${e.entryId}"
+          aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`Autres actions : ${joinNames(e.players.map(fullName))}`)}">${ICON('more')}</button>
+      </div>
     </li>`;
   }
 
@@ -932,20 +1419,114 @@
     $('#queue-summary').textContent = q.length
       ? `${plural(q.length, 'entrée', 'entrées')} · ${plural(playersWaiting, 'joueur', 'joueurs')}`
       : '';
+    $('#tab-queue-count').textContent = String(playersWaiting);
     $('#queue-paused').hidden = !paused;
-    // Stand fermé : personne n'est « prochain » (aucun placement avant la réouverture).
     const nextId = paused ? undefined : (q.find((e) => e.ready) || {}).entryId;
     const key = JSON.stringify([q, paused, nextId, [...etas.entries()].map(([k, v]) => [k, Math.floor(v / MIN)])]);
     patch(queueList, key, () =>
       q.length ? q.map((e) => queueEntryHtml(e, e.entryId === nextId)).join('') : '<li class="empty">File d\'attente vide.</li>',
     );
+    if (rowMenuFor && rowMenuFor.entryId !== undefined && !q.some((e) => e.entryId === rowMenuFor.entryId)) closeRowMenu();
   }
 
   queueList.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn || !state) return;
-    handleCommonAction(btn);
+    if (btn.dataset.action === 'row-menu') openRowMenu(btn);
+    else handleCommonAction(btn);
   });
+
+  // ---------------------------------------------------------------- menu « ⋯ » d'une ligne / d'un appel
+
+  const rowMenu = $('#row-menu');
+  let rowMenuFor = null; // { entryId | matchId, anchor }
+
+  // Bouton d'origine du menu (retrouvé si la ligne a été re-rendue entre-temps).
+  function rowMenuAnchor() {
+    if (!rowMenuFor) return null;
+    if (rowMenuFor.anchor.isConnected) return rowMenuFor.anchor;
+    const fresh = rowMenuFor.matchId !== undefined
+      ? callsList.querySelector(`[data-action="call-menu"][data-match="${rowMenuFor.matchId}"]`)
+      : queueList.querySelector(`[data-action="row-menu"][data-entry="${rowMenuFor.entryId}"]`);
+    if (fresh) {
+      rowMenuFor.anchor = fresh;
+      fresh.setAttribute('aria-expanded', 'true');
+    }
+    return fresh;
+  }
+
+  function showRowMenu(btn, html, target) {
+    rowMenu.innerHTML = html;
+    rowMenu.hidden = false;
+    rowMenuFor = { ...target, anchor: btn };
+    btn.setAttribute('aria-expanded', 'true');
+    positionRowMenu();
+    const first = rowMenu.querySelector('.menu-item');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  function openRowMenu(btn) {
+    const entryId = Number(btn.dataset.entry);
+    const e = state.queue.find((x) => x.entryId === entryId);
+    if (!e) return;
+    if (rowMenuFor && rowMenuFor.entryId === entryId) {
+      closeRowMenu(true);
+      return;
+    }
+    closeRowMenu();
+    const items = [];
+    e.players.forEach((p, i) => {
+      if (i > 0) items.push('<div class="menu-sep" role="separator"></div>');
+      items.push(`<div class="menu-label">${esc(fullName(p))}</div>`);
+      items.push(`<button type="button" class="menu-item" role="menuitem" data-action="edit" data-participant="${p.id}">Modifier<small>faute de saisie</small></button>`);
+      items.push(`<button type="button" class="menu-item is-danger" role="menuitem" data-action="remove" data-participant="${p.id}">Retirer de la file<small>absent à l'appel</small></button>`);
+    });
+    if (e.kind === 'solo') {
+      items.push('<div class="menu-sep" role="separator"></div>');
+      items.push(e.vsAnimator
+        ? `<button type="button" class="menu-item" role="menuitem" data-action="cancel-anyway" data-entry="${e.entryId}">Annuler animateur<small>attendre un partenaire</small></button>`
+        : `<button type="button" class="menu-item" role="menuitem" data-action="place-anyway" data-entry="${e.entryId}">Placer quand même<small>vs animateur</small></button>`);
+    }
+    showRowMenu(btn, items.join(''), { entryId });
+  }
+
+  // Sous l'ancre (ou au-dessus s'il n'y a pas la place), jamais sur la barre du haut.
+  function positionRowMenu() {
+    if (!rowMenuFor) return;
+    const anchor = rowMenuAnchor();
+    if (!anchor) {
+      closeRowMenu();
+      return;
+    }
+    const a = anchor.getBoundingClientRect();
+    const w = rowMenu.offsetWidth;
+    const h = rowMenu.offsetHeight;
+    const topMin = $('#top-sticky').getBoundingClientRect().bottom + 6;
+    const left = Math.min(Math.max(8, a.right - w), window.innerWidth - w - 8);
+    const top = a.bottom + 6 + h <= window.innerHeight - 8 ? a.bottom + 6 : Math.max(topMin, a.top - 6 - h);
+    rowMenu.style.left = `${Math.round(left)}px`;
+    rowMenu.style.top = `${Math.round(top)}px`;
+  }
+
+  function closeRowMenu(restoreFocus = false) {
+    if (!rowMenuFor) return;
+    const current = rowMenuAnchor();
+    rowMenuFor = null;
+    rowMenu.hidden = true;
+    rowMenu.innerHTML = '';
+    if (current) {
+      current.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) current.focus({ preventScroll: true });
+    }
+  }
+
+  rowMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('button[data-action]');
+    if (!item || !state) return;
+    closeRowMenu(true);
+    handleCommonAction(item);
+  });
+  rowMenu.addEventListener('keydown', (e) => menuKeys(rowMenu, e));
 
   // Actions partagées par la file, les résultats de recherche, le résultat d'inscription et les goodies.
   async function handleCommonAction(btn) {
@@ -956,6 +1537,12 @@
     if (action === 'edit') {
       const p = findParticipant(participantId);
       if (p) openEdit(p);
+    } else if (action === 'noshow') {
+      const found = findMatch(Number(btn.dataset.match));
+      if (!found) toast('Cette partie est déjà terminée.', 'error');
+      else await declareNoShow(participantId, found, null);
+    } else if (action === 'open-slot') {
+      openCallSlot(Number(btn.dataset.table), btn.dataset.slot);
     } else if (action === 'remove') {
       await removePlayer(participantId, btn);
     } else if (action === 'place-anyway') {
@@ -963,9 +1550,13 @@
       const name = entry ? shortName(entry.players[0]) : 'Le joueur';
       run('placeAnyway', { entryId }, { button: btn })
         .then((r) => {
-          if (r.placed) ownMatches.add(r.matchId);
-          if (r.placed) toast(`${name} → Table ${r.tableNo}, emplacement ${r.slot} (contre un animateur)`);
-          else if (isPaused()) toast(`${name} jouera contre un animateur, mais pas avant la réouverture du stand.`);
+          if (r.placed) {
+            ownMatches.add(r.matchId);
+            addCall(r.matchId); // à annoncer (et prévenir un animateur), comme un placement automatique
+            renderCalls();
+            renderTables();
+            toast(`${name} → Table ${r.tableNo}, emplacement ${r.slot} (contre un animateur) : voir « À appeler ».`);
+          } else if (isPaused()) toast(`${name} jouera contre un animateur, mais pas avant la réouverture du stand.`);
           else toast(`${name} jouera contre un animateur dès qu'un emplacement se libère.`);
         })
         .catch(() => {});
@@ -1006,49 +1597,84 @@
     );
   }
 
-  // ================================================================ goodies
+  // ================================================================ 03 · goodies
 
   const goodiesList = $('#goodies-list');
+  let givenOpen = false;
+
+  function goodieRow(g) {
+    const given = !!g.goodiesGivenAt;
+    const meta = `Table ${g.tableNo} · ${g.slot} · fini à ${clock(g.endedAt)}${given ? ` · remis à ${clock(g.goodiesGivenAt)}` : ''}`;
+    const button = given
+      ? `<button type="button" class="btn btn-sm btn-ghost" data-action="goodies-undo" data-participant="${g.id}" data-focus="gundo-${g.id}">Annuler</button>`
+      : `<button type="button" class="btn btn-dark" data-action="goodies-give" data-participant="${g.id}" data-focus="ggive-${g.id}"
+          aria-label="${esc(`Goodies remis à ${fullName(g)}`)}">${ICON('check')}Remis</button>`;
+    return `<li class="goodie${given ? ' is-given' : ''}">
+      <span class="goodie-icon">${ICON(given ? 'check' : 'gift')}</span>
+      <div class="goodie-main">
+        <span class="goodie-name">${esc(fullName(g))}</span>
+        <span class="goodie-meta">${meta}</span>
+      </div>
+      ${button}
+    </li>`;
+  }
 
   function renderGoodies() {
     const list = state.goodies || [];
-    const pending = list.filter((g) => !g.goodiesGivenAt).length;
+    const pendingList = list.filter((g) => !g.goodiesGivenAt);
+    const givenList = list.filter((g) => g.goodiesGivenAt);
+    const pending = pendingList.length;
     const badge = $('#goodies-count');
     badge.textContent = String(pending);
     badge.classList.toggle('is-pending', pending > 0);
+    const tabCount = $('#tab-goodies-count');
+    tabCount.textContent = String(pending);
+    tabCount.classList.toggle('is-pending', pending > 0);
     const key = JSON.stringify(list.map((g) => [g.id, g.firstName, g.lastName, g.goodiesGivenAt, g.tableNo, g.slot, g.endedAt]));
     patch(goodiesList, key, () => {
       if (!list.length) return '<li class="empty">Aucune partie terminée aujourd\'hui.</li>';
-      let sepDone = false;
-      return list
-        .map((g) => {
-          const given = !!g.goodiesGivenAt;
-          let sep = '';
-          if (given && !sepDone) {
-            sepDone = true;
-            sep = `<li class="goodies-sep">Déjà remis</li>`;
-          }
-          const meta = `Table ${g.tableNo} · ${g.slot} · terminé à ${clock(g.endedAt)}`;
-          return `${sep}<li class="goodie${given ? ' is-given' : ''}">
-            <div class="goodie-main">
-              <span class="goodie-name">${esc(fullName(g))}</span>
-              <span class="goodie-meta">${meta}${given ? ` · remis à ${clock(g.goodiesGivenAt)}` : ''}</span>
-            </div>
-            ${
-              given
-                ? `<button type="button" class="btn btn-sm btn-ghost" data-action="goodies-undo" data-participant="${g.id}" data-focus="gundo-${g.id}">Annuler</button>`
-                : `<button type="button" class="btn btn-success" data-action="goodies-give" data-participant="${g.id}" data-focus="ggive-${g.id}">Remis</button>`
-            }
-          </li>`;
-        })
-        .join('');
+      const rows = pending
+        ? pendingList.map(goodieRow).join('')
+        : '<li class="empty">Tous les goodies du jour ont été remis.</li>';
+      const given = givenList.length
+        ? `<li><details class="goodies-given"${givenOpen ? ' open' : ''}>
+            <summary>Déjà remis (${givenList.length})</summary>
+            <ul>${givenList.map(goodieRow).join('')}</ul>
+          </details></li>`
+        : '';
+      return rows + given;
     });
   }
+
+  goodiesList.addEventListener('toggle', (e) => {
+    if (e.target.matches('details.goodies-given')) givenOpen = e.target.open;
+  }, true);
 
   goodiesList.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (btn && state) handleCommonAction(btn);
   });
+
+  // Statistiques de la barre : un clic mène au panneau correspondant (onglet sur tablette).
+  const GOTO = {
+    queue: { panel: '#panel-queue', focus: '.q-row button' },
+    plan: { panel: '#panel-tables', focus: '.slot.is-busy' },
+    goodies: { panel: '#panel-goodies', focus: '[data-action="goodies-give"]' },
+  };
+  for (const btn of $$('.stats [data-goto]')) {
+    btn.addEventListener('click', () => {
+      const target = GOTO[btn.dataset.goto];
+      setTab(btn.dataset.goto);
+      const panel = $(target.panel);
+      panel.scrollIntoView({ block: 'nearest', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+      panel.classList.remove('is-flash');
+      void panel.offsetWidth;
+      panel.classList.add('is-flash');
+      setTimeout(() => panel.classList.remove('is-flash'), 1400);
+      const first = $(target.focus, panel);
+      if (first) first.focus({ preventScroll: true });
+    });
+  }
 
   // ================================================================ formulaire d'inscription
 
@@ -1059,7 +1685,6 @@
   const inputOf = (i, f) => $(`#p${i}-${f}`);
   const msgOf = (i, f) => $(`#p${i}-${f}-msg`);
 
-  // Messages par champ : erreur (validation / serveur) > avertissement serveur (doublon) > doublon dans la paire.
   const fieldErrors = {};
   const fieldWarnings = {};
   const pairWarnings = {};
@@ -1134,7 +1759,6 @@
   }
   const scheduleCheck = [debounce(() => liveCheck(0), 300), debounce(() => liveCheck(1), 300)];
 
-  // Les deux joueurs d'une paire ne peuvent pas partager email ou billet.
   function updatePairWarnings() {
     const two = mode() === 2;
     const sameEmail = two && normEmail(inputOf(0, 'email').value) && normEmail(inputOf(0, 'email').value) === normEmail(inputOf(1, 'email').value);
@@ -1154,7 +1778,6 @@
     if (fieldErrors[`${i}-${f}`]) setFieldError(i, f, null);
     if (!Object.values(fieldErrors).some(Boolean)) setFormError('');
     if (f === 'email' || f === 'ticket') {
-      // Le doublon affiché ne correspond plus à la saisie : on l'efface tout de suite.
       fieldWarnings[`${i}-${f}`] = null;
       refreshField(i, f);
       scheduleCheck[i]();
@@ -1233,6 +1856,7 @@
     submitBtn.textContent = 'Inscription…';
     try {
       const result = await client.action('register', { players });
+      for (const id of result.participantIds || []) ownPlayers.add(id);
       if (result.matchId) ownMatches.add(result.matchId);
       const reg = {
         ids: result.participantIds || [],
@@ -1240,12 +1864,9 @@
         result,
         seq: stateSeq,
         at: Date.now(),
-        toastPending: true,
       };
       lastRegistration = reg;
       renderLastRegistration();
-      // Le toast part avec l'état à jour (ex. joueur seul associé) ; sinon au bout d'1,5 s.
-      setTimeout(() => flushRegistrationToast(reg), 1500);
       resetForm();
       revealRegResult();
     } catch (err) {
@@ -1268,12 +1889,37 @@
     }
   });
 
+  // ---------------------------------------------------------------- attente estimée (nouvelle inscription)
+
+  const waitPill = $('#wait-pill');
+  let waitKey = '';
+
+  // Même calcul que l'écran TV (LobbyClient.estimate) : l'hôtesse annonce la même attente que la TV.
+  function renderWaitPill() {
+    if (!state) return;
+    let html = '';
+    let free = false;
+    if (!isPaused()) {
+      const t = now();
+      const est = LC.estimate(state, t);
+      if (est.newcomerAt === null) html = 'Aucune table en service';
+      else if (freeSlotCount() > 0 && est.newcomerAt - t < MIN) {
+        html = `<b>${plural(freeSlotCount(), 'place libre', 'places libres')}</b> maintenant`;
+        free = true;
+      } else html = `${ICON('clock')}<span class="wait-word">Attente </span><b>~${esc(waitLabel(est.newcomerAt - t))}</b> · vers ${esc(clock(est.newcomerAt))}`;
+    }
+    const key = `${html}|${free}`;
+    if (key === waitKey) return;
+    waitKey = key;
+    waitPill.hidden = !html;
+    waitPill.innerHTML = html;
+    waitPill.classList.toggle('is-free', free);
+  }
+
   // ---------------------------------------------------------------- résultat de la dernière inscription
 
   const regResult = $('#reg-result');
 
-  // Décrit où se trouvent les joueurs de la dernière inscription, d'après l'état le plus récent.
-  // Renvoie { tone, who, where, detail, toast, entryId?, canPlaceAnyway?, canCancelAnyway? } (texte brut).
   function describeRegistration(reg) {
     const who = joinNames(reg.players.map(shortName));
     const ids = new Set(reg.ids);
@@ -1281,9 +1927,8 @@
     const tableInfo = (tableNo, slot, detail) => ({
       tone: 'table',
       who,
-      where: `→ Table ${tableNo}, emplacement ${slot}`,
+      where: `→ Table ${tableNo} · ${slot}`,
       detail,
-      toast: `${who} → Table ${tableNo}, emplacement ${slot}`,
     });
 
     if (loc && loc.type === 'table') {
@@ -1292,16 +1937,14 @@
         loc.table.no,
         loc.slot,
         others.length
-          ? `Associé à ${joinNames(others)} (joueur seul déjà en attente).`
+          ? `Associé à ${joinNames(others)} (joueur seul déjà en attente : à appeler).`
           : loc.match.vsAnimator
-            ? 'Contre un animateur.'
-            : 'Partie lancée : le compte à rebours a démarré.',
+            ? 'Contre un animateur : prévenez un animateur.'
+            : `Emplacement ${loc.slot === 'A' ? 'A, moitié gauche' : 'B, moitié droite'} de la table · le compte à rebours a démarré.`,
       );
     }
-    // Stand fermé : les inscrits restent en file, sans placement ni heure de passage.
     const paused = isPaused();
     const pausedText = 'Stand fermé : ne sera pas placé tant que le stand est fermé.';
-    const pausedToast = ' (stand fermé : pas de placement)';
     if (loc && loc.type === 'queue') {
       const e = loc.entry;
       const others = e.players.filter((p) => !ids.has(p.id)).map(shortName);
@@ -1316,13 +1959,12 @@
             : `Rang ${e.rank} · sera associé au prochain joueur seul. Sinon : « Placer quand même » (contre un animateur).`,
           entryId: e.entryId,
           canPlaceAnyway: true,
-          toast: `${who} – joueur seul : en attente d'un partenaire${paused ? pausedToast : ''}`,
         };
       }
       return {
         tone: paused ? 'paused' : 'queue',
         who,
-        where: `En file d'attente – rang ${e.rank}`,
+        where: `En file d'attente · rang ${e.rank}`,
         detail: [
           others.length ? `Associé à ${joinNames(others)}` : '',
           e.kind === 'solo' ? 'jouera contre un animateur' : '',
@@ -1333,20 +1975,17 @@
           .replace(/^./, (c) => c.toUpperCase()),
         entryId: e.entryId,
         canCancelAnyway: e.kind === 'solo',
-        toast: `${who} – en file d'attente, rang ${e.rank}${others.length ? ` (avec ${joinNames(others)})` : ''}${paused ? pausedToast : ''}`,
       };
     }
     if (!loc && stateSeq <= reg.seq) {
-      // L'état à jour n'est pas encore arrivé : on se fie à la réponse du serveur.
       const r = reg.result || {};
       if (r.status === 'playing') return tableInfo(r.tableNo, r.slot, '');
       if (r.status === 'waiting') {
         return {
           tone: paused ? 'paused' : 'queue',
           who,
-          where: `En file d'attente – rang ${r.rank}`,
+          where: `En file d'attente · rang ${r.rank}`,
           detail: paused ? pausedText : '',
-          toast: `${who} – en file d'attente, rang ${r.rank}${paused ? pausedToast : ''}`,
         };
       }
     }
@@ -1355,14 +1994,7 @@
       who,
       where: "Plus en file d'attente ni à une table",
       detail: 'Voir la recherche pour son statut.',
-      toast: `${who} inscrit.`,
     };
-  }
-
-  function flushRegistrationToast(reg) {
-    if (!reg.toastPending) return;
-    reg.toastPending = false;
-    toast(describeRegistration(reg).toast, 'success');
   }
 
   function renderLastRegistration() {
@@ -1370,37 +2002,33 @@
       regResult.hidden = true;
       return;
     }
-    if (stateSeq > lastRegistration.seq) flushRegistrationToast(lastRegistration);
     const info = describeRegistration(lastRegistration);
     let actions = '';
     if (info.canPlaceAnyway) {
-      actions = `<button type="button" class="btn btn-sm btn-warn-ghost" data-action="place-anyway" data-entry="${info.entryId}" data-focus="r-anyway">Placer quand même (vs animateur)</button>`;
+      actions = `<button type="button" class="btn btn-sm btn-warn" data-action="place-anyway" data-entry="${info.entryId}" data-focus="r-anyway">Placer quand même (vs animateur)</button>`;
     } else if (info.canCancelAnyway) {
-      actions = `<button type="button" class="btn btn-sm btn-ghost" data-action="cancel-anyway" data-entry="${info.entryId}" data-focus="r-cancel">Annuler animateur</button>`;
+      actions = `<button type="button" class="btn btn-sm btn-outline" data-action="cancel-anyway" data-entry="${info.entryId}" data-focus="r-cancel">Annuler animateur</button>`;
     }
-    const label = Date.now() - lastRegistration.at < 90 * 1000 ? 'Inscription réussie' : 'Dernière inscription';
+    const fresh = Date.now() - lastRegistration.at < 90 * 1000;
+    const label = fresh ? 'Inscription réussie · à annoncer' : `Dernière inscription · ${info.who}`;
     const key = JSON.stringify([lastRegistration.at, label, info.tone, info.who, info.where, info.detail, actions]);
     regResult.hidden = false;
     regResult.dataset.tone = info.tone;
+    regResult.classList.toggle('is-old', !fresh);
     const changed = patch(regResult, key, () => `
       <div class="reg-result-label">${esc(label)}</div>
       <div class="reg-result-who">${esc(info.who)}</div>
-      <div class="reg-result-where">${esc(info.where)}</div>
+      <div class="reg-result-where">${info.where.startsWith('→ ') ? `${ICON('arrow', 'ic ic-arrow')}${esc(info.where.slice(2))}` : esc(info.where)}</div>
       ${info.detail ? `<div class="reg-result-detail">${esc(info.detail)}</div>` : ''}
       ${actions ? `<div class="reg-result-actions">${actions}</div>` : ''}`);
     if (changed) {
-      // relance l'animation d'apparition
       regResult.style.animation = 'none';
       void regResult.offsetWidth;
       regResult.style.animation = '';
-      // L'état à jour peut agrandir le cadre juste après l'inscription : on le garde visible.
       if (Date.now() - lastRegistration.at < REVEAL_REG_MS && form.contains(document.activeElement)) revealRegResult();
     }
   }
 
-  // Le cadre est sous le formulaire, souvent sous le bas visible de la colonne (mode 2 joueurs,
-  // portable) : on le fait apparaître en gardant visible le prénom du joueur 1, où l'hôtesse retape,
-  // mais toujours au moins jusqu'à la ligne à annoncer (table ou rang).
   function revealRegResult() {
     revealInColumn(regResult, { keep: inputOf(0, 'firstName'), must: $('.reg-result-where', regResult) });
   }
@@ -1410,13 +2038,54 @@
     if (btn && state) handleCommonAction(btn);
   });
 
-  // ================================================================ recherche
+  // ================================================================ recherche (panneau Alt+R)
 
+  const searchTrigger = $('#search-trigger');
+  const searchPop = $('#search-pop');
   const searchInput = $('#search-input');
   const searchBox = $('#search-results');
-  const searchPanel = $('.panel-search');
   let searchSeq = 0;
-  let revealedQuery = null; // dernière recherche dont les résultats ont été montrés à l'écran
+  let searchReturnFocus = null;
+
+  function positionSearch() {
+    const top = $('#top-sticky').getBoundingClientRect().bottom + 8;
+    const t = searchTrigger.getBoundingClientRect();
+    const w = searchPop.offsetWidth;
+    const left = Math.min(Math.max(16, t.right - w), window.innerWidth - w - 16);
+    searchPop.style.top = `${Math.round(top)}px`;
+    searchPop.style.left = `${Math.round(left)}px`;
+    searchPop.style.right = 'auto';
+    searchPop.style.maxHeight = `${Math.round(window.innerHeight - top - 16)}px`;
+  }
+
+  function openSearch() {
+    closeSlotPop();
+    closeRowMenu();
+    closeMoreMenu();
+    if (searchPop.hidden) {
+      const active = document.activeElement;
+      searchReturnFocus = active && active !== document.body && !searchPop.contains(active) ? active : null;
+    }
+    searchPop.hidden = false;
+    searchTrigger.setAttribute('aria-expanded', 'true');
+    positionSearch();
+    searchInput.focus({ preventScroll: true });
+    searchInput.select();
+  }
+
+  function closeSearch({ restoreFocus = false } = {}) {
+    if (searchPop.hidden) return;
+    searchPop.hidden = true;
+    searchTrigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) {
+      const target = searchReturnFocus && searchReturnFocus.isConnected ? searchReturnFocus : searchTrigger;
+      target.focus({ preventScroll: true });
+    }
+    searchReturnFocus = null;
+  }
+
+  searchTrigger.addEventListener('click', () => (searchPop.hidden ? openSearch() : closeSearch()));
+  $('#search-close').addEventListener('click', () => closeSearch({ restoreFocus: true }));
 
   async function doSearch() {
     const q = searchInput.value.trim();
@@ -1446,10 +2115,15 @@
 
   searchInput.addEventListener('input', () => scheduleSearch());
   searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && searchInput.value) {
+    if (e.key === 'Escape') {
       e.preventDefault();
-      searchInput.value = '';
-      doSearch();
+      e.stopPropagation();
+      if (searchInput.value) {
+        searchInput.value = '';
+        doSearch();
+      } else {
+        closeSearch({ restoreFocus: true });
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       scheduleSearch.cancel();
@@ -1477,7 +2151,7 @@
       case 'expired':
         return 'En attente lors de la remise à zéro · peut se réinscrire';
       case 'interrupted':
-        return 'Partie interrompue par la nouvelle journée';
+        return 'Partie interrompue par la nouvelle journée · peut se réinscrire';
       default:
         return '';
     }
@@ -1495,18 +2169,18 @@
     const today = state && p.dayNumber === state.day.number;
     const created = today ? `inscrit à ${clock(p.createdAt)}` : `inscrit le ${dateFmt.format(new Date(p.createdAt))}`;
     const actions = [
-      `<button type="button" class="btn btn-sm btn-ghost" data-action="edit" data-participant="${p.id}" data-focus="s-edit-${p.id}">Modifier</button>`,
+      `<button type="button" class="btn btn-sm btn-outline" data-action="edit" data-participant="${p.id}" data-focus="s-edit-${p.id}">Modifier</button>`,
     ];
     if (status === 'waiting') {
       actions.push(
-        `<button type="button" class="btn btn-sm btn-danger-ghost" data-action="remove" data-participant="${p.id}" data-focus="s-remove-${p.id}">Retirer</button>`,
+        `<button type="button" class="btn btn-sm btn-danger-outline" data-action="remove" data-participant="${p.id}" data-focus="s-remove-${p.id}">Retirer</button>`,
       );
     }
     if (status === 'completed') {
       actions.push(
         p.goodiesGivenAt
           ? `<button type="button" class="btn btn-sm btn-ghost" data-action="goodies-undo" data-participant="${p.id}" data-focus="s-gundo-${p.id}">Annuler la remise</button>`
-          : `<button type="button" class="btn btn-sm btn-success" data-action="goodies-give" data-participant="${p.id}" data-focus="s-ggive-${p.id}">Goodies remis</button>`,
+          : `<button type="button" class="btn btn-sm btn-dark" data-action="goodies-give" data-participant="${p.id}" data-focus="s-ggive-${p.id}">${ICON('check')}Goodies remis</button>`,
       );
     }
     return `<article class="result">
@@ -1514,8 +2188,7 @@
         <span class="result-name">${esc(fullName(p))}</span>
         <span class="pill pill-${esc(status)}">${esc(label)}</span>
       </div>
-      <div class="result-meta">${esc(p.email)} · billet ${esc(p.ticket)}</div>
-      <div class="result-meta">Jour ${p.dayNumber} · ${esc(created)}</div>
+      <div class="result-meta">${esc(p.email)} · billet ${esc(p.ticket)} · jour ${p.dayNumber} · ${esc(created)}</div>
       <div class="result-where">${resultWhereHtml(p)}</div>
       <div class="result-actions">${actions.join('')}</div>
     </article>`;
@@ -1540,23 +2213,9 @@
       render = () => searchResults.map(searchResultHtml).join('');
     }
     patch(searchBox, key, render);
-    if (searchResults === null) revealedQuery = null;
-    else {
-      // Les résultats s'affichent sous le champ, en bas de la colonne : on les fait apparaître
-      // à chaque nouvelle recherche (pas lors des simples rafraîchissements de statut).
-      if (searchQuery !== revealedQuery && searchPanel.contains(document.activeElement)) {
-        revealedQuery = searchQuery;
-        revealSearchResults();
-      }
-      refreshSearchIfStale();
-    }
+    if (searchResults !== null) refreshSearchIfStale();
   }
 
-  function revealSearchResults() {
-    revealInColumn(searchResults !== null ? searchBox : searchInput, { keep: searchPanel });
-  }
-
-  // Après un nouvel état, relance la recherche (les statuts ont pu changer).
   function refreshSearchIfStale() {
     if (lastSearchSeq !== stateSeq) {
       lastSearchSeq = stateSeq;
@@ -1702,8 +2361,9 @@
     for (let no = 1; no <= 9; no++) {
       const label = document.createElement('label');
       label.className = 'toggle';
-      label.innerHTML = `<input type="checkbox" data-table="${no}" aria-label="Table ${no} en service">
-        <span class="toggle-name">Table ${no}</span><span class="toggle-state"></span>`;
+      label.innerHTML = `<input type="checkbox" role="switch" data-table="${no}" aria-label="Table ${no} en service">
+        <span class="toggle-text"><span class="toggle-name">Table ${no}</span><span class="toggle-state"></span></span>
+        <span class="switch" aria-hidden="true"></span>`;
       togglesBox.append(label);
     }
   }
@@ -1724,6 +2384,7 @@
 
   $('#btn-settings').addEventListener('click', () => {
     if (!state) return;
+    closeMoreMenu();
     durationInput.value = String(Math.round(state.settings.matchDurationMs / MIN));
     durationMsg.textContent = `Durée actuelle : ${Math.round(state.settings.matchDurationMs / MIN)} min.`;
     durationMsg.className = 'field-msg';
@@ -1801,8 +2462,8 @@
       [
         waitingPlayers,
         waitingPlayers >= 2
-          ? "joueurs en attente seront retirés de la file (ils pourront se réinscrire)."
-          : "joueur en attente sera retiré de la file (il pourra se réinscrire).",
+          ? 'joueurs en attente seront retirés de la file (ils pourront se réinscrire).'
+          : 'joueur en attente sera retiré de la file (il pourra se réinscrire).',
       ],
       [
         matches,
@@ -1821,7 +2482,6 @@
     $('#newday-impact').innerHTML = items
       .map(([n, text]) => `<li class="${n ? '' : 'is-zero'}"><strong>${n}</strong> ${esc(text)}</li>`)
       .join('');
-    // La nouvelle journée rouvre toujours le stand.
     const reopen = $('#newday-reopen');
     const paused = isPaused();
     reopen.classList.toggle('is-reopen', paused);
@@ -1836,12 +2496,11 @@
     updateNewDayDialog();
   }
 
-  $('#btn-newday').addEventListener('click', openNewDay);
+  newDayBtn.addEventListener('click', openNewDay);
 
-  // Bouton « Nouvelle journée… » proposé dans la confirmation « Rouvrir le stand ? » le matin.
   $('#confirm-body').addEventListener('click', (e) => {
     if (!e.target.closest('[data-open-newday]')) return;
-    closeDialog($('#confirm-dialog')); // la confirmation est annulée (événement « close »)
+    closeDialog($('#confirm-dialog'));
     openNewDay();
   });
 
@@ -1862,11 +2521,30 @@
     }
   });
 
+  // ================================================================ onglets (tablette)
+
+  const layout = $('#layout');
+
+  function setTab(name) {
+    if (layout.dataset.tab === name) return;
+    layout.dataset.tab = name;
+    for (const t of $$('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
+    closeSlotPop();
+    closeRowMenu();
+  }
+
+  $('.tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab');
+    if (tab) setTab(tab.dataset.tab);
+  });
+
   // ================================================================ comptes à rebours
 
   function tick() {
     const t = now();
-    renderStandState(); // passage au mode « matin » sans attendre un nouvel état
+    renderStandState();
+    renderWaitPill();
+    if (lastRegistration && state) renderLastRegistration(); // version compacte au bout de 90 s
     for (const el of $$('[data-ends-at]')) {
       const left = Number(el.dataset.endsAt) - t;
       const text = left > 0 ? LC.formatRemaining(left) : 'Terminé';
@@ -1875,28 +2553,44 @@
       el.classList.toggle('is-warn', warn);
       el.classList.toggle('is-over', left <= 0);
       const slot = el.closest('.slot');
-      if (slot) slot.classList.toggle('is-warn', warn);
+      if (slot) {
+        slot.classList.toggle('is-warn', warn);
+        slot.classList.toggle('is-over', left <= 0);
+      }
+      const bar = el.closest('.slot-pop') && $('.pop-bar', pop);
+      if (bar) bar.classList.toggle('is-warn', warn || left <= 0);
+    }
+    for (const el of $$('[data-start][data-end]')) {
+      const start = Number(el.dataset.start);
+      const end = Number(el.dataset.end);
+      const progress = Math.min(1, Math.max(0, (t - start) / Math.max(1, end - start)));
+      el.style.transform = `scaleX(${progress.toFixed(4)})`;
     }
     for (const el of $$('[data-since]')) {
       const text = formatWait(t - Number(el.dataset.since));
       if (el.textContent !== text) el.textContent = text;
     }
+    for (const el of $$('[data-ago]')) {
+      const ms = t - Number(el.dataset.ago);
+      const text = ms < MIN ? 'à l’instant' : `il y a ${formatWait(ms)}`;
+      if (el.textContent !== text) el.textContent = text;
+    }
     for (const el of $$('[data-new-until]')) {
-      const fresh = t < Number(el.dataset.newUntil);
-      el.hidden = !fresh;
-      const slot = el.closest('.slot');
-      if (slot) slot.classList.toggle('is-new', fresh);
+      el.hidden = t >= Number(el.dataset.newUntil);
     }
     // « Absent » disparaît de lui-même à la fin du délai, sans attendre un nouvel état.
     for (const el of $$('[data-noshow-until]')) {
       const open = t < Number(el.dataset.noshowUntil);
       if (el.hidden !== !open) {
-        if (!open && document.activeElement === el) {
-          const release = el.closest('.slot')?.querySelector('.slot-release');
-          if (release) release.focus({ preventScroll: true });
-        }
+        // Le focus revient sur le panneau (jamais sur une action : Entrée ne doit rien déclencher).
+        if (!open && el.contains(document.activeElement)) pop.focus({ preventScroll: true });
         el.hidden = !open;
       }
+    }
+    for (const el of $$('[data-noshow-left]')) {
+      const left = Number(el.dataset.noshowLeft) - t;
+      const text = left > 0 ? `· ${Math.max(1, Math.ceil(left / MIN))} min` : '';
+      if (el.textContent !== text) el.textContent = text;
     }
   }
 
@@ -1908,33 +2602,59 @@
   // ================================================================ raccourcis clavier
 
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !anyDialogOpen()) {
+      if (rowMenuFor) {
+        e.preventDefault();
+        closeRowMenu(true);
+        return;
+      }
+      if (!moreMenu.hidden) {
+        e.preventDefault();
+        closeMoreMenu(true);
+        return;
+      }
+      if (popTarget) {
+        e.preventDefault();
+        closeSlotPop({ restoreFocus: true });
+        return;
+      }
+      if (!searchPop.hidden) {
+        e.preventDefault();
+        closeSearch({ restoreFocus: true });
+        return;
+      }
+    }
     if (!e.altKey || e.ctrlKey || e.metaKey || anyDialogOpen()) return;
     if (e.code === 'Digit1' || e.code === 'Numpad1') {
       e.preventDefault();
+      closeSearch();
       setMode(1);
     } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
       e.preventDefault();
+      closeSearch();
       setMode(2);
     } else if (e.code === 'KeyR') {
       e.preventDefault();
-      searchInput.focus({ preventScroll: true });
-      searchInput.select();
-      revealSearchResults();
+      openSearch();
     } else if (e.code === 'KeyN') {
       e.preventDefault();
+      closeSearch();
       inputOf(0, 'firstName').focus();
     }
   });
 
   // ================================================================ démarrage
 
-  // Hauteur de la barre du haut et des bandeaux (pour les zones collantes sur petits écrans).
   const topSticky = $('#top-sticky');
-  const setTopbarHeight = () =>
+  const setTopbarHeight = () => {
     document.documentElement.style.setProperty('--acc-topbar-h', `${topSticky.offsetHeight}px`);
+    positionSlotPop();
+    if (!searchPop.hidden) positionSearch();
+  };
   if (window.ResizeObserver) new ResizeObserver(setTopbarHeight).observe(topSticky);
   setTopbarHeight();
 
+  loadCalls();
   buildTables();
   buildToggles();
   applyMode();
@@ -1945,7 +2665,7 @@
     onState,
     onStatus: setConnection,
     onSession: (session) => {
-      if (!session || !session.admin) window.location.href = '/login';
+      if (!session || !session.admin) window.location.href = LOGIN_URL;
     },
   });
 

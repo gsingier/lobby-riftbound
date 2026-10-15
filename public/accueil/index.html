@@ -9,22 +9,48 @@
   <link rel="stylesheet" href="/shared/theme.css">
   <link rel="stylesheet" href="/accueil/accueil.css">
 </head>
-<body class="accueil">
-  <!-- Barre du haut et bandeaux d'alerte : restent visibles ensemble en haut de la fenêtre. -->
+<body class="accueil rb-halo">
+  <!-- Pictogrammes (SVG inline : aucune ressource externe). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5 9.5 17.5 19.5 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-checks" viewBox="0 0 24 24"><path d="M2.5 12.5 6.5 16.5 14 8M10.5 15.5l1.5 1.5 9.5-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15.5 15.5 4.5 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 5.5 19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path d="M3.5 9.5h17v4h-17zM5 13.5h14v7H5zM12 9.5v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5C10.6 6.4 6.6 5.6 6.2 7.7 5.9 9.4 9.3 9.5 12 9.5zm0 0c1.4-3.1 5.4-3.9 5.8-1.8.3 1.7-3.1 1.8-5.8 1.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" fill="currentColor"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4.5H6.5v15H14M10.5 12h10M17 8.5l3.5 3.5-3.5 3.5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2.1"/><path d="M12 2.5v2.5M12 19v2.5M21.5 12H19M5 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1 5.3 5.3" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></symbol>
+  </svg>
+
+  <!-- Barre du haut et bandeaux d'état : restent visibles ensemble en haut de la fenêtre. -->
   <div class="top-sticky" id="top-sticky">
-    <header class="topbar" id="topbar">
+    <header class="appbar" id="topbar">
       <div class="brand">
-        <h1 class="brand-title"><span class="brand-page">Accueil <span class="brand-sep">–</span> </span><span class="brand-name">Riftbound Radiance</span></h1>
-        <span class="day-badge" id="day-badge" title="Journée du salon en cours">Jour –</span>
+        <img class="brand-logo" src="/assets/riftbound-logo.webp" alt="Riftbound – League of Legends Trading Card Game" width="542" height="238">
+        <div class="brand-text">
+          <h1 class="brand-title">Accueil</h1>
+          <span class="day-badge" id="day-badge" title="Journée du salon en cours">Jour –</span>
+        </div>
       </div>
 
-      <dl class="stats" aria-label="Statistiques">
-        <div class="stat" title="Joueurs en file d'attente"><dt><span class="lbl-full">En attente</span><span class="lbl-abbr" aria-hidden="true">Attente</span></dt><dd id="stat-waiting">–</dd></div>
-        <div class="stat" title="Joueurs actuellement à une table"><dt>En jeu</dt><dd id="stat-playing">–</dd></div>
-        <div class="stat" title="Joueurs ayant terminé leur partie aujourd'hui"><dt><span class="lbl-full">Terminés auj.</span><span class="lbl-abbr" aria-hidden="true">Terminés</span></dt><dd id="stat-completed">–</dd></div>
-        <div class="stat stat-goodies" id="stat-goodies-box" title="Goodies à remettre"><dt><span class="lbl-full">Goodies à remettre</span><span class="lbl-abbr" aria-hidden="true">Goodies</span></dt><dd id="stat-goodies">–</dd></div>
-        <div class="stat" title="Total des participants (tous les jours)"><dt><span class="lbl-full">Total participants</span><span class="lbl-abbr" aria-hidden="true">Total</span></dt><dd id="stat-total">–</dd></div>
-      </dl>
+      <div class="stats" role="group" aria-label="Statistiques">
+        <button type="button" class="stat" id="stat-waiting-box" data-goto="queue" title="Joueurs en file d'attente (afficher la file)"><span class="stat-num" id="stat-waiting">–</span><span class="stat-lbl">En attente</span></button>
+        <button type="button" class="stat" id="stat-playing-box" data-goto="plan" title="Joueurs actuellement à une table (afficher le plan)"><span class="stat-num" id="stat-playing">–</span><span class="stat-lbl">En jeu</span></button>
+        <div class="stat" title="Joueurs ayant terminé leur partie aujourd'hui"><span class="stat-num" id="stat-completed">–</span><span class="stat-lbl"><span class="lbl-full">Terminés auj.</span><span class="lbl-abbr" aria-hidden="true">Terminés</span></span></div>
+        <button type="button" class="stat stat-goodies" id="stat-goodies-box" data-goto="goodies" title="Goodies à remettre (afficher la liste)"><span class="stat-num" id="stat-goodies">–</span><span class="stat-lbl">Goodies</span></button>
+        <div class="stat" title="Total des participants (tous les jours)"><span class="stat-num" id="stat-total">–</span><span class="stat-lbl">Total</span></div>
+      </div>
+
+      <button type="button" class="search-trigger" id="search-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="search-pop" title="Rechercher un participant (Alt+R)">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <span class="search-trigger-label">Rechercher</span>
+        <kbd>Alt R</kbd>
+      </button>
 
       <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">
         <span class="conn-dot" aria-hidden="true"></span>
@@ -32,175 +58,225 @@
       </div>
 
       <nav class="top-actions" aria-label="Actions générales">
-        <a class="btn btn-ghost btn-sm" href="/api/export.csv" download>Exporter CSV</a>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-settings">Réglages</button>
-        <button type="button" class="btn btn-sm btn-warn-ghost" id="btn-stand" title="Le soir, à la fermeture : plus aucun placement automatique">Fermer le stand</button>
-        <button type="button" class="btn btn-ghost btn-sm btn-danger-ghost" id="btn-newday">Nouvelle journée</button>
-        <form method="post" action="/logout" class="logout-form">
-          <button type="submit" class="btn btn-ghost btn-sm">Déconnexion</button>
-        </form>
+        <button type="button" class="btn btn-outline btn-top" id="btn-settings" title="Réglages : durée des parties, tables en service">
+          <svg class="ic" aria-hidden="true"><use href="#i-gear"/></svg><span class="btn-top-label">Réglages</span>
+        </button>
+        <button type="button" class="btn btn-outline btn-top" id="btn-stand" title="Le soir, à la fermeture : plus aucun placement automatique">
+          <svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg><span class="btn-stand-label">Fermer le stand</span>
+        </button>
+        <button type="button" class="btn btn-outline btn-top" id="btn-newday" title="Le matin, avant l'ouverture : vide la file de la veille et rouvre le stand">
+          <svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg><span>Nouvelle journée</span>
+        </button>
+        <div class="menu-wrap">
+          <button type="button" class="btn btn-outline btn-icon" id="btn-more" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Plus d'actions">
+            <svg class="ic" aria-hidden="true"><use href="#i-more"/></svg><span class="sr-only">Plus d'actions</span>
+            <span class="more-dot" id="more-dot" hidden></span>
+          </button>
+          <div class="menu" id="more-menu" role="menu" hidden>
+            <button type="button" class="menu-item menu-only-narrow" role="menuitem" data-open-newday><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg>Nouvelle journée…<small>le matin</small></button>
+            <a class="menu-item" role="menuitem" href="/api/export.csv" download><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Exporter CSV<small>tous les participants</small></a>
+            <form method="post" action="/logout" class="logout-form">
+              <button type="submit" class="menu-item" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>Déconnexion</button>
+            </form>
+            <p class="menu-legal">Riftbound, Radiance et les visuels associés sont la propriété de Riot Games et UVS Games.</p>
+          </div>
+        </div>
       </nav>
     </header>
 
     <div class="closed-banner" id="closed-banner" role="status" hidden>
-      <span class="closed-icon" aria-hidden="true"></span>
-      <strong class="closed-title">Stand fermé : aucun nouveau placement</strong>
-      <span class="closed-detail" id="closed-detail">Les parties en cours vont jusqu'au bout · « Rouvrir le stand » (dans la journée) · le matin : « Nouvelle journée »</span>
-      <button type="button" class="btn btn-sm btn-primary closed-newday" id="closed-newday" hidden>Nouvelle journée…</button>
+      <svg class="closed-icon" aria-hidden="true"><use href="#i-moon"/></svg>
+      <div class="closed-text">
+        <strong class="closed-title" id="closed-title">Stand fermé : aucun nouveau placement</strong>
+        <span class="closed-detail" id="closed-detail">Les parties en cours vont jusqu'au bout. Le matin : « Nouvelle journée ».</span>
+      </div>
+      <button type="button" class="btn btn-primary closed-newday" id="closed-newday" hidden>Nouvelle journée…</button>
+      <button type="button" class="btn btn-on-dark" id="closed-reopen">Rouvrir le stand</button>
     </div>
 
     <div class="offline-banner" id="offline-banner" role="alert" hidden>
-      Connexion au serveur perdue – reconnexion en cours… Les informations affichées peuvent être périmées.
+      <span class="offline-dot" aria-hidden="true"></span>
+      <span><strong>Connexion au serveur perdue</strong> – reconnexion en cours… Les informations affichées peuvent être périmées ; notez les visiteurs sur papier.</span>
     </div>
   </div>
 
-  <main class="layout">
-    <!-- Colonne gauche : inscription + recherche -->
-    <div class="col-left">
-      <section class="panel panel-register" aria-labelledby="reg-title">
-        <div class="panel-head">
-          <h2 id="reg-title">Inscription</h2>
-          <span class="kbd-hint" title="Raccourcis clavier">Alt+1 / Alt+2</span>
+  <main class="layout" id="layout" data-tab="plan">
+    <!-- 01 · Inscrire -->
+    <section class="panel panel-register" aria-labelledby="reg-title">
+      <div class="panel-head">
+        <h2 id="reg-title"><span class="step">01</span>Inscrire</h2>
+        <span class="wait-pill" id="wait-pill" hidden title="Attente estimée pour une nouvelle inscription (même calcul que l'écran TV)"></span>
+      </div>
+
+      <!-- Résultat de la dernière inscription : ce que l'hôtesse annonce au visiteur. -->
+      <div class="reg-result" id="reg-result" aria-live="polite" hidden></div>
+
+      <form id="register-form" class="register-form" novalidate autocomplete="off">
+        <p class="form-paused" id="form-paused" hidden><strong>Stand fermé</strong> : les joueurs inscrits maintenant restent en file d'attente et ne seront pas placés tant que le stand est fermé.</p>
+
+        <div class="mode-toggle" role="radiogroup" aria-label="Nombre de joueurs">
+          <label class="mode-option" title="Alt+1">
+            <input type="radio" name="mode" value="1">
+            <span>1 joueur</span>
+          </label>
+          <label class="mode-option" title="Alt+2">
+            <input type="radio" name="mode" value="2" checked>
+            <span>2 joueurs ensemble</span>
+          </label>
         </div>
 
-        <form id="register-form" class="register-form" novalidate autocomplete="off">
-          <p class="form-paused" id="form-paused" hidden><strong>Stand fermé</strong> : les joueurs inscrits maintenant restent en file d'attente et ne seront pas placés tant que le stand est fermé.</p>
-
-          <div class="mode-toggle" role="radiogroup" aria-label="Nombre de joueurs">
-            <label class="mode-option">
-              <input type="radio" name="mode" value="1">
-              <span>1 joueur</span>
-            </label>
-            <label class="mode-option">
-              <input type="radio" name="mode" value="2" checked>
-              <span>2 joueurs ensemble</span>
-            </label>
-          </div>
-
-          <fieldset class="player" id="player-0" data-index="0">
-            <legend><span class="player-no">1</span> Joueur 1</legend>
-            <div class="field-grid">
-              <div class="field">
-                <label for="p0-firstName">Prénom</label>
-                <input id="p0-firstName" data-index="0" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
-                <p class="field-msg" id="p0-firstName-msg" aria-live="polite"></p>
-              </div>
-              <div class="field">
-                <label for="p0-lastName">Nom</label>
-                <input id="p0-lastName" data-index="0" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
-                <p class="field-msg" id="p0-lastName-msg" aria-live="polite"></p>
-              </div>
-              <div class="field field-wide">
-                <label for="p0-email">Email</label>
-                <input id="p0-email" data-index="0" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
-                <p class="field-msg" id="p0-email-msg" aria-live="polite"></p>
-              </div>
-              <div class="field field-wide">
-                <label for="p0-ticket">N° de billet</label>
-                <input id="p0-ticket" data-index="0" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <p class="field-msg" id="p0-ticket-msg" aria-live="polite"></p>
-              </div>
+        <fieldset class="player" id="player-0" data-index="0">
+          <legend>Joueur 1 <span class="legend-seat">chaise du haut</span></legend>
+          <div class="field-grid">
+            <div class="field">
+              <label for="p0-firstName">Prénom</label>
+              <input id="p0-firstName" data-index="0" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+              <p class="field-msg" id="p0-firstName-msg" aria-live="polite"></p>
             </div>
-          </fieldset>
-
-          <fieldset class="player" id="player-1" data-index="1">
-            <legend><span class="player-no">2</span> Joueur 2</legend>
-            <div class="field-grid">
-              <div class="field">
-                <label for="p1-firstName">Prénom</label>
-                <input id="p1-firstName" data-index="1" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
-                <p class="field-msg" id="p1-firstName-msg" aria-live="polite"></p>
-              </div>
-              <div class="field">
-                <label for="p1-lastName">Nom</label>
-                <input id="p1-lastName" data-index="1" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
-                <p class="field-msg" id="p1-lastName-msg" aria-live="polite"></p>
-              </div>
-              <div class="field field-wide">
-                <label for="p1-email">Email</label>
-                <input id="p1-email" data-index="1" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
-                <p class="field-msg" id="p1-email-msg" aria-live="polite"></p>
-              </div>
-              <div class="field field-wide">
-                <label for="p1-ticket">N° de billet</label>
-                <input id="p1-ticket" data-index="1" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <p class="field-msg" id="p1-ticket-msg" aria-live="polite"></p>
-              </div>
+            <div class="field">
+              <label for="p0-lastName">Nom</label>
+              <input id="p0-lastName" data-index="0" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+              <p class="field-msg" id="p0-lastName-msg" aria-live="polite"></p>
             </div>
-          </fieldset>
-
-          <p class="form-error" id="form-error" role="alert" hidden></p>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary btn-lg" id="register-submit">Inscrire les 2 joueurs</button>
-            <button type="button" class="btn btn-ghost" id="register-clear" title="Vider le formulaire">Effacer</button>
+            <div class="field field-email">
+              <label for="p0-email">Email</label>
+              <input id="p0-email" data-index="0" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
+              <p class="field-msg" id="p0-email-msg" aria-live="polite"></p>
+            </div>
+            <div class="field field-ticket">
+              <label for="p0-ticket">N° de billet</label>
+              <input id="p0-ticket" data-index="0" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
+              <p class="field-msg" id="p0-ticket-msg" aria-live="polite"></p>
+            </div>
           </div>
-          <p class="form-hint">Entrée : inscrire · Alt+1 / Alt+2 : 1 ou 2 joueurs · Alt+R : rechercher</p>
-        </form>
+        </fieldset>
 
-        <div class="reg-result" id="reg-result" aria-live="polite" hidden></div>
+        <fieldset class="player" id="player-1" data-index="1">
+          <legend>Joueur 2 <span class="legend-seat">chaise du bas</span></legend>
+          <div class="field-grid">
+            <div class="field">
+              <label for="p1-firstName">Prénom</label>
+              <input id="p1-firstName" data-index="1" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+              <p class="field-msg" id="p1-firstName-msg" aria-live="polite"></p>
+            </div>
+            <div class="field">
+              <label for="p1-lastName">Nom</label>
+              <input id="p1-lastName" data-index="1" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+              <p class="field-msg" id="p1-lastName-msg" aria-live="polite"></p>
+            </div>
+            <div class="field field-email">
+              <label for="p1-email">Email</label>
+              <input id="p1-email" data-index="1" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
+              <p class="field-msg" id="p1-email-msg" aria-live="polite"></p>
+            </div>
+            <div class="field field-ticket">
+              <label for="p1-ticket">N° de billet</label>
+              <input id="p1-ticket" data-index="1" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
+              <p class="field-msg" id="p1-ticket-msg" aria-live="polite"></p>
+            </div>
+          </div>
+        </fieldset>
+
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-lg" id="register-submit">Inscrire les 2 joueurs</button>
+          <button type="button" class="btn btn-ghost" id="register-clear" title="Vider le formulaire">Effacer</button>
+        </div>
+        <p class="form-hint"><kbd>Entrée</kbd> inscrire · <kbd>Alt 1</kbd> / <kbd>Alt 2</kbd> nombre de joueurs · <kbd>Alt R</kbd> rechercher · <kbd>Échap</kbd> fermer</p>
+      </form>
+    </section>
+
+    <!-- 02 · Appeler + plan des tables -->
+    <div class="col-floor">
+      <section class="panel panel-calls" id="panel-calls" aria-labelledby="calls-title">
+        <div class="panel-head">
+          <h2 id="calls-title"><span class="step">02</span>À appeler</h2>
+          <span class="count-badge" id="calls-count">0</span>
+          <span class="panel-sub" id="calls-sub">Personne à appeler pour l’instant</span>
+          <button type="button" class="btn btn-sm btn-outline calls-clear" id="calls-clear" hidden>
+            <svg class="ic" aria-hidden="true"><use href="#i-checks"/></svg>Tout marquer installés
+          </button>
+        </div>
+        <ul class="calls-list" id="calls-list"></ul>
       </section>
 
-      <section class="panel panel-search" aria-labelledby="search-title">
+      <!-- Onglets (portable étroit, tablette) : un seul panneau à la fois sous « À appeler ». -->
+      <div class="tabs" role="tablist" aria-label="Vues">
+        <button type="button" class="tab" role="tab" data-tab="plan" aria-selected="true">Plan des tables</button>
+        <button type="button" class="tab" role="tab" data-tab="queue" aria-selected="false">File d'attente <span class="tab-count" id="tab-queue-count">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="goodies" aria-selected="false">Goodies <span class="tab-count" id="tab-goodies-count">0</span></button>
+      </div>
+
+      <section class="panel panel-tables" id="panel-tables" data-pane="plan" aria-labelledby="tables-title">
         <div class="panel-head">
-          <h2 id="search-title">Rechercher un participant</h2>
+          <h2 id="tables-title">Plan des tables</h2>
+          <span class="panel-sub" id="tables-summary"></span>
         </div>
-        <div class="search-box">
-          <input type="search" id="search-input" placeholder="Nom, email ou n° de billet (Alt+R)" autocomplete="off" spellcheck="false" aria-label="Rechercher un participant">
-        </div>
-        <div class="search-results" id="search-results" aria-live="polite"></div>
+        <div class="tables-grid" id="tables-grid"></div>
+        <ul class="plan-legend" aria-label="Légende">
+          <li><i class="lg lg-free"></i>Libre</li>
+          <li><i class="lg lg-busy"></i>En jeu</li>
+          <li><i class="lg lg-warn"></i>5 dernières min</li>
+          <li><i class="lg lg-call"></i>À appeler</li>
+          <li class="lg-hint">Cliquez sur un emplacement : ±5 min, Absent, Libérer</li>
+        </ul>
       </section>
     </div>
 
-    <!-- Plan des tables -->
-    <section class="panel panel-tables" aria-labelledby="tables-title">
-      <div class="panel-head">
-        <h2 id="tables-title">Plan des tables</h2>
-        <span class="panel-sub" id="tables-summary"></span>
-      </div>
-      <div class="panel-body">
-        <div class="tables-grid" id="tables-grid"></div>
-      </div>
-    </section>
-
-    <!-- File d'attente -->
-    <section class="panel panel-queue" aria-labelledby="queue-title">
-      <div class="panel-head">
-        <h2 id="queue-title">File d'attente</h2>
-        <span class="panel-sub" id="queue-summary"></span>
-      </div>
-      <p class="queue-paused" id="queue-paused" hidden><strong>Stand fermé</strong> : personne n'est placé. Les joueurs restent en file ; s'ils y sont encore à la « Nouvelle journée », ils pourront se réinscrire.</p>
-      <div class="panel-body">
-        <ol class="queue-list" id="queue-list"></ol>
-      </div>
-    </section>
-
-    <!-- Goodies -->
-    <section class="panel panel-goodies" aria-labelledby="goodies-title">
-      <div class="panel-head">
-        <h2 id="goodies-title">Goodies à remettre</h2>
-        <span class="count-badge" id="goodies-count">0</span>
-      </div>
-      <div class="panel-body">
+    <div class="col-side">
+      <!-- 03 · Goodies -->
+      <section class="panel panel-goodies" id="panel-goodies" data-pane="goodies" aria-labelledby="goodies-title">
+        <div class="panel-head">
+          <h2 id="goodies-title"><span class="step">03</span>Goodies à remettre</h2>
+          <span class="count-badge" id="goodies-count">0</span>
+        </div>
         <ul class="goodies-list" id="goodies-list"></ul>
-      </div>
-    </section>
+      </section>
+
+      <!-- File d'attente -->
+      <section class="panel panel-queue" id="panel-queue" data-pane="queue" aria-labelledby="queue-title">
+        <div class="panel-head">
+          <h2 id="queue-title">File d'attente</h2>
+          <span class="panel-sub" id="queue-summary"></span>
+        </div>
+        <p class="queue-paused" id="queue-paused" hidden><strong>Stand fermé</strong> : personne n'est placé. Les joueurs restent en file ; s'ils y sont encore à la « Nouvelle journée », ils pourront se réinscrire.</p>
+        <ol class="queue-list" id="queue-list"></ol>
+      </section>
+    </div>
   </main>
 
+  <!-- Recherche (Alt+R) : panneau sous la barre du haut. -->
+  <div class="search-pop" id="search-pop" role="dialog" aria-label="Rechercher un participant" hidden>
+    <div class="search-box">
+      <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="search" id="search-input" placeholder="Nom, email ou n° de billet" autocomplete="off" spellcheck="false" aria-label="Rechercher un participant">
+      <button type="button" class="btn btn-ghost btn-icon" id="search-close" aria-label="Fermer la recherche"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="search-results" id="search-results" aria-live="polite"></div>
+  </div>
+
+  <!-- Panneau d'actions d'un emplacement (clic sur le plan ou sur une carte « À appeler »). -->
+  <div class="slot-pop" id="slot-pop" role="dialog" aria-modal="false" aria-labelledby="slot-pop-title" tabindex="-1" hidden></div>
+
+  <!-- Menu d'actions secondaires (ligne de la file, carte « À appeler »). -->
+  <div class="menu row-menu" id="row-menu" role="menu" hidden></div>
+
+  <!-- Notifications : posées sur la barre du haut, elles ne couvrent jamais un panneau de travail. -->
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
   <!-- Réglages -->
   <dialog class="modal" id="settings-dialog" aria-labelledby="settings-title">
     <div class="modal-head">
       <h2 id="settings-title">Réglages</h2>
-      <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer">×</button>
+      <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <form class="modal-section" id="duration-form" novalidate>
       <h3>Durée des parties</h3>
       <div class="duration-row">
         <label for="duration-input">Durée (minutes)</label>
         <input type="number" id="duration-input" min="1" max="180" step="1" inputmode="numeric" required>
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <button type="submit" class="btn btn-dark">Enregistrer</button>
       </div>
       <p class="field-msg" id="duration-msg"></p>
       <p class="hint">S'applique aux prochaines parties. Les parties en cours gardent leur heure de fin (utilisez « +5 min » / « −5 min » sur le plan).</p>
@@ -208,10 +284,10 @@
     <div class="modal-section">
       <h3>Tables en service</h3>
       <div class="toggles-grid" id="tables-toggles"></div>
-      <p class="hint">Une table hors service ne reçoit plus de nouveaux joueurs ; les parties déjà en cours continuent jusqu'à leur fin.</p>
+      <p class="hint">Une table hors service ne reçoit plus de nouveaux joueurs ; les parties déjà en cours continuent jusqu'à leur fin. Pour une pause en journée, mettez les tables hors service (pas « Fermer le stand »).</p>
     </div>
     <div class="modal-foot">
-      <button type="button" class="btn btn-ghost" data-close>Fermer</button>
+      <button type="button" class="btn btn-outline" data-close>Fermer</button>
     </div>
   </dialog>
 
@@ -227,7 +303,7 @@
       <p class="hint">Tous les participants restent enregistrés (visibles dans la recherche et l'export CSV). À faire le matin, avant l'ouverture.</p>
     </div>
     <div class="modal-foot">
-      <button type="button" class="btn btn-ghost" data-close id="newday-cancel">Annuler</button>
+      <button type="button" class="btn btn-outline" data-close id="newday-cancel">Annuler</button>
       <button type="button" class="btn btn-danger" id="newday-confirm">Démarrer le jour –</button>
     </div>
   </dialog>
@@ -237,7 +313,7 @@
     <form id="edit-form" novalidate autocomplete="off">
       <div class="modal-head">
         <h2 id="edit-title">Modifier le joueur</h2>
-        <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer">×</button>
+        <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
       </div>
       <div class="modal-section">
         <p class="hint" id="edit-context"></p>
@@ -266,8 +342,8 @@
         <p class="form-error" id="edit-error" role="alert" hidden></p>
       </div>
       <div class="modal-foot">
-        <button type="button" class="btn btn-ghost" data-close>Annuler</button>
-        <button type="submit" class="btn btn-primary" id="edit-submit">Enregistrer</button>
+        <button type="button" class="btn btn-outline" data-close>Annuler</button>
+        <button type="submit" class="btn btn-dark" id="edit-submit">Enregistrer</button>
       </div>
     </form>
   </dialog>
@@ -279,8 +355,8 @@
     </div>
     <div class="modal-section" id="confirm-body"></div>
     <div class="modal-foot">
-      <button type="button" class="btn btn-ghost" id="confirm-cancel">Annuler</button>
-      <button type="button" class="btn btn-primary" id="confirm-ok">Confirmer</button>
+      <button type="button" class="btn btn-outline" id="confirm-cancel">Annuler</button>
+      <button type="button" class="btn btn-dark" id="confirm-ok">Confirmer</button>
     </div>
   </dialog>
 

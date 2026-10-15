@@ -1,59 +1,93 @@
-/* Thème « Radiance » partagé (écran TV, accueil, connexion).
-   Inspiré de la DA Riftbound – Radiance : nuit profonde, bleu Riftbound, or lumineux.
-   Remplacer ces valeurs par celles de la charte officielle quand UVS la fournira. */
+/* Thème « Riftbound · Radiance » — partagé par l'écran TV (/ecran), l'accueil (/accueil) et la
+   connexion (/login).
 
-@import url('/fonts/cinzel/600.css');
-@import url('/fonts/cinzel/700.css');
-@import url('/fonts/cinzel/900.css');
-@import url('/fonts/barlow/400.css');
-@import url('/fonts/barlow/500.css');
-@import url('/fonts/barlow/600.css');
-@import url('/fonts/barlow/700.css');
-@import url('/fonts/barlow-condensed/500.css');
-@import url('/fonts/barlow-condensed/600.css');
-@import url('/fonts/barlow-condensed/700.css');
+   Direction : clair et net (lisible de loin, sous l'éclairage d'un hall), sur un fond nacré
+   éclairé par le halo irisé du set Radiance (cyan → lavande → rose), avec deux couleurs franches :
+   - orange Riftbound #F07000 = action / attention (bouton principal, « À suivre », 5 dernières
+     minutes, « À appeler ») — toujours avec un texte ENCRE (6,3:1), jamais blanc ;
+   - cyan Radiance = libre / disponible (places libres, jauges, focus).
+   Encre = état normal ; hachures grises = fermé / hors service ; rouge = irréversible ou panne.
+
+   Contrastes vérifiés (WCAG 2.1) :
+   encre #111214 sur blanc 18,9:1 · encre 2 #4A4D55 sur blanc 8,5:1 · encre 3 #5E616A sur fond
+   #F4F4F0 5,6:1 (texte le plus pâle) · encre sur orange #F07000 6,3:1 · orange texte #B34D00 sur
+   blanc 5,3:1 · cyan texte #0B6E7D sur blanc 5,9:1 · encre sur cyan #79D6E2 11,2:1 · blanc sur
+   rouge #B42326 6,5:1 · or texte #8A6A1F sur #FAF3E2 4,6:1.
+
+   Logo officiel : /assets/riftbound-logo.webp, conçu pour un fond clair (gris « League of
+   Legends ») : toujours posé sur blanc ou sur la carte nacrée .rb-logo-card, jamais recoloré. */
+
+/* Inter Variable avec l'axe de taille optique (coupe « Display » automatique en grand). */
+@import url('/fonts/inter/opsz.css');
 
 :root {
-  /* Fonds */
-  --rb-night: #050a1c;
-  --rb-deep: #0a1534;
-  --rb-panel: #0f1d45;
-  --rb-panel-2: #142757;
-  --rb-line: rgba(140, 180, 255, 0.18);
+  /* Surfaces */
+  --rb-bg: #f4f4f0;          /* fond de page : perle (DA Radiance #FAF8EF assourdi) */
+  --rb-pearl: #faf8ef;       /* nacre du key art */
+  --rb-pearl-2: #edf2e9;     /* nacre menthe */
+  --rb-paper: #ffffff;       /* cartes, panneaux */
+  --rb-sunken: #ebebe5;      /* creux : pistes de jauge, segments inactifs */
+  --rb-hover: #f8f8f5;
+  --rb-hatch: #e2e2dc;       /* hachures fermé / hors service */
 
-  /* Bleu Riftbound (panneaux du stand) */
-  --rb-blue: #1f5fd6;
-  --rb-azure: #3fa9ff;
-  --rb-cyan: #7fe3ff;
+  /* Encre */
+  --rb-ink: #111214;         /* texte principal, plaques de table, boutons « faits » */
+  --rb-ink-2: #4a4d55;       /* texte secondaire (8,5:1 sur blanc) */
+  --rb-ink-3: #5e616a;       /* légendes, métadonnées (≥ 5,2:1 sur tous les fonds clairs) */
+  --rb-line: #e3e3dd;        /* filets */
+  --rb-line-2: #cfcfc8;      /* bordures de champs, filets appuyés */
 
-  /* Or « Radiance » */
-  --rb-gold: #f2c14e;
-  --rb-gold-light: #ffe7a3;
-  --rb-gold-deep: #b8862b;
-  --rb-radiant: #fff6d6;
+  /* Marque */
+  --rb-orange: #f07000;          /* orange Riftbound (logo) : aplats avec texte encre */
+  --rb-orange-hover: #ff7f14;
+  --rb-orange-ink: #b34d00;      /* orange en texte sur clair (5,3:1) */
+  --rb-orange-tint: #fff1e4;
+  --rb-orange-line: #ffcb9e;
 
-  /* Texte */
-  --rb-text: #eef3ff;
-  --rb-muted: #9fb0d6;
-  --rb-faint: #6b7ba3;
+  --rb-cyan: #79d6e2;            /* cyan Radiance : places libres */
+  --rb-cyan-strong: #20b3c7;     /* jauges, filets actifs, focus */
+  --rb-cyan-ink: #0b6e7d;        /* cyan en texte sur clair (5,9:1) */
+  --rb-cyan-tint: #e6f7f9;
+  --rb-cyan-line: #b4e7ee;
+
+  --rb-gold: #c9a24a;            /* or des cartouches : goodies */
+  --rb-gold-ink: #8a6a1f;
+  --rb-gold-tint: #faf3e2;
+
+  --rb-mauve: #714b69;           /* crépuscule (stand fermé) */
+  --rb-lavender: #a7b7cf;
+  --rb-rose: #e58bc9;
 
   /* États */
-  --rb-success: #4ade80;
-  --rb-warning: #ffb547;
-  --rb-danger: #ff5d6c;
+  --rb-green: #12a150;
+  --rb-green-ink: #0b7a3b;
+  --rb-green-tint: #e7f6ed;
+  --rb-red: #e5383b;
+  --rb-red-ink: #b42326;
+  --rb-red-tint: #fdeded;
+  --rb-red-line: #f6c2c3;
+
+  /* Irisé Radiance (nacre holographique du key art). */
+  --rb-iris: linear-gradient(90deg, #8bd8e1 0%, #a7c4ef 24%, #c3aee6 48%, #e58bc9 72%, #f6c99a 100%);
+  --rb-iris-conic: conic-gradient(from 200deg, #8bd8e1, #a7c4ef, #c3aee6, #e58bc9, #f6c99a, #8bd8e1);
+  /* Bleu-argent métallisé du mot RADIANCE (foncé pour rester lisible de loin). */
+  --rb-metal: linear-gradient(180deg, #8ea3d3 0%, #4a64a3 30%, #1d2f5c 52%, #3a5596 68%, #7f97cc 86%, #2b4580 100%);
 
   /* Typographie */
-  --rb-font-display: 'Cinzel', 'Times New Roman', serif;
-  --rb-font-body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
-  --rb-font-condensed: 'Barlow Condensed', 'Arial Narrow', 'Barlow', sans-serif;
+  --rb-font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  /* Effets */
-  --rb-glow-gold: 0 0 24px rgba(242, 193, 78, 0.45);
-  --rb-glow-blue: 0 0 28px rgba(63, 169, 255, 0.35);
-  --rb-radius: 14px;
-  --rb-radius-sm: 8px;
+  /* Rayons */
+  --rb-r-xs: 6px;
+  --rb-r-sm: 10px;
+  --rb-r: 14px;
+  --rb-r-lg: 20px;
 
-  color-scheme: dark;
+  /* Ombres (surfaces flottantes uniquement : menus, panneaux, modales). */
+  --rb-shadow-card: 0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -14px rgba(52, 62, 104, 0.18);
+  --rb-shadow-pop: 0 1px 2px rgba(17, 18, 20, 0.06), 0 12px 32px -8px rgba(17, 18, 20, 0.2);
+  --rb-focus: 0 0 0 3px rgba(32, 179, 199, 0.5);
+
+  color-scheme: light;
 }
 
 *,
@@ -65,8 +99,107 @@
 html,
 body {
   margin: 0;
-  background: var(--rb-night);
-  color: var(--rb-text);
-  font-family: var(--rb-font-body);
+  background: var(--rb-bg);
+  color: var(--rb-ink);
+  font-family: var(--rb-font);
+  font-optical-sizing: auto;
+  font-feature-settings: 'cv11', 'ss01'; /* « a » simple, chiffres ouverts : lecture plus nette à distance */
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Halo Radiance STATIQUE (aucune animation, aucun filtre de flou : gratuit pour un mini-PC).
+   Dégradés radiaux cyan → lavande → rose sur fond nacré, et cercles concentriques lumineux. */
+.rb-halo {
+  background:
+    radial-gradient(48% 62% at 0% 0%, rgba(139, 216, 225, 0.58), rgba(139, 216, 225, 0) 72%),
+    radial-gradient(42% 56% at 100% 0%, rgba(229, 139, 201, 0.32), rgba(229, 139, 201, 0) 72%),
+    radial-gradient(58% 60% at 100% 100%, rgba(167, 183, 207, 0.5), rgba(167, 183, 207, 0) 72%),
+    radial-gradient(46% 54% at 0% 100%, rgba(246, 201, 164, 0.34), rgba(246, 201, 164, 0) 72%),
+    linear-gradient(165deg, #fbfaf3 0%, #f5f4f1 50%, #eef3ea 100%);
+}
+
+/* Stand fermé : le halo passe au crépuscule (mauve, lavande). */
+:root[data-stand="ferme"] .rb-halo {
+  background:
+    radial-gradient(48% 62% at 0% 0%, rgba(167, 183, 207, 0.62), rgba(167, 183, 207, 0) 72%),
+    radial-gradient(42% 56% at 100% 0%, rgba(113, 75, 105, 0.24), rgba(113, 75, 105, 0) 72%),
+    radial-gradient(58% 60% at 100% 100%, rgba(113, 75, 105, 0.22), rgba(113, 75, 105, 0) 72%),
+    radial-gradient(46% 54% at 0% 100%, rgba(167, 140, 190, 0.3), rgba(167, 140, 190, 0) 72%),
+    linear-gradient(165deg, #f4f2f6 0%, #eeecf2 50%, #e9e7f0 100%);
+}
+
+/* Carte nacrée à liseré holographique : le logo officiel y garde son gris lisible. */
+.rb-logo-card {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--rb-r-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(139, 216, 225, 0.22), rgba(139, 216, 225, 0) 55%),
+    radial-gradient(120% 140% at 100% 100%, rgba(229, 139, 201, 0.16), rgba(229, 139, 201, 0) 55%),
+    linear-gradient(160deg, #ffffff, var(--rb-pearl) 55%, #f6f8f3);
+  box-shadow: var(--rb-shadow-card);
+}
+
+.rb-logo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--rb-iris);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.rb-logo-card img {
+  position: relative;
+  display: block;
+  width: auto;
+  max-width: 100%;
+}
+
+/* Mot RADIANCE en bleu-argent métallisé (en attendant le logotype officiel du set). */
+.rb-radiance {
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: var(--rb-metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: #24396b; /* repli si background-clip:text n'est pas pris en charge */
+  -webkit-text-fill-color: transparent;
+}
+
+/* Pastille holographique. */
+.rb-iris-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.32em 0.8em;
+  border-radius: 99px;
+  background: var(--rb-iris);
+  color: var(--rb-ink);
+  font-weight: 750;
+  font-size: 0.78em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

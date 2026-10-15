@@ -164,10 +164,13 @@ plan des tables et la file d'attente.
 
 ## Direction artistique
 
-Thème **inspiré** de Riftbound – Radiance (set 5) : fond bleu nuit profond,
-accents or et lumière radiante, halos lumineux. Les logos et visuels officiels
-(propriété de Riot Games / UVS Games) sont des **emplacements remplaçables**
-dans `public/assets/` (voir `public/assets/README.md`).
+Thème clair fidèle à la DA Riftbound – Radiance (set 5) : fond nacré éclairé
+par un halo irisé statique (cyan, lavande, rose, cercles concentriques),
+panneaux blancs, police Inter, **orange Riftbound** pour l'action et l'urgence,
+**cyan** pour les places libres. Logo officiel Riftbound posé sur fond clair ;
+le logotype Radiance et un visuel HD sont attendus d'UVS (propriété de Riot
+Games / UVS Games, voir `public/assets/README.md`). Détails dans le README
+(section « Interface »).
 
 ## Étapes
 
@@ -177,3 +180,5 @@ dans `public/assets/` (voir `public/assets/README.md`).
 4. Dockerfile, guide de déploiement Coolify, export CSV.
 5. Revue critique et corrections.
 6. Fermeture du stand le soir, « Absent » après placement.
+7. Refonte visuelle et ergonomique (DA Radiance, logo officiel, « À appeler »,
+   panneau d'actions d'emplacement, attente estimée sur la TV).

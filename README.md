@@ -18,8 +18,12 @@ Rester jusqu'au bout donne droit aux **goodies**.
 - Placement **automatique** : tables entièrement libres d'abord, puis
   demi-tables ; deux joueurs seuls sont associés automatiquement ; un joueur
   seul peut être **« placé quand même »** contre un animateur.
-- Plan des 9 tables avec les comptes à rebours, **+5 / −5 min**, **« Libérer »**
-  (départ anticipé, sans goodies).
+- Panneau **« À appeler »** : les joueurs placés automatiquement (ou associés à
+  un joueur seul, ou « placés quand même ») restent listés avec leur table
+  jusqu'à « Installés » ; liste mémorisée sur le poste.
+- Plan des 9 tables avec les comptes à rebours ; un clic sur un emplacement
+  ouvre son panneau d'actions : **+5 / −5 min**, **« Absent »**,
+  **« Libérer »** (départ anticipé, sans goodies), table hors service.
 - **« Absent »** sur chaque joueur placé, pendant les **15 premières minutes** de
   la partie : il est retiré sans goodies et pourra se réinscrire ; son
   partenaire continue contre un animateur (ou, s'il ne reste personne, la
@@ -41,7 +45,10 @@ Rester jusqu'au bout donne droit aux **goodies**.
 **Écran TV (`/ecran`, public)**
 
 - Plan du stand (9 tables × 2 matchs), noms des joueurs, temps restant, file
-  d'attente, en temps réel.
+  d'attente avec l'heure de passage estimée, en temps réel.
+- **Attente estimée pour une nouvelle inscription** (« ~20 min », ou « places
+  libres maintenant ») et liste **« À vos tables ! »** des joueurs placés depuis
+  moins de 3 minutes (étiquette « Nouveau » sur leur emplacement).
 - N'affiche que **« Prénom N. »** : jamais d'email ni de numéro de billet.
 - Stand fermé (le soir) : l'écran l'annonce à la place de la file d'attente.
 - Mise en page paysage ou portrait (Full HD), rotation possible
@@ -59,6 +66,63 @@ Rester jusqu'au bout donne droit aux **goodies**.
 
 Les règles métier détaillées, validées avec le client, sont dans
 [PLAN.md](PLAN.md).
+
+## Interface
+
+Direction artistique **« Radiance »** : thème clair sur fond nacré éclairé par
+un halo irisé statique (cyan → lavande → rose, cercles concentriques), panneaux
+blancs, police **Inter** auto-hébergée, **logo officiel** Riftbound posé sur
+fond clair. Deux couleurs franches, avec le même sens partout : **cyan = libre
+/ disponible**, **orange Riftbound = à faire / attention** (bouton principal,
+« À suivre », 5 dernières minutes, « À appeler », texte encre sur orange) ;
+hachures grises = fermé ou hors service, rouge = irréversible ou panne. Les
+couleurs et les classes communes sont dans `public/shared/theme.css`.
+
+**Accueil (`/accueil`)**, organisé autour de la boucle de travail de
+l'hôtesse :
+
+- **Barre du haut** : jour du salon, compteurs cliquables (En attente, En jeu,
+  Terminés, Goodies, Total), **Rechercher** (Alt + R), état de la connexion,
+  **Réglages**, **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »**
+  (Exporter CSV, Déconnexion). Les notifications s'affichent quelques secondes
+  sur cette barre, sans couvrir les panneaux.
+- **01 Inscrire** (colonne de gauche) : formulaire 1 ou 2 joueurs (joueur 1 =
+  chaise du haut, joueur 2 = chaise du bas), vérification des doublons en
+  direct, attente estimée (même calcul que la TV), **cadre de résultat** à
+  annoncer (« → Table 4 · B », rang dans la file, joueur seul…), qui suit la
+  situation du joueur.
+- **02 À appeler** (en haut au centre) : une carte par placement automatique
+  (plaque table + A/B, noms complets, « prévenir un animateur » si besoin),
+  bouton **« Installés »**, **« Tout marquer installés »**, menu « ⋯ » avec
+  **« Absent : nom »** (15 premières minutes) et l'ouverture de l'emplacement.
+  Liste mémorisée sur le poste (`localStorage`) ; sur un nouvel appareil, les
+  placements des 3 dernières minutes sont repris.
+- **Plan des tables** (au centre) : chaque emplacement montre l'essentiel
+  (lettre, compte à rebours, noms, jauge, « Nouveau » / « À appeler ») ; un
+  clic ouvre le **panneau d'actions de l'emplacement** : compte à rebours,
+  joueurs avec email et billet, **« Absent »** (avec le délai restant),
+  **−5 / +5 min**, **« Libérer l'emplacement… »** isolé en bas (confirmation
+  avec « Annuler » par défaut) ; pour un emplacement libre, mise hors service
+  de la table.
+- **03 Goodies à remettre** et **File d'attente** (colonne de droite) : bouton
+  « Remis » / « Annuler » ; file avec rang, heure de passage estimée,
+  « Placer quand même (vs animateur) » visible pour un joueur seul, et
+  « Modifier » / « Retirer » dans le menu « ⋯ » de chaque ligne.
+- **Bandeaux** pleine largeur : « Stand fermé » (noir, avec « Rouvrir le
+  stand » ; orange le matin, avec « Nouvelle journée »), « Connexion au serveur
+  perdue » (rouge).
+- De 1280 à 1920 px de large : trois colonnes. En dessous (tablette 1024 × 768),
+  deux colonnes, avec des onglets Plan / File / Goodies. Cibles tactiles d'au
+  moins 44 px.
+
+**Écran TV (`/ecran`)** : en-tête (logo officiel dans une carte nacrée, mot
+« Radiance », horloge, « En direct » / « Reconnexion… »), plan fidèle au stand
+(enceinte, entrée en bas, plaques de table numérotées, A à gauche / B à droite,
+joueur 1 en haut / joueur 2 en bas), carte **attente estimée**, liste
+**« À vos tables ! »**, file d'attente (deux colonnes lues ligne par ligne en
+portrait), bandeau d'appel en bas. Les noms longs sont réduits ou passent sur
+deux lignes plutôt que d'être coupés. Animations limitées à `transform` et
+`opacity` (coupées si `prefers-reduced-motion`).
 
 ## Captures d'écran
 
@@ -205,7 +269,7 @@ Gardez donc ce domaine en HTTPS. En HTTP (essais, adresse `sslip.io`), ni
 │   ├── accueil/        interface de l'hôtesse
 │   ├── login.html      page de connexion
 │   ├── shared/         client temps réel commun (client.js) et thème (theme.css)
-│   └── assets/         logos et fond, remplaçables (voir public/assets/README.md)
+│   └── assets/         logo officiel et visuels (voir public/assets/README.md)
 ├── scripts/
 │   └── demo-seed.js    données de démonstration
 ├── test/               tests automatisés (npm test)
@@ -216,8 +280,8 @@ Gardez donc ce domaine en HTTPS. En HTTP (essais, adresse `sslip.io`), ni
 ```
 
 Aucune étape de construction côté navigateur : HTML, CSS et JavaScript sont
-servis tels quels. Les polices (Cinzel, Barlow) sont auto-hébergées : l'écran
-fonctionne sans dépendre de Google Fonts ni d'un CDN.
+servis tels quels. La police (Inter) est auto-hébergée : l'écran fonctionne sans
+dépendre de Google Fonts ni d'un CDN.
 
 ## Documentation
 
@@ -226,10 +290,11 @@ fonctionne sans dépendre de Google Fonts ni d'un CDN.
 - [Guide de l'accueil](docs/GUIDE-ACCUEIL.md) : pour les hôtesses et
   animateurs du stand.
 - [Plan et règles métier](PLAN.md).
-- [Remplacer les logos et le fond de l'écran](public/assets/README.md).
+- [Logos et visuels (en place, attendus)](public/assets/README.md).
 
 ## Mentions
 
 Riftbound, Radiance et les visuels associés sont la propriété de Riot Games et
-UVS Games. Les visuels fournis dans `public/assets/` sont des visuels de
-remplacement à substituer par les fichiers officiels fournis pour l'événement.
+UVS Games. Le logo Riftbound de `public/assets/` est le fichier officiel fourni
+pour l'événement ; le logotype Radiance et un visuel HD sont encore attendus
+(voir `public/assets/README.md`).
