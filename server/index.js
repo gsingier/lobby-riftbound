@@ -12,7 +12,17 @@ const { createAuth } = require('./auth');
 const { buildCsv } = require('./csv');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-const FONTS_DIR = path.join(path.dirname(require.resolve('@fontsource/cinzel/package.json')), '..');
+// Polices auto-hébergées : /fonts/<nom>/… (paquets @fontsource et @fontsource-variable).
+const FONT_PACKAGES = [
+  '@fontsource/cinzel',
+  '@fontsource/barlow',
+  '@fontsource/barlow-condensed',
+  '@fontsource-variable/inter',
+  '@fontsource-variable/outfit',
+  '@fontsource-variable/sora',
+  '@fontsource-variable/manrope',
+  '@fontsource-variable/plus-jakarta-sans',
+];
 const TICK_MS = 1000;
 // Proxys dont on croit X-Forwarded-For / X-Forwarded-Proto (IP du client, HTTPS) : par défaut les
 // adresses locales et privées, d'où le Traefik de Coolify joint le conteneur. Un client Internet
@@ -142,8 +152,9 @@ function createApp({
   });
 
   // Polices auto-hébergées (pas de dépendance à Google Fonts sur le stand).
-  for (const font of ['cinzel', 'barlow', 'barlow-condensed']) {
-    app.use(`/fonts/${font}`, express.static(path.join(FONTS_DIR, font), { maxAge: '30d', immutable: true }));
+  for (const pkg of FONT_PACKAGES) {
+    const dir = path.dirname(require.resolve(`${pkg}/package.json`));
+    app.use(`/fonts/${pkg.split('/')[1]}`, express.static(dir, { maxAge: '30d', immutable: true }));
   }
   app.use(express.static(PUBLIC_DIR, { index: false, extensions: false }));
 

@@ -42,6 +42,38 @@
     };
   }
 
+  // Estimation des heures de passage : on simule les libérations d'emplacements (fin prévue
+  // des parties en cours, puis parties de la durée réglée) dans l'ordre où le serveur place.
+  // Renvoie { etas: Map(entryId → heure de début estimée), nextFreeAt, newcomerAt } ;
+  // newcomerAt = heure estimée pour une paire qui s'inscrirait maintenant. Stand fermé → vide.
+  function estimate(state, nowMs) {
+    const etas = new Map();
+    const result = { etas, nextFreeAt: null, newcomerAt: null };
+    if (!state || state.settings.placementsPaused) return result;
+    const free = [];
+    for (const t of state.tables) {
+      if (!t.enabled) continue;
+      for (const slot of ['A', 'B']) {
+        const m = t.slots[slot];
+        free.push(m ? Math.max(m.endsAt, nowMs) : nowMs);
+      }
+    }
+    if (!free.length) return result;
+    free.sort((a, b) => a - b);
+    result.nextFreeAt = free[0];
+    const duration = state.settings.matchDurationMs;
+    for (const e of state.queue) {
+      if (!e.ready) continue;
+      free.sort((a, b) => a - b);
+      const at = free.shift();
+      etas.set(e.entryId, at);
+      free.push(at + duration);
+    }
+    free.sort((a, b) => a - b);
+    result.newcomerAt = free[0];
+    return result;
+  }
+
   // 3 599 000 ms → « 59:59 » ; au-delà d'une heure → « 1:05:00 ».
   function formatRemaining(ms) {
     const total = Math.max(0, Math.ceil(ms / 1000));
@@ -70,5 +102,5 @@
     })[c]);
   }
 
-  window.LobbyClient = { connect, formatRemaining, formatClock, escapeHtml };
+  window.LobbyClient = { connect, estimate, formatRemaining, formatClock, escapeHtml };
 })();
