@@ -43,7 +43,8 @@
         </div>
         <div class="plan-foot">
           <ul class="legend" aria-label="Légende">
-            <li><i class="lg-free"></i>Libre</li>
+            <li class="lg-open"><i class="lg-free"></i>Libre</li>
+            <li class="lg-closed"><i class="lg-shut"></i>Fermé</li>
             <li><i class="lg-busy"></i>En jeu</li>
             <li><i class="lg-warn"></i>Fin proche</li>
           </ul>
@@ -56,6 +57,7 @@
         <div class="queue-head">
           <h2>File d'attente</h2>
           <div class="queue-count"><b id="queueCount">0</b><span id="queueCountLabel">joueur en attente</span></div>
+          <div class="queue-shut"><i class="moon" aria-hidden="true"></i>Fermée</div>
         </div>
         <p class="queue-next" id="queueNext" hidden></p>
         <div class="queue-body">
@@ -66,16 +68,29 @@
             <p class="qe-text">présentez-vous à l'accueil&nbsp;!</p>
             <p class="qe-sub" id="queueEmptySub"></p>
           </div>
+          <!-- Stand fermé (le soir) : plus aucun placement, la file ne bouge plus. -->
+          <div class="queue-closed" id="queueClosed" hidden>
+            <span class="dusk" aria-hidden="true"></span>
+            <p class="qc-title">Le stand ferme ses portes</p>
+            <p class="qc-text">Merci pour cette journée&nbsp;!</p>
+            <span class="qc-rule" aria-hidden="true"><i></i></span>
+            <p class="qc-sub">Inscriptions closes pour aujourd’hui</p>
+            <p class="qc-note" id="queueClosedNote" hidden></p>
+          </div>
         </div>
       </aside>
     </main>
 
-    <footer class="cta">
-      <div class="cta-main">
+    <footer class="cta" id="cta">
+      <div class="cta-main cta-open">
         <span class="spark" aria-hidden="true"></span>
         <span>Inscrivez-vous à l'accueil pour jouer&nbsp;!</span>
       </div>
-      <div class="cta-goodies">
+      <div class="cta-main cta-closed">
+        <i class="moon" aria-hidden="true"></i>
+        <span>Le stand est fermé · Merci de votre visite&nbsp;!</span>
+      </div>
+      <div class="cta-goodies" id="ctaGoodies">
         <svg class="gift" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3 10h18v4H3z M5 14h14v7H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
           <path d="M12 10v11" stroke="currentColor" stroke-width="1.8"/>

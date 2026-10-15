@@ -70,6 +70,7 @@ déploiement. Ce qu'il faut savoir :
 | Variable obligatoire | `ACCUEIL_PASSWORD` |
 | Fuseau horaire | `Europe/Paris` (déjà réglé dans l'image) |
 | Utilisateur | l'application tourne sous un compte non root (`node`) |
+| Proxy de confiance (`TRUST_PROXY`) | par défaut, adresses locales et privées : celles du proxy de Coolify, rien à régler (voir [§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)) |
 
 ---
 
@@ -130,7 +131,7 @@ l'étape suivante. Le déploiement automatique demandera un webhook (étape 4.5)
 | Base Directory | `/` |
 | Dockerfile Location | `/Dockerfile` |
 | Ports Exposes | `3000` |
-| Ports Mappings | **laisser vide** (le proxy de Coolify s'occupe de l'accès web) |
+| Ports Mappings | **laisser vide** (le proxy de Coolify s'occupe de l'accès web ; un port publié permettrait de joindre l'application sans passer par le proxy ni par HTTPS) |
 | Domains | voir [étape 6](#6-nom-de-domaine-et-https) ; une adresse provisoire suffit pour commencer |
 
 Cliquez sur **« Save »**.
@@ -150,6 +151,8 @@ Ajoutez :
   construction de l'image).
 - Ne définissez **pas** `PORT`, `DATA_DIR`, `NODE_ENV` ni `TZ` : l'image les
   règle déjà (`3000`, `/data`, `production`, `Europe/Paris`).
+- Ne définissez pas non plus `TRUST_PROXY` : sa valeur par défaut convient au
+  proxy de Coolify (voir [§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)).
 - Changer le mot de passe plus tard : modifiez la variable puis
   **« Restart »** (ou **« Redeploy »**). Toutes les sessions de l'accueil sont
   alors déconnectées ; on se reconnecte avec le nouveau mot de passe.
@@ -260,17 +263,57 @@ domaine en HTTPS.**
 ### Temps réel (WebSocket / Socket.IO)
 
 **Rien à configurer.** L'écran et l'accueil reçoivent les mises à jour en temps
-réel via Socket.IO (WebSocket), que le proxy de Coolify transmet sans réglage
-particulier. Deux règles :
+réel via Socket.IO, que le proxy de Coolify transmet sans réglage particulier.
+La connexion commence en **long-polling** (requêtes HTTP ordinaires) puis passe
+au **WebSocket** dès qu'il est disponible. Si le WebSocket est bloqué (Wi-Fi du
+salon, pare-feu, proxy ou service placé devant le domaine), elle **reste en
+long-polling** : l'affichage continue d'être mis à jour, avec un peu plus de
+trafic. Deux règles :
 
 - ouvrez toujours l'application **par l'adresse du champ « Domains »** (pas par
   `IP:3000`) : par sécurité, le serveur refuse les connexions temps réel venant
   d'une autre adresse que celle de la page ;
 - gardez **une seule instance** de l'application (pas de « réplicas ») : l'état
-  est dans une base SQLite locale.
+  est dans une base SQLite locale (et le long-polling suppose que toutes les
+  requêtes arrivent au même serveur).
 
-Derrière HTTPS, le cookie de session de l'accueil est automatiquement marqué
-« Secure » (l'application fait confiance au proxy de Coolify pour le savoir).
+### HTTPS, HSTS et proxy de confiance (`TRUST_PROXY`)
+
+L'application apprend du proxy de Coolify, par les en-têtes `X-Forwarded-For`
+et `X-Forwarded-Proto`, l'**adresse IP du visiteur** (pour le blocage après
+trop de mauvais mots de passe) et si la page est en **HTTPS**. Elle ne croit
+ces en-têtes que s'ils viennent d'un **proxy de confiance** : par défaut, une
+adresse locale ou privée (`loopback, linklocal, uniquelocal` : `127.x`,
+`169.254.x`, `10.x`, `172.16–31.x`, `192.168.x` et leurs équivalents IPv6),
+d'où le proxy de Coolify joint le conteneur. Un visiteur connecté directement
+depuis Internet n'est pas cru. **Sur Coolify, laissez `TRUST_PROXY` non
+défini.**
+
+En HTTPS, l'application :
+
+- marque le cookie de session de l'accueil **« Secure »** ;
+- envoie l'en-tête **HSTS** (`Strict-Transport-Security: max-age=31536000`) :
+  pendant **un an**, un navigateur qui a ouvert le domaine en HTTPS refuse d'y
+  revenir en HTTP simple, même si l'on tape `http://`. Gardez donc ce domaine
+  en HTTPS pendant tout le salon (seul ce nom exact est concerné, pas les autres
+  sous-domaines). L'adresse provisoire en HTTP (`sslip.io`) ne reçoit pas cet
+  en-tête.
+
+Quand changer `TRUST_PROXY` (variable d'environnement, puis « Restart ») :
+
+| Situation | Valeur |
+|---|---|
+| Coolify, accès par « Domains » (cas normal) | **ne pas définir** |
+| Hors Coolify, port de l'application joint **directement, sans proxy** (`docker run -p 3000:3000`, `docker compose`) | `false` : personne n'est cru |
+| Proxy dont l'adresse n'est **ni locale ni privée** | son adresse ou son sous-réseau, par ex. `203.0.113.7` ou `203.0.113.0/24` |
+
+Valeurs acceptées : `true` ou `false` (majuscules indifférentes), un **nombre**
+de proxys successifs devant l'application, ou une **liste** d'adresses, de
+sous-réseaux ou de mots-clés (`loopback`, `linklocal`, `uniquelocal`) séparés
+par des virgules (ex. `10.0.0.0/8, 127.0.0.1`). Vide ou absente : valeur par
+défaut. `true` (tout croire) est déconseillé : n'importe qui pourrait alors
+choisir l'adresse IP comptée pour le blocage. Une valeur invalide empêche le
+démarrage (voir [§ 11](#11-dépannage)).
 
 ---
 
@@ -319,7 +362,8 @@ Mais alors :
       de l'étape 5).
 - [ ] La TV affiche `/ecran` en plein écran, « En direct », veille désactivée.
 - [ ] Les hôtesses ont l'adresse `/accueil`, le mot de passe et le
-      [guide de l'accueil](GUIDE-ACCUEIL.md).
+      [guide de l'accueil](GUIDE-ACCUEIL.md), notamment la procédure du soir
+      (« Fermer le stand », partie 10) et « Nouvelle journée » le matin.
 - [ ] Une première sauvegarde a été testée (§ 8).
 - [ ] « Auto Deploy » désactivé ou consigne de ne pas pousser pendant les
       heures d'ouverture.
@@ -334,7 +378,8 @@ SQLite). Deux niveaux de sauvegarde, complémentaires.
 ### 8.1 Simple : l'export CSV de chaque soir
 
 Dans l'accueil, bouton **« Exporter CSV »** (ou l'adresse `/api/export.csv`,
-une fois connecté). Le fichier contient **tous les participants de tous les
+une fois connecté), après avoir fermé le stand (« Fermer le stand ») et laissé
+finir ou libéré les parties. Le fichier contient **tous les participants de tous les
 jours** (identité, statut, table, horaires, goodies) et s'ouvre dans Excel.
 Conservez-le sur un support sûr : il contient des **données personnelles**
 (emails), à ne pas laisser traîner sur un ordinateur partagé.
@@ -494,6 +539,7 @@ erreurs de construction.
 | Construction échouée | voir « Deployments » | Voir « La construction échoue » ci-dessous. |
 | Domaine pas encore pris en compte | — | Après un changement de « Domains » : « Save » puis « Redeploy ». Vérifier le DNS (`ping`). |
 | Base inaccessible | `ERREUR : le dossier des données /data …` | Voir « Base non inscriptible » ci-dessous. |
+| `TRUST_PROXY` mal écrite | `TRUST_PROXY invalide (…)` | Corriger la valeur ([§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)) ou supprimer la variable, puis « Restart ». |
 
 ### La construction (build) échoue
 
@@ -539,8 +585,20 @@ volume ne seront pas reprises.)
 - Sur le stand, un Wi-Fi d'événement peut être capricieux : essayez un partage
   de connexion 4G/5G pour vérifier. Les pages se reconnectent seules quand le
   réseau revient.
-- Si un service comme Cloudflare est placé devant le domaine, vérifiez que les
-  WebSockets y sont autorisés.
+- Un WebSocket bloqué (Wi-Fi du salon, Cloudflare ou autre service placé devant
+  le domaine) n'explique en principe pas « Reconnexion… » : la connexion se
+  replie alors sur le long-polling ([§ 6](#temps-réel-websocket--socketio)).
+  Cherchez plutôt du côté de l'adresse utilisée, de l'application ou du réseau.
+  Autoriser les WebSockets reste préférable (moins de trafic).
+
+### Le navigateur passe toujours en `https://`
+
+Normal une fois le domaine ouvert en HTTPS : l'en-tête HSTS demande au
+navigateur de remplacer `http://` par `https://` sur ce domaine pendant un an
+([§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)). Si le domaine n'est
+plus servi en HTTPS (certificat retiré ou pas encore obtenu), ces navigateurs
+affichent une erreur de sécurité qu'on ne peut pas contourner : remettez le
+domaine en `https://` dans le champ « Domains » de Coolify, puis « Redeploy ».
 
 ### Problème d'heure
 
@@ -561,6 +619,15 @@ connexion est bloquée 5 minutes. Tous les appareils du stand connectés au mêm
 Wi-Fi partagent souvent la même adresse IP publique, donc le même compteur.
 Patientez 5 minutes.
 
+Un second plafond, de 50 essais en 5 minutes (bons mots de passe compris),
+s'applique à l'adresse qui se connecte directement au serveur : derrière le
+proxy de Coolify, c'est celle du proxy, donc tous les visiteurs ensemble.
+
+Si le proxy n'est pas reconnu comme proxy de confiance (proxy sur une adresse
+publique), tous les visiteurs ont la même adresse aux yeux de l'application et
+10 mauvais essais suffisent à bloquer tout le monde : voyez `TRUST_PROXY`
+([§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)).
+
 ### L'accueil demande à nouveau le mot de passe
 
 Normal après 7 jours, après un changement de `ACCUEIL_PASSWORD` ou de
@@ -578,6 +645,7 @@ Normal après 7 jours, après un changement de `ACCUEIL_PASSWORD` ou de
 | Ports Exposes | `3000` |
 | Variable obligatoire | `ACCUEIL_PASSWORD` = mot de passe fort |
 | Variable facultative | `SESSION_SECRET` |
+| À ne pas définir | `PORT`, `DATA_DIR`, `NODE_ENV`, `TZ`, `TRUST_PROXY` (valeurs par défaut adaptées) |
 | Persistent Storage | Volume Mount → Destination Path `/data` |
 | Healthcheck | intégré au Dockerfile (`/healthz`) ; sinon `GET http://localhost:3000/healthz` |
 | Domains | `https://lobby.votre-domaine.fr` |

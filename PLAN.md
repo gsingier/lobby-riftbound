@@ -26,8 +26,9 @@ plan des tables et la file d'attente.
   ou **2 joueurs inscrits ensemble** (ils seront placés ensemble).
 - Un **email** ou un **numéro de billet** déjà utilisé (quel que soit le jour du
   salon) est **refusé**.
-  - Exception : un joueur **retiré pour absence** ou encore **en attente lors de
-    la remise à zéro du matin** n'a pas joué ; il peut se réinscrire.
+  - Exception : un joueur **retiré pour absence** (« Retirer » dans la file, ou
+    « Absent » à sa table) ou encore **en attente lors de la remise à zéro du
+    matin** n'a pas joué ; il peut se réinscrire.
   - Un joueur parti avant la fin (« Libérer l'emplacement ») a participé : il
     reste bloqué.
 - Normalisation : email en minuscules sans espaces ; billet en majuscules, sans
@@ -45,7 +46,9 @@ plan des tables et la file d'attente.
 
 ### Placement automatique
 - Déclenché à chaque inscription, libération d'emplacement, fin de timer,
-  réactivation de table.
+  réactivation de table, partie annulée (« Absent ») et réouverture du stand ;
+  le serveur vérifie aussi chaque seconde.
+- **Aucun placement tant que le stand est fermé** (voir « Fermeture du stand »).
 - On prend la première entrée **prête** de la file (paire, ou joueur seul
   « placé quand même »).
 - Choix de l'emplacement : en priorité une **table entièrement libre** (plus
@@ -60,17 +63,61 @@ plan des tables et la file d'attente.
 - **« Libérer l'emplacement »** → départ anticipé : pas de goodies.
 - L'hôtesse peut ajouter/retirer du temps à une partie en cours.
 
+### Joueur absent à sa table (« Absent »)
+- Un joueur **placé** qui ne se présente pas à sa table peut être déclaré
+  **« Absent »** pendant les **15 minutes** qui suivent le **début de la partie**
+  (`noShowWindowMs`, compté depuis le placement ; « +5 min » ne prolonge pas ce
+  délai).
+- L'absent passe « retiré » : **pas de goodies**, et il **peut se réinscrire**
+  (il n'a pas joué ; il repart en fin de file).
+- Si son **partenaire est là**, la partie **continue contre un animateur**,
+  avec le même timer ; le partenaire a droit aux goodies s'il va au bout.
+- S'il ne reste **plus personne** (les deux joueurs absents, ou joueur seul
+  contre un animateur), la partie est **annulée** : personne n'est marqué
+  « parti avant la fin » et l'emplacement est réattribué aux suivants de la
+  file (sauf si le stand est fermé).
+- **Au-delà des 15 minutes**, « Absent » est refusé. « Libérer
+  l'emplacement » termine la partie pour **les deux joueurs** (départ anticipé,
+  pas de goodies, joueurs bloqués), y compris un partenaire présent : on ne
+  l'utilise que s'il n'y a plus personne à la table. Si le partenaire est là,
+  on laisse la partie continuer (un animateur remplace l'absent, rien ne change
+  dans l'application) ; l'absent figurera dans « Goodies à remettre » et ne
+  doit pas les recevoir.
+
+### Fermeture du stand (le soir)
+- Bouton **« Fermer le stand »** / **« Rouvrir le stand »** (réglage
+  `placementsPaused`, visible dans l'état public et admin).
+- Stand fermé : **plus aucun placement automatique**. Les parties en cours
+  continuent normalement jusqu'à la fin de leur timer (goodies compris) ; les
+  emplacements libérés restent vides.
+- À l'accueil, la file reste visible et les inscriptions restent possibles,
+  mais **personne n'est placé**. L'écran TV, lui, remplace la file par un
+  message de fin de journée (« Le stand ferme ses portes », inscriptions
+  closes) : les noms en attente n'y apparaissent plus.
+- Usage prévu : le soir, à la fermeture, pour éviter que la file soit placée
+  pendant la nuit (chaque place libérée serait sinon aussitôt redonnée).
+  **Ce n'est pas une pause en journée** (la TV annonce la fin de la journée et
+  la file s'en va) : pour suspendre les placements un moment, on met les
+  tables hors service.
+- **« Nouvelle journée »** rouvre le stand ; les joueurs encore en file passent
+  en « expiré » et peuvent se réinscrire.
+
 ### File d'attente
 - **« Retirer »** : sort de la file un joueur absent à l'appel. Si c'était un
   membre d'une paire, son partenaire redevient joueur seul (à la même place).
+  (Joueur déjà placé : « Absent », voir plus haut.)
 - **« Nouvelle journée »** (bouton, le matin, avec confirmation) : vide la file
-  (les joueurs en attente passent en « expiré »), clôt les éventuelles parties
-  encore en cours. **Tous les participants restent en base.**
+  (les joueurs en attente passent en « expiré »), termine normalement les
+  parties dont le timer est écoulé, interrompt (sans goodies) celles encore en
+  cours et **rouvre le stand** s'il était fermé. **Tous les participants restent
+  en base.**
 - Une table peut être mise **hors service** (plus de nouveaux placements).
 
 ### Affichage public
 - Sur l'écran TV, uniquement **Prénom + initiale du nom** (« Lucas M. »).
   Jamais l'email ni le billet.
+- Stand fermé : l'écran TV n'affiche plus la file (message de fin de journée à
+  la place) et les emplacements libres y sont marqués « Fermé ».
 
 ## Architecture technique
 
@@ -81,6 +128,7 @@ plan des tables et la file d'attente.
 | Front | HTML/CSS/JS sans étape de build (servis par Express) |
 | Timers | Calculés côté serveur depuis `ends_at` enregistré : résistants aux rafraîchissements et redémarrages |
 | Auth accueil | Mot de passe unique (`ACCUEIL_PASSWORD`), cookie signé HMAC |
+| Proxy / HTTPS | En-têtes `X-Forwarded-*` crus seulement depuis les proxys de confiance (`TRUST_PROXY`, par défaut adresses locales et privées) ; en HTTPS : cookie `Secure` et en-tête HSTS |
 | Déploiement | `Dockerfile` construit par Coolify depuis GitHub, sur VPS Hostinger KVM2 |
 | Tests | `node:test`, horloge injectable |
 
@@ -99,14 +147,19 @@ plan des tables et la file d'attente.
   `interrupted`), remise des goodies.
 - `entries` : unités de file (1 ou 2 joueurs), position, statut, drapeau animateur.
 - `matches` : table, emplacement, début, fin prévue, fin réelle, raison.
-- `settings` : durée des parties, tables hors service, secret de session.
+- `settings` : durée des parties, tables hors service, stand fermé
+  (`placements_paused`), secret de session.
 
 ### Temps réel (Socket.IO)
 - Les clients publics reçoivent `state` (projection publique, noms abrégés).
 - Les clients authentifiés (salle `admin`) reçoivent l'état complet.
 - Les actions de l'accueil passent par l'événement `action`
   `{ type, payload }` avec accusé de réception `{ ok, result | code, message }`.
-- Chaque état contient `serverNow` pour synchroniser les comptes à rebours.
+- Chaque état contient `serverNow` pour synchroniser les comptes à rebours, et
+  `settings` (durée, tables hors service, `placementsPaused`, `noShowWindowMs`).
+- Transports Socket.IO par défaut : long-polling HTTP d'abord, puis passage au
+  WebSocket. Si le WebSocket est bloqué (Wi-Fi du salon, proxy), la connexion
+  reste en long-polling et fonctionne quand même.
 
 ## Direction artistique
 
@@ -122,3 +175,4 @@ dans `public/assets/` (voir `public/assets/README.md`).
 3. Écran TV et thème Radiance.
 4. Dockerfile, guide de déploiement Coolify, export CSV.
 5. Revue critique et corrections.
+6. Fermeture du stand le soir, « Absent » après placement.

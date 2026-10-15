@@ -170,10 +170,16 @@ h3 {
 
 /* ------------------------------------------------------------------ barre du haut */
 
-.topbar {
+/* Barre du haut + bandeaux (stand fermé, connexion perdue) : collés ensemble en haut ; leur hauteur
+   totale (--acc-topbar-h, mesurée par accueil.js) décale les zones collantes en dessous. */
+.top-sticky {
   position: sticky;
   top: 0;
   z-index: 20;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.topbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -181,7 +187,6 @@ h3 {
   padding: 10px 16px;
   background: #08112c;
   border-bottom: 1px solid rgba(242, 193, 78, 0.35);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 .brand {
@@ -330,15 +335,61 @@ h3 {
 }
 
 .offline-banner {
-  position: sticky;
-  top: var(--acc-topbar-h);
-  z-index: 19;
   padding: 10px 16px;
   background: #7d1a28;
   color: #fff;
   font-weight: 600;
   text-align: center;
   border-bottom: 1px solid var(--rb-danger);
+}
+
+/* Stand fermé (le soir) : bandeau ambré, bien visible, jusqu'à la réouverture. */
+.closed-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 12px;
+  padding: 8px 16px;
+  background: repeating-linear-gradient(135deg, #6b4106 0 16px, #5c3805 16px 32px);
+  border-bottom: 2px solid var(--rb-warning);
+  color: #fff3dc;
+  text-align: center;
+}
+
+.closed-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background:
+    linear-gradient(currentColor, currentColor) 4px 3px / 3px 8px no-repeat,
+    linear-gradient(currentColor, currentColor) 9px 3px / 3px 8px no-repeat;
+  color: #ffd38a;
+}
+
+.closed-title {
+  font-family: var(--rb-font-condensed);
+  font-weight: 700;
+  font-size: 1.22rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffd38a;
+}
+
+.closed-detail {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* Le matin, stand fermé depuis la veille : « Nouvelle journée » proposée dans le bandeau. */
+.closed-newday {
+  flex: none;
+}
+
+.closed-banner.is-morning .closed-detail {
+  color: #fff;
 }
 
 /* ------------------------------------------------------------------ mise en page */
@@ -701,6 +752,31 @@ input.is-warning {
   gap: 6px;
 }
 
+/* Avertissements « stand fermé » (formulaire, file) */
+.form-paused,
+.queue-paused {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--rb-radius-sm);
+  background: rgba(255, 181, 71, 0.12);
+  border: 1px solid rgba(255, 181, 71, 0.6);
+  border-left: 5px solid var(--rb-warning);
+  color: #ffe0b0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.form-paused strong,
+.queue-paused strong {
+  color: var(--rb-warning);
+}
+
+.queue-paused {
+  flex: none;
+  margin-bottom: 10px;
+}
+
 .form-actions .btn-primary {
   flex: 1 1 auto;
   min-width: 0;
@@ -779,8 +855,20 @@ input.is-warning {
   color: var(--rb-gold);
 }
 
-.reg-result[data-tone='solo'] .reg-result-where {
+.reg-result[data-tone='paused'] {
+  border-color: rgba(255, 181, 71, 0.55);
+  border-left-color: var(--rb-warning);
+  background: rgba(255, 181, 71, 0.08);
+}
+
+.reg-result[data-tone='solo'] .reg-result-where,
+.reg-result[data-tone='paused'] .reg-result-where {
   color: var(--rb-warning);
+}
+
+.reg-result[data-tone='paused'] .reg-result-detail {
+  color: #ffe0b0;
+  font-weight: 600;
 }
 
 .reg-result[data-tone='queue'] .reg-result-where {
@@ -1068,7 +1156,7 @@ input.is-warning {
 
 .slot-players {
   list-style: none;
-  margin: 5px 0 6px;
+  margin: 5px 0 4px;
   padding: 0;
   font-size: 0.95rem;
   font-weight: 600;
@@ -1076,7 +1164,25 @@ input.is-warning {
 }
 
 .slot-players li {
+  display: flow-root; /* contient le bouton « Absent » flottant */
   overflow-wrap: anywhere;
+}
+
+/* « Absent » : seulement pendant les premières minutes de la partie (accueil.js le masque ensuite).
+   Flottant au bout de la dernière ligne du nom (ou juste dessous s'il n'y a pas la place) : il ne
+   coûte au plus qu'une ligne, pour que le plan tienne encore dans la fenêtre. */
+.btn-absent {
+  --btn-bg: rgba(255, 181, 71, 0.1);
+  --btn-border: rgba(255, 181, 71, 0.6);
+  --btn-fg: #ffd59a;
+  float: right;
+  min-height: 0;
+  height: 20px;
+  margin: 0 0 0 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .slot-players li + li {
@@ -1116,7 +1222,8 @@ input.is-warning {
 .slot-free {
   flex: 1 1 auto;
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
   min-height: 60px;
   color: var(--rb-faint);
   font-family: var(--rb-font-condensed);
@@ -1183,6 +1290,14 @@ input.is-warning {
   .countdown {
     font-size: 1.6rem;
   }
+}
+
+.slot-free-sub {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #e0b56a;
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ file d'attente */
@@ -1569,6 +1684,54 @@ input.is-warning {
   font-weight: 600;
 }
 
+.confirm-alert {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--rb-radius-sm);
+  background: rgba(255, 93, 108, 0.12);
+  border: 1px solid rgba(255, 93, 108, 0.6);
+  color: #ffd6da;
+  font-weight: 600;
+}
+
+.confirm-note + .confirm-alert {
+  margin-top: 8px;
+}
+
+.confirm-alert > p + p {
+  margin-top: 6px;
+}
+
+.confirm-alert strong {
+  color: #fff;
+}
+
+.confirm-list {
+  margin: 4px 0 10px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.newday-reopen {
+  padding: 8px 10px;
+  border-radius: var(--rb-radius-sm);
+  background: rgba(10, 21, 52, 0.6);
+  border: 1px solid var(--rb-line);
+  color: var(--rb-muted);
+}
+
+.newday-reopen.is-reopen {
+  background: rgba(29, 122, 69, 0.18);
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #d4ffe3;
+}
+
+.newday-reopen.is-reopen strong {
+  color: var(--rb-success);
+}
+
 .duration-row {
   display: flex;
   align-items: center;
@@ -1699,9 +1862,9 @@ input.is-warning {
 
 /* ------------------------------------------------------------------ petits écrans */
 
-/* 1280–1499 px : barre du haut sur une seule ligne (libellés courts des statistiques ;
+/* 1280–1599 px : barre du haut sur une seule ligne (libellés courts des statistiques ;
    « Connecté » / « Déconnecté » restent toujours affichés). */
-@media (min-width: 1280px) and (max-width: 1499px) {
+@media (min-width: 1280px) and (max-width: 1599px) {
   .topbar {
     gap: 8px 12px;
   }
@@ -1725,6 +1888,13 @@ input.is-warning {
 
   .top-actions .btn-sm {
     padding: 0 10px;
+  }
+}
+
+/* 1280–1379 px : sans le préfixe « Accueil – », pour garder la barre sur une ligne. */
+@media (min-width: 1280px) and (max-width: 1379px) {
+  .brand-page {
+    display: none;
   }
 }
 

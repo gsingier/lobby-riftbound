@@ -16,6 +16,12 @@ services:
     environment:
       ACCUEIL_PASSWORD: ${ACCUEIL_PASSWORD:?Définissez ACCUEIL_PASSWORD (mot de passe de l'accueil)}
       SESSION_SECRET: ${SESSION_SECRET:-}
+      # Proxys dont on croit X-Forwarded-For / X-Forwarded-Proto (IP du visiteur, HTTPS).
+      # « false » : ce fichier publie le port 3000, joint directement sans proxy, donc
+      # personne n'est cru. Proxy HTTPS (Caddy, nginx…) placé devant, sur cette machine
+      # ou sur un réseau privé : TRUST_PROXY='loopback, linklocal, uniquelocal' (valeur par
+      # défaut de l'application, celle utilisée sur Coolify). Autres valeurs : README.md.
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     volumes:
       - lobby-data:/data
     stop_grace_period: 15s

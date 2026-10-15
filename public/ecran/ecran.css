@@ -20,6 +20,11 @@
   --barrier-1: #3a86f5;
   --barrier-2: #1748b3;
   --post: #dde5f4;
+
+  /* Stand fermé : tables « de nuit », lumières baissées. */
+  --night-1: #34477e;
+  --night-2: #222f5c;
+  --night-edge: #4c64a6;
 }
 
 :root[data-layout="portrait"] {
@@ -426,6 +431,21 @@ body * {
   box-shadow: inset 0 0 0 2px var(--rb-gold), 0 0 calc(var(--u) * 0.8) rgba(242, 193, 78, 0.7);
 }
 
+.lg-shut {
+  background: linear-gradient(var(--night-1), var(--night-2));
+  box-shadow: inset 0 0 0 1px var(--night-edge);
+}
+
+/* Stand fermé : « Libre » disparaît de la légende au profit de « Fermé ». */
+.legend .lg-closed,
+:root[data-stand="ferme"] .legend .lg-open {
+  display: none;
+}
+
+:root[data-stand="ferme"] .legend .lg-closed {
+  display: flex;
+}
+
 .entrance {
   justify-self: center;
   display: flex;
@@ -468,6 +488,20 @@ body * {
 
 .free-count.has-free b {
   color: var(--rb-gold-light);
+}
+
+/* Stand fermé : l'entrée ne s'illumine plus. */
+.entrance,
+.doorway {
+  transition: opacity 1.2s ease;
+}
+
+:root[data-stand="ferme"] .entrance {
+  opacity: 0.45;
+}
+
+:root[data-stand="ferme"] .doorway {
+  opacity: 0.25;
 }
 
 /* ------------------------------------------------------------------ table */
@@ -725,6 +759,12 @@ body * {
   font-weight: 500;
 }
 
+/* L'italique déborde de la boîte du texte : sans marge, le « r » final était rogné
+   (« Animateui »). Comptée dans scrollWidth, la marge est aussi prise en compte par fitNames. */
+.pl.animator .fn {
+  padding-inline: 0.2em 0.14em; /* à gauche : halo du losange */
+}
+
 .pl.animator .fn::before {
   content: '';
   display: inline-block;
@@ -950,6 +990,95 @@ body * {
 
 .table.off-all .board::before {
   display: none;
+}
+
+/* ------------------------------------------------------------------ stand fermé */
+
+/* Les tables passent « de nuit » : seules les parties en cours (tapis, noms, timers) restent
+   lumineuses. Les emplacements vides affichent « Fermé » (jamais « Libre »). */
+:root[data-stand="ferme"] .table:not(.off) .board {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 30%),
+    linear-gradient(180deg, var(--night-1), var(--night-2));
+  box-shadow:
+    inset 0 0 0 max(1.5px, 0.45cqh) var(--night-edge),
+    0 1.2cqh 3cqh rgba(0, 0, 0, 0.55);
+}
+
+:root[data-stand="ferme"] .table:not(.off) .board::before {
+  border-left-color: rgba(159, 176, 214, 0.28);
+}
+
+:root[data-stand="ferme"] .chair:not(.taken) {
+  opacity: 0.26;
+}
+
+.table.shut-all .board::before {
+  display: none;
+}
+
+.table.shut-all .num {
+  box-shadow:
+    0 0 0 max(2px, 0.6cqh) var(--rb-gold-deep),
+    0 0.6cqh 1.4cqh rgba(0, 0, 0, 0.55);
+  text-shadow: none;
+  color: rgba(255, 231, 163, 0.75);
+}
+
+.slot.shut {
+  display: grid;
+  place-items: center;
+}
+
+.slot.shut .slot-tag {
+  position: absolute;
+  top: 6%;
+  color: rgba(159, 176, 214, 0.45);
+}
+
+.shut-label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6cqh;
+  padding-left: 0.14em; /* compense l'interlettrage */
+  font-family: var(--rb-font-condensed);
+  font-weight: 700;
+  font-size: min(9cqh, 6.6cqw);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 231, 163, 0.8);
+  text-shadow: 0 0 1.4cqh rgba(242, 193, 78, 0.35);
+}
+
+/* Table entièrement vide : une seule mention, en médaillon. */
+.shut-label.whole {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  flex-direction: row;
+  gap: 0.45em;
+  padding: 1.8cqh 4.4cqw 1.8cqh calc(4.4cqw + 0.14em);
+  border-radius: 99px;
+  font-size: min(10cqh, 7cqw);
+  background: rgba(5, 10, 28, 0.45);
+  box-shadow:
+    inset 0 0 0 max(1px, 0.3cqh) rgba(242, 193, 78, 0.45),
+    0 0 2.4cqh rgba(242, 193, 78, 0.12);
+}
+
+/* Croissant de lune doré (fin de journée). */
+.moon {
+  flex: none;
+  display: inline-block;
+  width: 0.78em;
+  height: 0.78em;
+  border-radius: 50%;
+  box-shadow: inset -0.31em -0.04em 0 0 var(--rb-gold);
+  transform: rotate(-28deg);
+  filter: drop-shadow(0 0 0.2em rgba(242, 193, 78, 0.7));
 }
 
 /* ------------------------------------------------------------------ file d'attente */
@@ -1298,6 +1427,186 @@ body * {
   margin-bottom: calc(var(--u) * 1);
 }
 
+/* Stand fermé : pastille « Fermée » à la place du compteur, carte de fin de journée. */
+.queue-shut {
+  display: none;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.4em 0.95em 0.4em 0.85em;
+  border-radius: 99px;
+  font-family: var(--rb-font-condensed);
+  font-weight: 700;
+  font-size: calc(var(--u) * 1.9);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rb-gold-light);
+  background: rgba(5, 10, 28, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(242, 193, 78, 0.55);
+  white-space: nowrap;
+}
+
+:root[data-stand="ferme"] .queue-count {
+  display: none;
+}
+
+:root[data-stand="ferme"] .queue-shut {
+  display: flex;
+}
+
+.queue-closed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(var(--u) * 2) calc(var(--u) * 1.2);
+  animation: fade-in 1.2s ease-out both;
+}
+
+.queue-closed[hidden],
+.qc-note[hidden] {
+  display: none;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Soleil couchant : disque radiant posé sur l'horizon, rayons qui tournent lentement. */
+.dusk {
+  position: relative;
+  flex: none;
+  width: calc(var(--u) * 20);
+  height: calc(var(--u) * 8);
+  margin-bottom: calc(var(--u) * 2.4);
+  overflow: hidden;
+}
+
+.dusk::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--u) * -9);
+  width: calc(var(--u) * 18);
+  height: calc(var(--u) * 18);
+  margin-left: calc(var(--u) * -9);
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--rb-radiant) 0 30%, rgba(255, 214, 120, 0.9) 35%, rgba(242, 193, 78, 0.3) 50%, rgba(242, 193, 78, 0.08) 72%, transparent),
+    repeating-conic-gradient(from 0deg, rgba(255, 231, 163, 0.42) 0 4deg, transparent 4deg 18deg);
+  -webkit-mask: radial-gradient(closest-side, #000 52%, transparent);
+  mask: radial-gradient(closest-side, #000 52%, transparent);
+  animation: dusk-rays 120s linear infinite;
+}
+
+/* Horizon. */
+.dusk::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: max(2px, calc(var(--u) * 0.22));
+  background: linear-gradient(90deg, transparent, var(--rb-gold) 22%, var(--rb-gold-light) 50%, var(--rb-gold) 78%, transparent);
+  box-shadow: 0 0 calc(var(--u) * 1.2) rgba(242, 193, 78, 0.8);
+}
+
+@keyframes dusk-rays {
+  to { transform: rotate(360deg); }
+}
+
+.qc-title,
+.qc-text {
+  margin: 0;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.qc-title {
+  font-size: calc(var(--u) * 3.6);
+  color: var(--rb-gold-light);
+  text-shadow: 0 0 calc(var(--u) * 1.4) rgba(242, 193, 78, 0.4);
+}
+
+.qc-text {
+  margin-top: calc(var(--u) * 1);
+  font-size: calc(var(--u) * 3);
+  color: var(--rb-text);
+}
+
+.qc-rule {
+  position: relative;
+  display: block;
+  width: min(60%, calc(var(--u) * 24));
+  height: 1px;
+  margin: calc(var(--u) * 2.4) 0 calc(var(--u) * 2);
+  background: linear-gradient(90deg, transparent, rgba(242, 193, 78, 0.75), transparent);
+}
+
+.qc-rule i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--u) * 1);
+  height: calc(var(--u) * 1);
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--rb-gold);
+  box-shadow: 0 0 calc(var(--u) * 0.8) var(--rb-gold);
+}
+
+.qc-sub {
+  margin: 0;
+  font-family: var(--rb-font-condensed);
+  font-weight: 600;
+  font-size: calc(var(--u) * 2.2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rb-cyan);
+}
+
+.qc-note {
+  margin: calc(var(--u) * 2.6) 0 0;
+  padding: calc(var(--u) * 1) calc(var(--u) * 1.6);
+  border-radius: calc(var(--u) * 0.9);
+  font-family: var(--rb-font-condensed);
+  font-weight: 500;
+  font-size: calc(var(--u) * 2.1);
+  line-height: 1.3;
+  text-wrap: balance;
+  color: var(--rb-muted);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(140, 180, 255, 0.14);
+}
+
+.qc-note b {
+  font-weight: 700;
+  color: var(--rb-text);
+}
+
+.qc-note span {
+  display: block;
+}
+
+:root[data-layout="portrait"] .dusk {
+  width: calc(var(--u) * 17);
+  height: calc(var(--u) * 6.5);
+  margin-bottom: calc(var(--u) * 1.8);
+}
+
+:root[data-layout="portrait"] .qc-rule {
+  margin: calc(var(--u) * 1.8) 0 calc(var(--u) * 1.5);
+}
+
+:root[data-layout="portrait"] .qc-note {
+  margin-top: calc(var(--u) * 2);
+}
+
 /* ------------------------------------------------------------------ bandeau */
 
 .cta {
@@ -1379,6 +1688,35 @@ body * {
   height: calc(var(--u) * 3.2);
   color: var(--rb-gold);
   filter: drop-shadow(0 0 calc(var(--u) * 0.6) rgba(242, 193, 78, 0.6));
+}
+
+/* Stand fermé : message de fin de journée à la place de l'appel à s'inscrire. */
+.cta-closed,
+:root[data-stand="ferme"] .cta-open {
+  display: none;
+}
+
+:root[data-stand="ferme"] .cta-closed {
+  display: flex;
+  color: var(--rb-gold-light);
+}
+
+.cta-closed .moon {
+  font-size: calc(var(--u) * 2.4);
+}
+
+:root[data-stand="ferme"] .cta {
+  background:
+    linear-gradient(90deg, rgba(122, 60, 255, 0.32), rgba(20, 39, 87, 0.85) 45%, rgba(20, 39, 87, 0.85) 55%, rgba(184, 134, 43, 0.45));
+}
+
+.cta-goodies[hidden] {
+  display: none;
+}
+
+/* Un seul message (stand fermé, plus aucune partie) : centré. */
+.cta.single {
+  justify-content: center;
 }
 
 :root[data-layout="portrait"] .cta {

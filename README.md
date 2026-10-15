@@ -20,11 +20,22 @@ Rester jusqu'au bout donne droit aux **goodies**.
   seul peut être **« placé quand même »** contre un animateur.
 - Plan des 9 tables avec les comptes à rebours, **+5 / −5 min**, **« Libérer »**
   (départ anticipé, sans goodies).
+- **« Absent »** sur chaque joueur placé, pendant les **15 premières minutes** de
+  la partie : il est retiré sans goodies et pourra se réinscrire ; son
+  partenaire continue contre un animateur (ou, s'il ne reste personne, la
+  partie est annulée et l'emplacement réattribué). Au-delà : « Libérer » (qui
+  sort les deux joueurs) s'il n'y a plus personne, sinon la partie continue.
 - File d'attente : **« Retirer »** un joueur absent (il pourra se réinscrire).
 - Liste **« Goodies à remettre »** avec bouton « Remis ».
 - Recherche et correction d'un participant.
 - Réglages : durée des parties (1 h par défaut), tables hors service.
-- **« Nouvelle journée »** chaque matin (vide la file, garde tout l'historique).
+- **« Fermer le stand »** le soir : plus aucun placement automatique (les
+  parties en cours vont jusqu'au bout, goodies compris ; la file reste affichée
+  à l'accueil mais personne n'est placé). **« Rouvrir le stand »** pour
+  reprendre. Ce n'est pas une pause en journée : l'écran TV annonce alors la
+  fin de la journée (pour une pause, mettre les tables hors service).
+- **« Nouvelle journée »** chaque matin (vide la file, rouvre le stand, garde
+  tout l'historique).
 - **Export CSV** de tous les participants (compatible Excel).
 
 **Écran TV (`/ecran`, public)**
@@ -32,6 +43,7 @@ Rester jusqu'au bout donne droit aux **goodies**.
 - Plan du stand (9 tables × 2 matchs), noms des joueurs, temps restant, file
   d'attente, en temps réel.
 - N'affiche que **« Prénom N. »** : jamais d'email ni de numéro de billet.
+- Stand fermé (le soir) : l'écran l'annonce à la place de la file d'attente.
 - Mise en page paysage ou portrait (Full HD), rotation possible
   (`/ecran?rotation=90`, `/ecran?orientation=portrait`).
 
@@ -40,6 +52,9 @@ Rester jusqu'au bout donne droit aux **goodies**.
 - Les timers sont calculés **côté serveur** à partir de l'heure de fin
   enregistrée : ils résistent aux rafraîchissements, aux coupures réseau du
   stand et aux redémarrages du serveur.
+- Temps réel par Socket.IO : si le Wi-Fi du salon ou un proxy bloque les
+  WebSockets, les pages se replient sur du **long-polling** HTTP et restent à
+  jour.
 - Toutes les données sont dans une petite base **SQLite** (`lobby.db`).
 
 Les règles métier détaillées, validées avec le client, sont dans
@@ -117,7 +132,9 @@ ACCUEIL_PASSWORD='un-mot-de-passe' docker compose up -d --build
 
 L'application est alors sur <http://localhost:3000>, avec ses données dans le
 volume Docker `lobby-data`. Voir [docker-compose.yml](docker-compose.yml) et le
-[Dockerfile](Dockerfile).
+[Dockerfile](Dockerfile). Ce fichier règle `TRUST_PROXY=false` (port 3000 joint
+directement) : si vous placez un proxy HTTPS devant, changez-la (voir
+[Variables d'environnement](#variables-denvironnement)).
 
 ## Variables d'environnement
 
@@ -129,10 +146,39 @@ volume Docker `lobby-data`. Voir [docker-compose.yml](docker-compose.yml) et le
 | `PORT` | Port HTTP. | `3000` |
 | `NODE_ENV` | `production` active les contrôles de production. | non défini (local) · `production` (image Docker) |
 | `TZ` | Fuseau horaire du serveur (les heures affichées et exportées sont de toute façon à l'heure de Paris). | `Europe/Paris` dans l'image Docker |
+| `TRUST_PROXY` | Proxys dont l'application croit les en-têtes `X-Forwarded-For` / `X-Forwarded-Proto` (adresse IP du visiteur, HTTPS). Voir ci-dessous. | `loopback, linklocal, uniquelocal` · `false` dans `docker-compose.yml` |
 
 Changer `ACCUEIL_PASSWORD` ou `SESSION_SECRET` déconnecte toutes les sessions
 de l'accueil. Une session dure 7 jours. Après 10 mauvais mots de passe en
 5 minutes depuis une même adresse IP, la connexion est bloquée 5 minutes.
+
+**`TRUST_PROXY`.** Par défaut, l'application ne croit les en-têtes
+`X-Forwarded-*` que s'ils viennent d'une adresse locale ou privée (loopback,
+lien local, réseaux privés `10.x`, `172.16–31.x`, `192.168.x`, `fc00::/7`) :
+c'est le cas du proxy de Coolify (Traefik), donc **rien à régler sur
+Coolify**. Changez-la :
+
+- **`false`** si le port de l'application est joint **directement, sans proxy**
+  devant (`docker run -p 3000:3000`, `docker compose`) : personne ne doit alors
+  être cru, sinon un appareil du réseau local (adresse privée) pourrait fausser
+  son adresse IP ou se faire passer pour une connexion HTTPS ;
+- l'**adresse ou le sous-réseau du proxy** si votre proxy n'a pas une adresse
+  locale ou privée (sinon, derrière lui, la connexion HTTPS n'est pas reconnue
+  et tous les visiteurs partagent l'adresse du proxy).
+
+Valeurs acceptées : `true` ou `false` (majuscules indifférentes), un **nombre**
+de proxys successifs devant l'application, ou une **liste** d'adresses, de
+sous-réseaux ou de mots-clés (`loopback`, `linklocal`, `uniquelocal`) séparés
+par des virgules, par exemple `10.0.0.0/8, 127.0.0.1`. Vide ou absente : valeur
+par défaut. `true` (tout croire) est déconseillé. Une valeur invalide empêche
+le démarrage (`TRUST_PROXY invalide (…)` dans les journaux).
+
+**HTTPS.** Quand la page est servie en HTTPS (d'après le proxy de confiance), le
+cookie de session est marqué `Secure` et l'application envoie l'en-tête HSTS
+(`Strict-Transport-Security: max-age=31536000`) : pendant **un an**, les
+navigateurs qui ont visité le domaine refusent d'y revenir en HTTP simple.
+Gardez donc ce domaine en HTTPS. En HTTP (essais, adresse `sslip.io`), ni
+`Secure` ni HSTS.
 
 ## Adresses
 

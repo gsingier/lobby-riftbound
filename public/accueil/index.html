@@ -10,37 +10,48 @@
   <link rel="stylesheet" href="/accueil/accueil.css">
 </head>
 <body class="accueil">
-  <header class="topbar" id="topbar">
-    <div class="brand">
-      <h1 class="brand-title">Accueil <span class="brand-sep">–</span> <span class="brand-name">Riftbound Radiance</span></h1>
-      <span class="day-badge" id="day-badge" title="Journée du salon en cours">Jour –</span>
+  <!-- Barre du haut et bandeaux d'alerte : restent visibles ensemble en haut de la fenêtre. -->
+  <div class="top-sticky" id="top-sticky">
+    <header class="topbar" id="topbar">
+      <div class="brand">
+        <h1 class="brand-title"><span class="brand-page">Accueil <span class="brand-sep">–</span> </span><span class="brand-name">Riftbound Radiance</span></h1>
+        <span class="day-badge" id="day-badge" title="Journée du salon en cours">Jour –</span>
+      </div>
+
+      <dl class="stats" aria-label="Statistiques">
+        <div class="stat" title="Joueurs en file d'attente"><dt><span class="lbl-full">En attente</span><span class="lbl-abbr" aria-hidden="true">Attente</span></dt><dd id="stat-waiting">–</dd></div>
+        <div class="stat" title="Joueurs actuellement à une table"><dt>En jeu</dt><dd id="stat-playing">–</dd></div>
+        <div class="stat" title="Joueurs ayant terminé leur partie aujourd'hui"><dt><span class="lbl-full">Terminés auj.</span><span class="lbl-abbr" aria-hidden="true">Terminés</span></dt><dd id="stat-completed">–</dd></div>
+        <div class="stat stat-goodies" id="stat-goodies-box" title="Goodies à remettre"><dt><span class="lbl-full">Goodies à remettre</span><span class="lbl-abbr" aria-hidden="true">Goodies</span></dt><dd id="stat-goodies">–</dd></div>
+        <div class="stat" title="Total des participants (tous les jours)"><dt><span class="lbl-full">Total participants</span><span class="lbl-abbr" aria-hidden="true">Total</span></dt><dd id="stat-total">–</dd></div>
+      </dl>
+
+      <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">
+        <span class="conn-dot" aria-hidden="true"></span>
+        <span class="conn-label" id="conn-label">Connexion…</span>
+      </div>
+
+      <nav class="top-actions" aria-label="Actions générales">
+        <a class="btn btn-ghost btn-sm" href="/api/export.csv" download>Exporter CSV</a>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-settings">Réglages</button>
+        <button type="button" class="btn btn-sm btn-warn-ghost" id="btn-stand" title="Le soir, à la fermeture : plus aucun placement automatique">Fermer le stand</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-danger-ghost" id="btn-newday">Nouvelle journée</button>
+        <form method="post" action="/logout" class="logout-form">
+          <button type="submit" class="btn btn-ghost btn-sm">Déconnexion</button>
+        </form>
+      </nav>
+    </header>
+
+    <div class="closed-banner" id="closed-banner" role="status" hidden>
+      <span class="closed-icon" aria-hidden="true"></span>
+      <strong class="closed-title">Stand fermé : aucun nouveau placement</strong>
+      <span class="closed-detail" id="closed-detail">Les parties en cours vont jusqu'au bout · « Rouvrir le stand » (dans la journée) · le matin : « Nouvelle journée »</span>
+      <button type="button" class="btn btn-sm btn-primary closed-newday" id="closed-newday" hidden>Nouvelle journée…</button>
     </div>
 
-    <dl class="stats" aria-label="Statistiques">
-      <div class="stat" title="Joueurs en file d'attente"><dt><span class="lbl-full">En attente</span><span class="lbl-abbr" aria-hidden="true">Attente</span></dt><dd id="stat-waiting">–</dd></div>
-      <div class="stat" title="Joueurs actuellement à une table"><dt>En jeu</dt><dd id="stat-playing">–</dd></div>
-      <div class="stat" title="Joueurs ayant terminé leur partie aujourd'hui"><dt><span class="lbl-full">Terminés auj.</span><span class="lbl-abbr" aria-hidden="true">Terminés</span></dt><dd id="stat-completed">–</dd></div>
-      <div class="stat stat-goodies" id="stat-goodies-box" title="Goodies à remettre"><dt><span class="lbl-full">Goodies à remettre</span><span class="lbl-abbr" aria-hidden="true">Goodies</span></dt><dd id="stat-goodies">–</dd></div>
-      <div class="stat" title="Total des participants (tous les jours)"><dt><span class="lbl-full">Total participants</span><span class="lbl-abbr" aria-hidden="true">Total</span></dt><dd id="stat-total">–</dd></div>
-    </dl>
-
-    <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">
-      <span class="conn-dot" aria-hidden="true"></span>
-      <span class="conn-label" id="conn-label">Connexion…</span>
+    <div class="offline-banner" id="offline-banner" role="alert" hidden>
+      Connexion au serveur perdue – reconnexion en cours… Les informations affichées peuvent être périmées.
     </div>
-
-    <nav class="top-actions" aria-label="Actions générales">
-      <a class="btn btn-ghost btn-sm" href="/api/export.csv" download>Exporter CSV</a>
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-settings">Réglages</button>
-      <button type="button" class="btn btn-ghost btn-sm btn-danger-ghost" id="btn-newday">Nouvelle journée</button>
-      <form method="post" action="/logout" class="logout-form">
-        <button type="submit" class="btn btn-ghost btn-sm">Déconnexion</button>
-      </form>
-    </nav>
-  </header>
-
-  <div class="offline-banner" id="offline-banner" role="alert" hidden>
-    Connexion au serveur perdue – reconnexion en cours… Les informations affichées peuvent être périmées.
   </div>
 
   <main class="layout">
@@ -53,6 +64,8 @@
         </div>
 
         <form id="register-form" class="register-form" novalidate autocomplete="off">
+          <p class="form-paused" id="form-paused" hidden><strong>Stand fermé</strong> : les joueurs inscrits maintenant restent en file d'attente et ne seront pas placés tant que le stand est fermé.</p>
+
           <div class="mode-toggle" role="radiogroup" aria-label="Nombre de joueurs">
             <label class="mode-option">
               <input type="radio" name="mode" value="1">
@@ -156,6 +169,7 @@
         <h2 id="queue-title">File d'attente</h2>
         <span class="panel-sub" id="queue-summary"></span>
       </div>
+      <p class="queue-paused" id="queue-paused" hidden><strong>Stand fermé</strong> : personne n'est placé. Les joueurs restent en file ; s'ils y sont encore à la « Nouvelle journée », ils pourront se réinscrire.</p>
       <div class="panel-body">
         <ol class="queue-list" id="queue-list"></ol>
       </div>
@@ -209,6 +223,7 @@
     <div class="modal-section">
       <p class="newday-lead">Vous allez passer du <strong>jour <span data-nd="current">–</span></strong> au <strong>jour <span data-nd="next">–</span></strong>.</p>
       <ul class="impact-list" id="newday-impact"></ul>
+      <p class="newday-reopen" id="newday-reopen"></p>
       <p class="hint">Tous les participants restent enregistrés (visibles dans la recherche et l'export CSV). À faire le matin, avant l'ouverture.</p>
     </div>
     <div class="modal-foot">

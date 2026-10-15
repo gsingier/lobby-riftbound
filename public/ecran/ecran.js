@@ -23,6 +23,10 @@
     queueList: $('queueList'),
     queueEmpty: $('queueEmpty'),
     queueEmptySub: $('queueEmptySub'),
+    queueClosed: $('queueClosed'),
+    queueClosedNote: $('queueClosedNote'),
+    cta: $('cta'),
+    ctaGoodies: $('ctaGoodies'),
     goodiesText: $('goodiesText'),
   };
 
@@ -125,6 +129,16 @@
     return n > 1 ? many : one;
   }
 
+  // Stand fermé (« Fermer le stand », le soir) : plus aucun placement automatique.
+  // Les parties en cours continuent avec leur timer ; la file ne bouge plus.
+  function isClosed(state) {
+    return !!(state && state.settings && state.settings.placementsPaused);
+  }
+
+  function activeMatchCount(state) {
+    return state.tables.reduce((n, t) => n + SLOT_NAMES.filter((s) => t.slots[s]).length, 0);
+  }
+
   // « 1 heure de jeu », « 45 minutes de jeu », « 1 h 30 de jeu ».
   function durationLabel(ms) {
     const minutes = Math.round(ms / 60000);
@@ -168,38 +182,42 @@
     }
   }
 
-  function slotKey(table, name) {
+  function slotKey(table, name, closed) {
     const s = table.slots[name];
-    if (!s) return `free:${table.enabled}`;
+    if (!s) return `free:${table.enabled}:${closed}`;
     return JSON.stringify([s.matchId, s.startedAt, s.endsAt, s.vsAnimator, s.players.map((p) => p.displayName)]);
   }
 
-  function renderBoard(view, table) {
+  function renderBoard(view, table, closed) {
     const bothFree = !table.slots.A && !table.slots.B;
+    // Table vide hors service, ou table vide quand le stand est fermé : une seule mention sur toute la table.
+    const whole = bothFree && !table.enabled ? 'off-all' : bothFree && closed ? 'shut-all' : null;
     view.el.classList.toggle('off', !table.enabled);
-    view.el.classList.toggle('off-all', !table.enabled && bothFree);
+    view.el.classList.toggle('off-all', whole === 'off-all');
+    view.el.classList.toggle('shut-all', whole === 'shut-all');
 
-    // Table hors service et vide : une seule mention sur toute la table.
-    if (!table.enabled && bothFree) {
-      if (view.key === 'off-all') return;
-      view.key = 'off-all';
+    if (whole) {
+      if (view.key === whole) return;
+      view.key = whole;
       view.slotKeys = { A: null, B: null };
       for (const name of SLOT_NAMES) timers.delete(`${table.no}${name}`);
-      view.board.innerHTML = '<div class="off-label">Hors service</div>';
+      view.board.innerHTML = whole === 'off-all'
+        ? '<div class="off-label">Hors service</div>'
+        : '<div class="shut-label whole"><i class="moon"></i>Fermé</div>';
       for (const name of SLOT_NAMES) setChairs(view, name, null);
       return;
     }
-    if (view.key === 'off-all' || !view.board.querySelector('.slot')) {
+    if (view.key !== 'slots' || !view.board.querySelector('.slot')) {
       view.board.innerHTML = '<div class="slot" data-slot="A"></div><div class="slot" data-slot="B"></div>';
       view.slotKeys = { A: null, B: null };
     }
     view.key = 'slots';
     const slotEls = view.board.querySelectorAll('.slot');
     SLOT_NAMES.forEach((name, i) => {
-      const key = slotKey(table, name);
+      const key = slotKey(table, name, closed);
       if (view.slotKeys[name] === key) return;
       view.slotKeys[name] = key;
-      renderSlot(slotEls[i], table, name);
+      renderSlot(slotEls[i], table, name, closed);
       setChairs(view, name, table.slots[name]);
     });
   }
@@ -211,23 +229,29 @@
     bottom.classList.toggle('host', !!match && match.players.length < 2);
   }
 
-  function renderSlot(el, table, name) {
+  function renderSlot(el, table, name, closed) {
     const id = `${table.no}${name}`;
     const match = table.slots[name];
     timers.delete(id);
     el.dataset.slot = name;
 
     if (!match) {
-      if (table.enabled) {
-        el.className = 'slot free';
-        el.innerHTML = `<span class="slot-tag">${name}</span><span class="free-label"><i></i>Libre</span>`;
-      } else {
+      if (!table.enabled) {
         el.className = 'slot closed';
         el.innerHTML = `<span class="slot-tag">${name}</span><span class="closed-label">Hors<br>service</span>`;
+      } else if (closed) {
+        // Stand fermé : surtout pas « Libre », qui inviterait à venir s'asseoir.
+        el.className = 'slot shut';
+        el.innerHTML = `<span class="slot-tag">${name}</span><span class="shut-label"><i class="moon"></i>Fermé</span>`;
+      } else {
+        el.className = 'slot free';
+        el.innerHTML = `<span class="slot-tag">${name}</span><span class="free-label"><i></i>Libre</span>`;
       }
       return;
     }
 
+    // Un seul joueur (contre un animateur dès l'inscription, ou partenaire déclaré absent) :
+    // la seconde ligne affiche « Animateur ».
     const [p1, p2] = match.players;
     const second = p2
       ? `<div class="pl pl2">${nameHtml(p2.displayName)}</div>`
@@ -263,10 +287,11 @@
 
   function renderTables(state) {
     if (tableViews.size !== state.tables.length) buildTables(state.tables);
+    const closed = isClosed(state);
     let free = 0;
     let total = 0;
     for (const table of state.tables) {
-      renderBoard(tableViews.get(table.no), table);
+      renderBoard(tableViews.get(table.no), table, closed);
       if (table.enabled) {
         total += SLOT_NAMES.length;
         free += SLOT_NAMES.filter((n) => !table.slots[n]).length;
@@ -276,8 +301,16 @@
     const active = new Set(state.tables.flatMap((t) => SLOT_NAMES.map((n) => t.slots[n] && t.slots[n].matchId)));
     for (const id of seatedAt.keys()) if (!active.has(id)) seatedAt.delete(id);
 
-    els.freeCount.classList.toggle('has-free', free > 0);
-    els.freeCount.innerHTML = total ? `Places libres : <b>${free}</b> / ${total}` : 'Aucune table ouverte';
+    if (closed) {
+      const playing = activeMatchCount(state);
+      els.freeCount.classList.remove('has-free');
+      els.freeCount.innerHTML = playing
+        ? `${plural(playing, 'Partie en cours', 'Parties en cours')} : <b>${playing}</b>`
+        : 'Aucune partie en cours';
+    } else {
+      els.freeCount.classList.toggle('has-free', free > 0);
+      els.freeCount.innerHTML = total ? `Places libres : <b>${free}</b> / ${total}` : 'Aucune table ouverte';
+    }
     firstRender = false;
   }
 
@@ -290,6 +323,22 @@
     const players = queue.reduce((n, e) => n + e.players.length, 0);
     els.queueCount.textContent = String(players);
     els.queueCountLabel.textContent = plural(players, 'joueur en attente', 'joueurs en attente');
+
+    // Stand fermé : message de fin de journée à la place de la file (personne ne sera placé ;
+    // les joueurs restés en file pourront se réinscrire après la « Nouvelle journée »).
+    // Aucune mention de « demain » : le dernier soir du salon, il n'y a pas de lendemain.
+    const closed = isClosed(state);
+    els.queueClosed.hidden = !closed;
+    if (closed) {
+      els.queueEmpty.hidden = true;
+      els.queueList.hidden = true;
+      els.queueList.textContent = '';
+      els.queueClosedNote.hidden = players === 0;
+      els.queueClosedNote.innerHTML = players
+        ? '<span>Encore en file d’attente&nbsp;?</span><span><b>Renseignez-vous</b> à l’accueil.</span>'
+        : '';
+      return;
+    }
 
     const empty = queue.length === 0;
     els.queueEmpty.hidden = !empty;
@@ -391,15 +440,25 @@
   // ---------------------------------------------------------------- bandeau
 
   function renderFooter(state) {
-    const ms = state.settings && state.settings.matchDurationMs;
-    if (ms) els.goodiesText.innerHTML = `<b>${esc(durationLabel(ms))} de jeu</b> = goodies offerts`;
+    if (isClosed(state)) {
+      // Les parties en cours vont jusqu'au bout : leurs joueurs gardent droit aux goodies.
+      const playing = activeMatchCount(state) > 0;
+      els.cta.classList.toggle('single', !playing);
+      els.ctaGoodies.hidden = !playing;
+      els.goodiesText.innerHTML = '<b>Parties en cours</b> : goodies offerts en fin de partie';
+      return;
+    }
+    els.cta.classList.remove('single');
+    els.ctaGoodies.hidden = false;
+    const ms = (state.settings && state.settings.matchDurationMs) || 60 * 60 * 1000;
+    els.goodiesText.innerHTML = `<b>${esc(durationLabel(ms))} de jeu</b> = goodies offerts`;
   }
 
   // ---------------------------------------------------------------- horloge et timers
 
   // Délai avant la prochaine place libre, si des joueurs prêts attendent et que tout est occupé.
   function nextFreeIn(state, now) {
-    if (!state || !state.queue.some((e) => e.ready)) return null;
+    if (!state || isClosed(state) || !state.queue.some((e) => e.ready)) return null;
     let soonest = Infinity;
     for (const t of state.tables) {
       if (!t.enabled) continue;
@@ -455,6 +514,8 @@
 
   function onState(state) {
     lastState = state;
+    const stand = isClosed(state) ? 'ferme' : 'ouvert';
+    if (root.dataset.stand !== stand) root.dataset.stand = stand;
     renderTables(state);
     renderFooter(state);
     tick(); // avant la file : la ligne « prochaine place » change la hauteur disponible
