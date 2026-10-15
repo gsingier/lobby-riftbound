@@ -55,12 +55,12 @@
         </div>
       </section>
 
-      <aside class="side" id="side" aria-label="Attente et file d'attente">
-        <!-- Attente estimée pour une nouvelle inscription (masquée stand fermé). -->
+      <aside class="side" id="side" aria-label="Attente et file d’attente">
+        <!-- Attente estimée pour une nouvelle inscription (masquée stand fermé). En paysage, ecran.js
+             la place dans l'en-tête (à côté de l'horloge) pour laisser la colonne à la file. -->
         <section class="panel wait" id="wait" hidden>
-          <p class="wait-eyebrow"><span class="gem" aria-hidden="true"></span><span id="waitEyebrow">Attente estimée</span></p>
-          <p class="wait-value" id="waitValue"></p>
-          <p class="wait-sub" id="waitSub"></p>
+          <p class="wait-eyebrow"><span class="gem" aria-hidden="true"></span><span class="wait-eyebrow-text" id="waitEyebrow">Attente estimée</span></p>
+          <p class="wait-line"><span class="wait-value" id="waitValue"></span><span class="wait-sub" id="waitSub"></span></p>
         </section>
 
         <!-- Joueurs placés depuis moins de 3 minutes : « où vais-je jouer ? ». -->
@@ -71,7 +71,7 @@
 
         <section class="panel queue-panel" id="queuePanel" aria-labelledby="queue-title">
           <div class="queue-head">
-            <h2 id="queue-title">File d'attente</h2>
+            <h2 id="queue-title">File d’attente</h2>
             <div class="queue-count"><b id="queueCount">0</b><span id="queueCountLabel">joueur en attente</span></div>
             <div class="queue-shut">Fermée</div>
           </div>
@@ -79,7 +79,7 @@
             <ol class="queue-list" id="queueList"></ol>
             <div class="queue-empty" id="queueEmpty" hidden>
               <p class="qe-title">Aucune attente</p>
-              <p class="qe-text">Présentez-vous à l'accueil&nbsp;!</p>
+              <p class="qe-text">Présentez-vous à l’accueil&nbsp;!</p>
               <p class="qe-sub" id="queueEmptySub"></p>
             </div>
             <!-- Stand fermé (le soir) : message de fin de journée à la place de la file. -->
@@ -104,7 +104,7 @@
     <footer class="cta" id="cta">
       <div class="cta-main cta-open">
         <svg class="cta-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5.5 19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Inscrivez-vous à l'accueil pour jouer&nbsp;!</span>
+        <span>Inscrivez-vous à l’accueil pour jouer&nbsp;!</span>
       </div>
       <div class="cta-main cta-closed">
         <span class="cta-moon" aria-hidden="true"></span>

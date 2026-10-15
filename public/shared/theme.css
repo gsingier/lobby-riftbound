@@ -5,7 +5,8 @@
    éclairé par le halo irisé du set Radiance (cyan → lavande → rose), avec deux couleurs franches :
    - orange Riftbound #F07000 = action / attention (bouton principal, « À suivre », 5 dernières
      minutes, « À appeler ») — toujours avec un texte ENCRE (6,3:1), jamais blanc ;
-   - cyan Radiance = libre / disponible (places libres, jauges, focus).
+   - cyan Radiance = libre / disponible (places libres, jauges) ; sa version foncée #0B6E7D sert
+     d'indicateur de focus clavier (contour plein, 5,9:1 : voir --rb-focus).
    Encre = état normal ; hachures grises = fermé / hors service ; rouge = irréversible ou panne.
 
    Contrastes vérifiés (WCAG 2.1) :
@@ -85,7 +86,15 @@
   /* Ombres (surfaces flottantes uniquement : menus, panneaux, modales). */
   --rb-shadow-card: 0 1px 2px rgba(17, 18, 20, 0.04), 0 8px 24px -14px rgba(52, 62, 104, 0.18);
   --rb-shadow-pop: 0 1px 2px rgba(17, 18, 20, 0.06), 0 12px 32px -8px rgba(17, 18, 20, 0.2);
-  --rb-focus: 0 0 0 3px rgba(32, 179, 199, 0.5);
+
+  /* Focus clavier (WCAG 2.1 SC 1.4.11 : ≥ 3:1). Anneau PLEIN cyan foncé de 3 px, détaché de
+     l'élément par un liseré blanc de 2 px (même rendu qu'un `outline: 3px` décalé de 2 px) :
+     5,9:1 sur blanc, ≥ 5,2:1 sur le fond perle et les teintes orange / cyan pâles, et lisible
+     contre une bordure de champ cyan. --rb-focus sert aux champs et composants qui portent leur
+     focus en ombre ; en contraste élevé (forced-colors), où les ombres disparaissent, un `outline`
+     système prend le relais (règle en fin de fichier). */
+  --rb-focus-color: var(--rb-cyan-ink);
+  --rb-focus: 0 0 0 2px var(--rb-paper), 0 0 0 5px var(--rb-focus-color);
 
   color-scheme: light;
 }
@@ -111,6 +120,30 @@ body {
 
 [hidden] {
   display: none !important;
+}
+
+/* Focus clavier par défaut : contour plein cyan foncé à la place de l'anneau natif du
+   navigateur (trop pâle sur le fond perle). Spécificité nulle : toute règle de page l'emporte. */
+:where(:focus-visible) {
+  outline: 3px solid var(--rb-focus-color);
+  outline-offset: 2px;
+}
+
+/* Contraste élevé (Windows, forced-colors) : les ombres sont supprimées, donc un focus porté
+   par --rb-focus disparaîtrait. Un contour couleur système le remplace partout, y compris là
+   où une page a mis `outline: none` au profit de l'ombre. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Interrupteur dont la vraie case est transparente (opacity: 0) : le contour passe sur
+     son libellé, seule partie visible. */
+  label:has(> input[type='checkbox']:focus-visible) {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
 }
 
 /* Halo Radiance STATIQUE (aucune animation, aucun filtre de flou : gratuit pour un mini-PC).

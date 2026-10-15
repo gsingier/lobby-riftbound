@@ -10,6 +10,7 @@
   --acc-topbar-h: 64px;
   --acc-col-reg: clamp(318px, 23.5vw, 400px);
   --acc-col-side: clamp(318px, 23.5vw, 420px);
+  --acc-focus-ring: var(--rb-cyan-ink);
 }
 
 html {
@@ -95,15 +96,18 @@ kbd {
 .btn:hover { background: var(--rb-hover); border-color: var(--rb-ink-3); }
 .btn:active { transform: translateY(1px); }
 
+/* Focus clavier : contour plein cyan foncé (5,9:1 sur blanc, ≥ 5:1 sur tous les fonds clairs),
+   porté par `outline` et non par une ombre, pour ne jamais entrer en conflit avec les ombres d'état
+   (« 5 dernières min », « À appeler », onglet actif, goodies en attente), qui restent visibles. */
 .btn:focus-visible,
 .menu-item:focus-visible,
 .slot:focus-visible,
 .tab:focus-visible,
-.stat-goodies:focus-visible,
+button.stat:focus-visible,
 .search-trigger:focus-visible,
 .call-place:focus-visible {
-  outline: none;
-  box-shadow: var(--rb-focus);
+  outline: 3px solid var(--acc-focus-ring);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -114,7 +118,7 @@ kbd {
 
 .btn-sm { min-height: 44px; padding: 0 12px; font-size: 0.92rem; }
 .btn-lg { min-height: 54px; padding: 0 22px; font-size: 1.08rem; font-weight: 750; }
-.btn-icon { padding: 0; width: 44px; }
+.btn-icon { flex: none; padding: 0; width: 44px; min-width: 44px; }
 
 /* Bouton principal : orange Riftbound, texte encre (6,3:1). */
 .btn-primary {
@@ -124,7 +128,6 @@ kbd {
   font-weight: 800;
 }
 .btn-primary:hover { background: var(--rb-orange-hover); border-color: var(--rb-orange-hover); }
-.btn-primary:focus-visible { box-shadow: 0 0 0 3px rgba(17, 18, 20, 0.85); }
 
 .btn-dark {
   --btn-bg: var(--rb-ink);
@@ -280,8 +283,8 @@ kbd {
 .stat-lbl {
   margin-top: 2px;
   font-weight: 600;
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem; /* 11,25 px : jamais moins, même sur tablette */
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--rb-ink-3);
   white-space: nowrap;
@@ -535,7 +538,7 @@ button.stat .stat-lbl { text-decoration: underline; text-decoration-color: var(-
   background: var(--rb-orange-ink);
 }
 
-.closed-banner.is-morning .closed-detail { color: rgba(255, 255, 255, 0.88); }
+.closed-banner.is-morning .closed-detail { color: #fff; } /* blanc plein sur #B34D00 : 5,3:1 */
 
 .closed-banner.is-morning .closed-newday {
   --btn-bg: #fff;
@@ -543,7 +546,8 @@ button.stat .stat-lbl { text-decoration: underline; text-decoration-color: var(-
   --btn-border: #fff;
 }
 
-/* Hors ligne : bandeau rouge (blanc sur #B42326 : 6,5:1), données grisées. */
+/* Hors ligne : bandeau rouge (blanc sur #B42326 : 6,5:1), données grisées et hachures rouges
+   entre les panneaux. Pas de voile d'opacité : l'hôtesse doit pouvoir relire tables et file (AA). */
 .offline-banner {
   display: flex;
   align-items: center;
@@ -565,8 +569,12 @@ button.stat .stat-lbl { text-decoration: underline; text-decoration-color: var(-
 }
 
 body.is-offline .layout {
-  filter: grayscale(0.7);
-  opacity: 0.72;
+  background: repeating-linear-gradient(-45deg, rgba(180, 35, 38, 0.13) 0 8px, transparent 8px 18px);
+}
+
+body.is-offline .layout .panel,
+body.is-offline .layout .tabs {
+  filter: grayscale(0.85);
 }
 
 /* ------------------------------------------------------------------ disposition */
@@ -593,8 +601,12 @@ body.is-offline .layout {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  overflow-anchor: none; /* la position des champs pendant la saisie est gérée par accueil.js (lockRegResult) */
   scroll-padding-bottom: 88px; /* un champ qui prend le focus n'est jamais caché sous le bouton collant */
 }
+
+/* Cale sous le formulaire : permet à la colonne de défiler quand le résultat grandit pendant la saisie. */
+.reg-spacer { height: 0; }
 
 .panel-calls { flex: none; max-height: min(44%, 312px); display: flex; flex-direction: column; }
 
@@ -779,7 +791,7 @@ body.is-offline .layout {
 }
 
 .mode-option input:checked + span { background: var(--rb-paper); color: var(--rb-ink); box-shadow: 0 1px 2px rgba(17, 18, 20, 0.12); }
-.mode-option input:focus-visible + span { box-shadow: var(--rb-focus); }
+.mode-option input:focus-visible + span { outline: 3px solid var(--acc-focus-ring); outline-offset: 1px; }
 
 .player {
   margin: 0;
@@ -1056,8 +1068,8 @@ body.is-offline .layout {
 
 .call-place .plate small {
   font-weight: 650;
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   opacity: 0.8;
 }
@@ -1315,11 +1327,11 @@ body.is-offline .layout {
   bottom: -9px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 8px;
+  padding: 1px 8px;
   border-radius: 99px;
   font-weight: 800;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--rb-ink);
@@ -1747,8 +1759,8 @@ body.is-offline .layout {
   padding: 1px 7px;
   border-radius: 99px;
   font-weight: 750;
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -1898,7 +1910,9 @@ body.is-offline .layout {
 
 /* Une notification à la fois, posée sur la barre du haut (au-dessus des statistiques et de la
    recherche) : elle ne couvre ni un panneau de travail, ni un menu, ni le panneau d'un emplacement.
-   Elle laisse passer les clics (sauf la croix) et s'estompe sous la souris. */
+   À la souris, elle laisse passer les clics (sauf la croix) et s'estompe sous le pointeur ; au
+   toucher, un tap dessus la ferme (jamais de tap à l'aveugle sur le bouton qu'elle cache). Le texte
+   n'est jamais tronqué : la consigne est souvent en fin de message. */
 .toasts {
   position: fixed;
   z-index: 60;
@@ -1946,12 +1960,12 @@ body.is-offline .layout {
 .toast-msg {
   flex: 1;
   min-width: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  padding: 3px 0;
+  overflow-wrap: anywhere;
   white-space: pre-line;
 }
+
+.is-touch .toast { pointer-events: auto; cursor: pointer; }
 
 .toast-close {
   flex: none;
@@ -2231,7 +2245,7 @@ p.confirm-alert { margin: 12px 0 0; }
   .stats { padding-left: 8px; gap: 0; }
   .stat { min-width: 48px; padding: 3px 6px; }
   .stat-num { font-size: 1.2rem; }
-  .stat-lbl { font-size: 0.62rem; letter-spacing: 0.03em; }
+  .stat-lbl { letter-spacing: 0.02em; }
   #btn-newday { display: none; }
   .menu-only-narrow { display: flex; }
   .more-dot:not([hidden]) { display: block; }
@@ -2283,7 +2297,7 @@ p.confirm-alert { margin: 12px 0 0; }
     cursor: pointer;
   }
 
-  .tab[aria-selected="true"] { background: var(--rb-paper); color: var(--rb-ink); box-shadow: 0 1px 2px rgba(17, 18, 20, 0.12); }
+  .tab[aria-pressed="true"] { background: var(--rb-paper); color: var(--rb-ink); box-shadow: 0 1px 2px rgba(17, 18, 20, 0.12); }
 
   .tab-count {
     min-width: 22px;
@@ -2295,9 +2309,9 @@ p.confirm-alert { margin: 12px 0 0; }
     font-variant-numeric: tabular-nums;
   }
 
-  .tab[aria-selected="true"] .tab-count { background: var(--rb-sunken); }
+  .tab[aria-pressed="true"] .tab-count { background: var(--rb-sunken); }
   .tab-count.is-pending { background: var(--rb-gold); color: var(--rb-ink); }
-  .tab[aria-selected="true"] .tab-count.is-pending { background: var(--rb-gold); }
+  .tab[aria-pressed="true"] .tab-count.is-pending { background: var(--rb-gold); }
 
   .panel-tables .panel-head .panel-sub { font-size: 0.8rem; }
   .panel-calls.has-many #calls-sub { display: none; }

@@ -75,7 +75,9 @@ blancs, police **Inter** auto-hébergée, **logo officiel** Riftbound posé sur
 fond clair. Deux couleurs franches, avec le même sens partout : **cyan = libre
 / disponible**, **orange Riftbound = à faire / attention** (bouton principal,
 « À suivre », 5 dernières minutes, « À appeler », texte encre sur orange) ;
-hachures grises = fermé ou hors service, rouge = irréversible ou panne. Les
+hachures grises = fermé ou hors service, rouge = irréversible ou panne. Le
+focus clavier est un contour plein cyan foncé (`#0B6E7D`, 5,9:1 sur blanc),
+remplacé par un contour couleur système en mode contraste élevé de Windows. Les
 couleurs et les classes communes sont dans `public/shared/theme.css`.
 
 **Accueil (`/accueil`)**, organisé autour de la boucle de travail de

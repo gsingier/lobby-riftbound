@@ -201,11 +201,13 @@
         <ul class="calls-list" id="calls-list"></ul>
       </section>
 
-      <!-- Onglets (portable étroit, tablette) : un seul panneau à la fois sous « À appeler ». -->
-      <div class="tabs" role="tablist" aria-label="Vues">
-        <button type="button" class="tab" role="tab" data-tab="plan" aria-selected="true">Plan des tables</button>
-        <button type="button" class="tab" role="tab" data-tab="queue" aria-selected="false">File d'attente <span class="tab-count" id="tab-queue-count">0</span></button>
-        <button type="button" class="tab" role="tab" data-tab="goodies" aria-selected="false">Goodies <span class="tab-count" id="tab-goodies-count">0</span></button>
+      <!-- Sélecteur de vue (portable étroit, tablette) : un seul panneau à la fois sous « À appeler ».
+           Simples boutons à bascule (aria-pressed) : sur grand écran, il est masqué et les trois
+           panneaux sont affichés ensemble, ce ne sont donc pas des onglets au sens ARIA. -->
+      <div class="tabs" role="group" aria-label="Vue affichée sous « À appeler »">
+        <button type="button" class="tab" data-tab="plan" aria-pressed="true" aria-controls="panel-tables">Plan des tables</button>
+        <button type="button" class="tab" data-tab="queue" aria-pressed="false" aria-controls="panel-queue">File d'attente <span class="tab-count" id="tab-queue-count">0</span></button>
+        <button type="button" class="tab" data-tab="goodies" aria-pressed="false" aria-controls="panel-goodies">Goodies <span class="tab-count" id="tab-goodies-count">0</span></button>
       </div>
 
       <section class="panel panel-tables" id="panel-tables" data-pane="plan" aria-labelledby="tables-title">

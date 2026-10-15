@@ -102,7 +102,7 @@ calculés par le serveur : ils sont justes même si l'horloge de la TV est fauss
 
 Ce que montre la TV : le plan des 9 tables (places **libres** en cyan, parties
 en cours avec leur compte à rebours, **5 dernières minutes** encadrées en
-orange, étiquette **« Nouveau »** pendant 2 minutes sur les joueurs qui viennent
+orange, étiquette **« Nouveau »** pendant 3 minutes sur les joueurs qui viennent
 d'être placés), l'**attente estimée pour une nouvelle inscription** (ou « places
 libres maintenant »), la liste **« À vos tables ! »** des joueurs placés depuis
 moins de 3 minutes, et la **file d'attente** avec l'heure de passage estimée.

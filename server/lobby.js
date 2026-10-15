@@ -344,9 +344,12 @@ class Lobby {
       )
       .run(day.id, entry.id, tableNo, slot, entry.n === 1 ? 1 : 0, t, t + matchDurationMs);
     this.db.prepare("UPDATE entries SET status = 'playing' WHERE id = ?").run(entry.id);
-    this.db
-      .prepare("UPDATE participants SET status = 'playing' WHERE entry_id = ? AND status = 'waiting'")
-      .run(entry.id);
+    // Chaise attribuée une fois pour toutes : le joueur restant garde sa place après un « Absent ».
+    const seated = this.db
+      .prepare("SELECT id FROM participants WHERE entry_id = ? AND status = 'waiting' ORDER BY id")
+      .all(entry.id);
+    const seatPlayer = this.db.prepare("UPDATE participants SET status = 'playing', seat = ? WHERE id = ?");
+    seated.forEach((p, i) => seatPlayer.run(i + 1, p.id));
   }
 
   // ---------------------------------------------------------------- fin de partie
@@ -631,6 +634,7 @@ class Lobby {
 
   participantView(row, full) {
     const base = { id: row.id, displayName: displayName(row.first_name, row.last_name) };
+    if (row.status === 'playing' && row.seat) base.seat = row.seat;
     if (!full) return base;
     return {
       ...base,

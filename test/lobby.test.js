@@ -265,3 +265,14 @@ test('une partie interrompue par « Nouvelle journée » ne bloque pas la réins
   assert.doesNotThrow(() => lobby.register([p]));
   assert.equal(lobby.check({ email: p.email }).email.status, 'waiting');
 });
+
+test('chaque joueur garde sa chaise (seat) après l’absence de son partenaire', () => {
+  const { lobby, player } = setup();
+  const { participantIds } = lobby.register([player('Haut'), player('Bas')]);
+  let slot = lobby.getPublicState().tables[0].slots.A;
+  assert.deepEqual(slot.players.map((p) => p.seat), [1, 2]);
+  lobby.noShow(participantIds[0]);
+  slot = lobby.getPublicState().tables[0].slots.A;
+  assert.equal(slot.vsAnimator, true);
+  assert.deepEqual(slot.players.map((p) => [p.displayName.split(' ')[0], p.seat]), [['Bas', 2]]);
+});

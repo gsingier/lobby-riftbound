@@ -51,8 +51,8 @@ body * {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  row-gap: calc(var(--u) * 1.8);
-  padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4);
+  row-gap: calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 1.5) calc(var(--u) * 2.4);
   overflow: hidden;
 }
 
@@ -98,28 +98,31 @@ body * {
 
 /* ------------------------------------------------------------------ en-tête */
 
+/* En-tête compact (≈ 10u) : la hauteur gagnée va à la file d'attente. En paysage, la carte
+   « Attente estimée » y prend place entre RADIANCE et l'horloge (ecran.js). */
 .masthead {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 2.8);
+  gap: calc(var(--u) * 2.4);
   min-width: 0;
 }
 
 .brand {
   flex: none;
-  padding: calc(var(--u) * 1) calc(var(--u) * 1.7);
-  border-radius: calc(var(--u) * 1.8);
+  padding: calc(var(--u) * 0.9) calc(var(--u) * 1.5);
+  border-radius: calc(var(--u) * 1.6);
 }
 
 .logo {
-  height: calc(var(--u) * 10.6);
+  height: calc(var(--u) * 8);
 }
 
 .set {
+  flex: none;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 0.6);
+  gap: calc(var(--u) * 0.7);
 }
 
 .eyebrow {
@@ -154,7 +157,7 @@ body * {
 
 .wordmark {
   margin: 0;
-  font-size: calc(var(--u) * 6.6);
+  font-size: calc(var(--u) * 5);
   line-height: 1;
   letter-spacing: 0.22em;
   white-space: nowrap;
@@ -163,12 +166,12 @@ body * {
 /* Logotype officiel RADIANCE (quand UVS le fournira) : <img class="wordmark-img"> à la place du texte. */
 .wordmark-img {
   display: block;
-  height: calc(var(--u) * 6.6);
+  height: calc(var(--u) * 5);
   width: auto;
 }
 
 :root[data-layout="portrait"] .wordmark-img {
-  height: calc(var(--u) * 5.6);
+  height: calc(var(--u) * 4.6);
 }
 
 .meta {
@@ -182,7 +185,7 @@ body * {
 
 .clock {
   font-weight: 750;
-  font-size: calc(var(--u) * 7.2);
+  font-size: calc(var(--u) * 6);
   line-height: 0.92;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
@@ -245,7 +248,7 @@ body * {
 /* Portrait : plan en haut, attente + file en dessous. */
 :root[data-layout="portrait"] .main {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 59fr) minmax(0, 41fr);
+  grid-template-rows: minmax(0, 54fr) minmax(0, 46fr);
 }
 
 :root[data-layout="portrait"] .masthead {
@@ -253,11 +256,11 @@ body * {
 }
 
 :root[data-layout="portrait"] .logo {
-  height: calc(var(--u) * 9.4);
+  height: calc(var(--u) * 8);
 }
 
 :root[data-layout="portrait"] .wordmark {
-  font-size: calc(var(--u) * 5.6);
+  font-size: calc(var(--u) * 4.6);
 }
 
 :root[data-layout="portrait"] .eyebrow-text {
@@ -265,7 +268,7 @@ body * {
 }
 
 :root[data-layout="portrait"] .clock {
-  font-size: calc(var(--u) * 6.8);
+  font-size: calc(var(--u) * 5.8);
 }
 
 /* ------------------------------------------------------------------ plan */
@@ -311,7 +314,7 @@ body * {
   padding: 0;
   list-style: none;
   font-weight: 600;
-  font-size: calc(var(--u) * 1.6);
+  font-size: calc(var(--u) * 2.1);
   color: var(--rb-ink-2);
   white-space: nowrap;
 }
@@ -323,9 +326,9 @@ body * {
 }
 
 .legend i {
-  width: calc(var(--u) * 2.2);
-  height: calc(var(--u) * 1.5);
-  border-radius: calc(var(--u) * 0.4);
+  width: calc(var(--u) * 2.4);
+  height: calc(var(--u) * 1.7);
+  border-radius: calc(var(--u) * 0.45);
 }
 
 .lg-free { background: radial-gradient(circle, #fff 0%, #c5eef3 100%); box-shadow: inset 0 0 0 2px var(--rb-cyan-strong); }
@@ -436,15 +439,15 @@ body * {
   background: var(--rb-orange);
   color: var(--rb-ink);
   font-weight: 800;
-  font-size: calc(var(--u) * 1.7);
-  letter-spacing: 0.18em;
+  font-size: calc(var(--u) * 2.1);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .entrance svg {
-  width: calc(var(--u) * 2);
-  height: calc(var(--u) * 2);
+  width: calc(var(--u) * 2.3);
+  height: calc(var(--u) * 2.3);
 }
 
 :root[data-stand="ferme"] .entrance {
@@ -535,7 +538,7 @@ body * {
 .chairs.bottom .chair { margin-top: 1.6cqh; }
 
 .chair.taken { background: var(--chair-taken); }
-.chair.host { background: var(--rb-cyan-strong); }
+.chair.host { background: var(--rb-cyan-strong); } /* chaise de l'animateur (celle du joueur absent) */
 
 /* Numéro de table : plaque signalétique foncée, chiffre blanc, entre les deux chaises du haut. */
 .num {
@@ -666,12 +669,19 @@ body * {
   color: var(--rb-ink);
 }
 
-/* En jeu : noms à l'encre, compte à rebours, jauge cyan. */
+/* En jeu : noms à l'encre, compte à rebours, jauge cyan.
+   --frame = épaisseur du cadre d'état (« 5 dernières minutes », « Nouveau ») : elle est réservée
+   dans le padding (cadre + marge), donc le cadre ne touche jamais les noms ni la lettre A/B, et
+   l'ajustement des noms (ecran.js) travaille dans la place qui reste réellement. */
 .slot.busy {
+  --frame: max(4px, 2cqh);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 1.6cqh 1.2cqw 2.2cqh; /* le cadre « 5 dernières minutes » ne touche jamais les noms */
+  padding:
+    calc(var(--frame) + max(2px, 1cqh))
+    calc(var(--frame) + max(2px, 0.7cqw))
+    calc(var(--frame) + max(2px, 1.2cqh));
 }
 
 .pl {
@@ -711,7 +721,7 @@ body * {
 
 /* Emplacement serré (deux noms longs sur deux lignes) : « VS » masqué, chrono un peu réduit. */
 .slot.compact .vs {
-  min-height: 11cqh;
+  min-height: 9cqh;
 }
 
 .slot.compact .vs-word,
@@ -772,7 +782,7 @@ body * {
   align-items: center;
   justify-content: center;
   gap: 1.4cqw;
-  min-height: 13cqh;
+  min-height: 11cqh;
   font-weight: 800;
   font-size: min(8cqh, 5.6cqw);
   line-height: 1;
@@ -803,8 +813,8 @@ body * {
   grid-row: 4;
   text-align: center;
   font-weight: 750;
-  font-size: min(17.5cqh, 12.6cqw);
-  line-height: 1.04;
+  font-size: min(17cqh, 12.6cqw);
+  line-height: 1.02;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink);
@@ -848,7 +858,7 @@ body * {
 
 .slot.warn::after {
   opacity: 1;
-  box-shadow: inset 0 0 0 max(4px, 2.2cqh) var(--rb-orange);
+  box-shadow: inset 0 0 0 var(--frame) var(--rb-orange);
   animation: breathe 1.6s ease-in-out infinite alternate;
 }
 
@@ -905,10 +915,10 @@ body * {
   background: rgba(255, 255, 255, 0.92);
 }
 
-/* Nouveaux joueurs (2 premières minutes) : cadre cyan + étiquette irisée « Nouveau ». */
+/* Nouveaux joueurs (3 premières minutes, comme « À vos tables ! ») : cadre cyan + étiquette irisée « Nouveau ». */
 .slot.is-new::after {
   opacity: 1;
-  box-shadow: inset 0 0 0 max(3px, 1.3cqh) var(--rb-cyan-strong);
+  box-shadow: inset 0 0 0 max(3px, 1.4cqh) var(--rb-cyan-strong);
 }
 
 .slot.busy > :not(.fx) {
@@ -928,9 +938,9 @@ body * {
   background: var(--rb-iris);
   box-shadow: 0 0 0 max(2px, 0.6cqh) var(--rb-paper);
   font-weight: 850;
-  font-size: min(7.4cqh, 5cqw);
+  font-size: min(9cqh, 5.6cqw);
   line-height: 1;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rb-ink);
   white-space: nowrap;
@@ -1069,112 +1079,111 @@ body * {
 :root[data-layout="portrait"] .side:not(.has-placed) > .wait,
 :root[data-layout="portrait"] .side.no-wait > .placed { grid-column: 1 / -1; }
 
-/* Portrait, carte d'attente seule sur la largeur : texte à gauche, chiffre géant à droite. */
-:root[data-layout="portrait"] .side:not(.has-placed) > .wait {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'eyebrow value'
-    'sub value';
-  column-gap: calc(var(--u) * 3);
+/* Stand fermé sans placement récent : ni attente ni « À vos tables ! », la file occupe seule la
+   colonne (pas de rangée vide ni d'espacement doublé au-dessus d'elle). */
+:root[data-layout="portrait"] .side.no-wait:not(.has-placed) {
+  grid-template-rows: minmax(0, 1fr);
 }
 
-:root[data-layout="portrait"] .side:not(.has-placed) > .wait .wait-eyebrow { grid-area: eyebrow; }
-:root[data-layout="portrait"] .side:not(.has-placed) > .wait .wait-sub { grid-area: sub; margin: 0; }
-:root[data-layout="portrait"] .side:not(.has-placed) > .wait .wait-value { grid-area: value; justify-content: flex-end; }
+:root[data-layout="portrait"] .side.no-wait:not(.has-placed) > .queue-panel {
+  grid-row: 1;
+}
 
-/* Attente estimée pour une nouvelle inscription. */
+/* Attente estimée pour une nouvelle inscription : sur-titre, puis valeur et heure de début sur une
+   ligne (l'heure passe dessous si la carte est étroite). */
 .wait {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: calc(var(--u) * 0.5);
-  padding: calc(var(--u) * 1.8) calc(var(--u) * 2.6) calc(var(--u) * 1.9);
+  min-width: 0;
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 2.4) calc(var(--u) * 1.5);
 }
 
 .wait-eyebrow {
   display: flex;
-  align-items: flex-start;
-  gap: 0.7em;
+  align-items: center;
+  gap: 0.55em;
   margin: 0;
-  font-weight: 750;
-  font-size: calc(var(--u) * 1.6);
-  line-height: 1.25;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 700;
+  font-size: calc(var(--u) * 2.2);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
   color: var(--rb-ink-2);
 }
 
-.wait-eyebrow .gem {
-  margin-top: 0.05em;
+.wait-eyebrow .nb {
+  white-space: nowrap;
 }
 
 /* Pastille irisée (gemme Radiance). */
 .gem {
   flex: none;
-  width: 1.15em;
-  height: 1.15em;
+  width: 0.95em;
+  height: 0.95em;
   border-radius: 50%;
   background: var(--rb-iris-conic);
 }
 
+.wait-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: calc(var(--u) * 1.4);
+  row-gap: calc(var(--u) * 0.2);
+  margin: 0;
+}
+
 .wait-value {
   display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 0.6);
-  margin: 0;
+  align-items: baseline;
+  gap: calc(var(--u) * 0.4);
   line-height: 1;
   white-space: nowrap;
 }
 
 .wv-tilde {
   font-weight: 650;
-  font-size: calc(var(--u) * 5.4);
+  font-size: calc(var(--u) * 3.6);
   color: var(--rb-ink-3);
 }
 
 .wv-num {
   font-weight: 850;
-  font-size: calc(var(--u) * 9.4);
-  letter-spacing: -0.05em;
+  font-size: calc(var(--u) * 6.2);
+  letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink);
 }
 
 .wv-unit {
-  align-self: flex-end;
-  margin: 0 0 calc(var(--u) * 1.3) calc(var(--u) * 0.3);
+  margin-left: calc(var(--u) * 0.2);
   font-weight: 800;
-  font-size: calc(var(--u) * 3.8);
+  font-size: calc(var(--u) * 3);
   letter-spacing: -0.02em;
   color: var(--rb-ink);
 }
 
-.wv-lines {
-  display: flex;
-  flex-direction: column;
-  margin-left: calc(var(--u) * 0.8);
-  font-weight: 800;
-  font-size: calc(var(--u) * 3.3);
-  line-height: 1.02;
-  letter-spacing: -0.025em;
-  white-space: nowrap;
-}
-
 .wv-text {
   font-weight: 800;
-  font-size: calc(var(--u) * 3.4);
+  font-size: calc(var(--u) * 3);
   line-height: 1.08;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   white-space: normal;
   text-wrap: balance;
 }
 
+.wv-num + .wv-text {
+  margin-left: calc(var(--u) * 0.6);
+  white-space: nowrap;
+}
+
 .wait-sub {
-  margin: calc(var(--u) * 0.3) 0 0;
   font-weight: 600;
-  font-size: calc(var(--u) * 2.3);
-  line-height: 1.25;
+  font-size: calc(var(--u) * 2.4);
+  line-height: 1.2;
   color: var(--rb-ink-2);
+  white-space: nowrap;
 }
 
 .wait-sub b {
@@ -1198,11 +1207,42 @@ body * {
   color: var(--rb-ink-2);
 }
 
-/* Joueurs placés depuis moins de 3 minutes : « À vos tables ! ». */
+/* Paysage : carte compacte dans l'en-tête, collée à l'horloge (hauteur ≤ celle du logo). */
+.masthead > .wait {
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding: calc(var(--u) * 0.9) calc(var(--u) * 2.2) calc(var(--u) * 1);
+  gap: calc(var(--u) * 0.2);
+  border-radius: calc(var(--u) * 1.6);
+}
+
+.masthead > .wait:not([hidden]) + .meta {
+  margin-left: 0;
+}
+
+.masthead > .wait .wv-num {
+  font-size: calc(var(--u) * 5);
+}
+
+.masthead > .wait .wv-tilde {
+  font-size: calc(var(--u) * 3);
+}
+
+.masthead > .wait .wv-unit,
+.masthead > .wait .wv-text {
+  font-size: calc(var(--u) * 2.7);
+}
+
+/* Portrait, carte d'attente seule sur la largeur : un peu plus grande. */
+:root[data-layout="portrait"] .side:not(.has-placed) > .wait .wv-num {
+  font-size: calc(var(--u) * 7);
+}
+
+/* Joueurs placés depuis moins de 3 minutes : « À vos tables ! » (2 lignes au plus, compactes). */
 .placed {
   position: relative;
   overflow: hidden;
-  padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4) calc(var(--u) * 1.2);
+  padding: calc(var(--u) * 1.3) calc(var(--u) * 2.2) calc(var(--u) * 0.9);
 }
 
 .placed::before {
@@ -1211,17 +1251,17 @@ body * {
   left: 0;
   right: 0;
   top: 0;
-  height: calc(var(--u) * 0.6);
+  height: calc(var(--u) * 0.5);
   background: var(--rb-iris);
 }
 
 .placed-title {
   display: flex;
   align-items: center;
-  gap: 0.5em;
-  margin: 0 0 calc(var(--u) * 0.6);
+  gap: 0.45em;
+  margin: 0 0 calc(var(--u) * 0.3);
   font-weight: 800;
-  font-size: calc(var(--u) * 2.5);
+  font-size: calc(var(--u) * 2.4);
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
@@ -1236,6 +1276,7 @@ body * {
 
 .placed-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* une ligne ne s'élargit jamais au-delà du panneau */
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1244,9 +1285,10 @@ body * {
 .placed-list li {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 1.4);
-  min-height: calc(var(--u) * 5.6);
-  padding: calc(var(--u) * 0.5) 0;
+  gap: calc(var(--u) * 1.3);
+  min-width: 0;
+  min-height: calc(var(--u) * 4.9);
+  padding: calc(var(--u) * 0.45) 0;
   border-top: 1px solid var(--rb-line);
 }
 
@@ -1254,74 +1296,90 @@ body * {
   border-top: 0;
 }
 
-/* Plaque « 5 A » : même code que le plan (plaque foncée + lettre). */
+/* Plaque « Table 5 A » : même code que le plan (plaque foncée + lettre). */
 .where {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--u) * 0.3);
-  height: calc(var(--u) * 4.4);
-  padding: 0 calc(var(--u) * 0.45) 0 calc(var(--u) * 1);
-  border-radius: calc(var(--u) * 0.9);
+  gap: calc(var(--u) * 0.35);
+  height: calc(var(--u) * 4);
+  padding: 0 calc(var(--u) * 0.4) 0 calc(var(--u) * 0.9);
+  border-radius: calc(var(--u) * 0.8);
   background: var(--rb-ink);
   color: #fff;
   font-weight: 800;
-  font-size: calc(var(--u) * 2.8);
+  font-size: calc(var(--u) * 2.7);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .where small {
   font-weight: 650;
-  font-size: 0.5em;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.85;
+  font-size: 0.76em;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
 }
 
 .where i {
   display: grid;
   place-items: center;
-  min-width: calc(var(--u) * 3.3);
-  height: calc(var(--u) * 3.4);
-  margin-left: calc(var(--u) * 0.35);
-  border-radius: calc(var(--u) * 0.6);
+  min-width: calc(var(--u) * 3.1);
+  height: calc(var(--u) * 3.1);
+  margin-left: calc(var(--u) * 0.3);
+  border-radius: calc(var(--u) * 0.55);
   background: var(--rb-iris);
   color: var(--rb-ink);
   font-style: normal;
   font-size: 0.82em;
 }
 
+/* Noms : « Prénom N. » (.nm) ; un joueur par ligne si la paire ne tient pas sur une seule. */
 .placed-names {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.32em;
   font-weight: 700;
   font-size: calc(var(--u) * 2.5);
   line-height: 1.15;
   letter-spacing: -0.015em;
-  text-wrap: balance;
 }
 
 .placed-names .pn {
-  white-space: nowrap;
+  display: flex;
+  align-items: baseline;
+  gap: 0.32em;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.placed-names .nm {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .placed-names .amp {
+  flex: none;
   font-weight: 500;
   color: var(--rb-ink-3);
 }
 
 .placed-names .vs-host {
-  display: block;
-  font-weight: 600;
-  font-size: 0.72em;
+  flex-basis: 100%;
+  font-weight: 650;
+  font-size: 0.8em;
   color: var(--rb-cyan-ink);
 }
 
 .placed-list .more {
   justify-content: flex-start;
   min-height: 0;
+  padding: calc(var(--u) * 0.5) 0 calc(var(--u) * 0.2);
   font-weight: 650;
-  font-size: calc(var(--u) * 1.9);
+  font-size: calc(var(--u) * 2.1);
+  line-height: 1.2;
   color: var(--rb-ink-2);
 }
 
@@ -1330,7 +1388,7 @@ body * {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  padding: calc(var(--u) * 1.8) calc(var(--u) * 2.6) calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4) calc(var(--u) * 1.2);
 }
 
 .queue-head {
@@ -1338,7 +1396,7 @@ body * {
   align-items: flex-end;
   justify-content: space-between;
   gap: calc(var(--u) * 1.2);
-  padding-bottom: calc(var(--u) * 1.2);
+  padding-bottom: calc(var(--u) * 1);
   border-bottom: 2px solid var(--rb-ink);
 }
 
@@ -1358,7 +1416,7 @@ body * {
 
 .queue-count span {
   font-weight: 600;
-  font-size: calc(var(--u) * 1.7);
+  font-size: calc(var(--u) * 2.1);
   color: var(--rb-ink-2);
   white-space: nowrap;
 }
@@ -1402,8 +1460,8 @@ body * {
   align-items: center;
   gap: calc(var(--u) * 1.3);
   min-width: 0;
-  min-height: calc(var(--u) * 5.8);
-  padding: calc(var(--u) * 0.7) 0;
+  min-height: calc(var(--u) * 5);
+  padding: calc(var(--u) * 0.6) 0;
   border-bottom: 1px solid var(--rb-line);
   font-weight: 640;
   font-size: calc(var(--u) * 2.8);
@@ -1454,7 +1512,7 @@ body * {
 
 /* Paire sur deux lignes (un joueur par ligne) plutôt que des noms coupés. */
 .q.two-line {
-  padding-block: calc(var(--u) * 1);
+  padding-block: calc(var(--u) * 0.8);
 }
 
 .q.two-line .names {
@@ -1477,7 +1535,7 @@ body * {
 .q .eta {
   flex: none;
   font-weight: 650;
-  font-size: 0.7em;
+  font-size: 0.82em;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink-2);
   white-space: nowrap;
@@ -1503,11 +1561,11 @@ body * {
 
 .soon-tag {
   flex: none;
-  padding: 0.32em 0.7em;
+  padding: 0.24em 0.6em;
   border-radius: 99px;
   font-weight: 800;
-  font-size: 0.5em;
-  letter-spacing: 0.1em;
+  font-size: 0.7em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rb-ink);
   background: var(--rb-orange);
@@ -1540,8 +1598,8 @@ body * {
 
 .q.seeking {
   align-items: flex-start;
-  margin: calc(var(--u) * 0.5) 0;
-  padding: calc(var(--u) * 1) calc(var(--u) * 1.4) calc(var(--u) * 1.1) 0;
+  margin: calc(var(--u) * 0.4) 0;
+  padding: calc(var(--u) * 0.8) calc(var(--u) * 1.4) calc(var(--u) * 0.9) 0;
   border: none;
   border-radius: calc(var(--u) * 1.1);
   background: var(--rb-cyan-tint);
@@ -1564,7 +1622,7 @@ body * {
 /* Invitation pour les visiteurs seuls : jamais coupée (passe à la ligne). */
 .q .invite {
   font-weight: 600;
-  font-size: 0.66em;
+  font-size: 0.72em;
   line-height: 1.25;
   color: var(--rb-ink-2);
 }
@@ -1592,6 +1650,69 @@ body * {
   font-weight: 600;
   font-size: 0.72em;
   color: var(--rb-ink-2);
+}
+
+/* File par pages : « Rangs 1 à 9 sur 39 » et une barre par page (la page en cours se remplit
+   pendant qu'elle est affichée ; animation transform uniquement). */
+.q.pager {
+  justify-content: space-between;
+  gap: calc(var(--u) * 2);
+  min-height: calc(var(--u) * 4);
+  padding: calc(var(--u) * 0.6) 0 0;
+  font-size: calc(var(--u) * 2.3);
+  white-space: nowrap;
+}
+
+.pg-text small {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--rb-ink-2);
+}
+
+.pg-bars {
+  flex: 1 1 auto;
+  display: flex;
+  gap: calc(var(--u) * 0.6);
+  max-width: calc(var(--u) * 28);
+  min-width: 0;
+}
+
+.pg-bars i {
+  position: relative;
+  flex: 1 1 0;
+  height: calc(var(--u) * 0.9);
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--rb-sunken);
+}
+
+.pg-bars i.seen {
+  background: var(--rb-ink-3);
+}
+
+.pg-bars i.on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--rb-orange);
+  transform-origin: left center;
+  animation: page-progress var(--page-ms, 10s) linear var(--page-delay, 0ms) 1 both;
+}
+
+@keyframes page-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Changement de page : fondu bref. */
+.queue-list.page-in .q:not(.pager) {
+  animation: page-in 0.5s ease-out both;
+}
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(calc(var(--u) * 0.6)); }
+  to { opacity: 1; transform: none; }
 }
 
 /* File vide. */
@@ -1639,9 +1760,9 @@ body * {
   padding: 0.35em 0.9em;
   border-radius: 99px;
   font-weight: 800;
-  font-size: calc(var(--u) * 1.7);
+  font-size: calc(var(--u) * 2.1);
   line-height: 1;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #fff;
   background: var(--rb-ink);
@@ -1711,8 +1832,8 @@ body * {
   padding-top: calc(var(--u) * 1.6);
   border-top: 2px solid var(--rb-ink);
   font-weight: 750;
-  font-size: calc(var(--u) * 1.9);
-  letter-spacing: 0.12em;
+  font-size: calc(var(--u) * 2.1);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--rb-ink);
 }
@@ -1811,7 +1932,7 @@ body * {
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--u) * 3);
-  min-height: calc(var(--u) * 7.4);
+  min-height: calc(var(--u) * 6.8);
   padding: calc(var(--u) * 0.8) calc(var(--u) * 3);
   border-radius: calc(var(--u) * 1.8);
   background: var(--rb-ink);

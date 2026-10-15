@@ -1,5 +1,6 @@
 // Écran TV public (/ecran) : plan des 9 tables (2 matchs 1v1 par table), attente estimée pour une
-// nouvelle inscription, joueurs qui viennent d'être placés (« À vos tables ! »), file d'attente.
+// nouvelle inscription, joueurs qui viennent d'être placés (« À vos tables ! »), file d'attente
+// (par pages qui défilent quand elle est longue : chaque nom passe à l'écran).
 // Re-rendu différentiel à chaque événement 'state' ; comptes à rebours mis à jour chaque seconde.
 // N'affiche que « Prénom N. » (projection publique du serveur) ; tout texte est échappé.
 (function () {
@@ -10,12 +11,18 @@
   const SLOT_NAMES = ['A', 'B'];
   const MIN = 60 * 1000;
   const WARN_MS = 5 * MIN;
-  const NEW_MS = 2 * MIN; // étiquette « Nouveau » sur l'emplacement
-  const PLACED_MS = 3 * MIN; // liste « À vos tables ! »
-  const PLACED_MAX = 3;
+  // Étiquette « Nouveau » sur le plan et liste « À vos tables ! » : même durée, pour que la ligne
+  // « + N autres : étiquette « Nouveau » sur le plan » renvoie toujours à des étiquettes visibles.
+  const PLACED_MS = 3 * MIN;
+  const NEW_MS = PLACED_MS;
+  const PLACED_MAX = 2;
+  const BATCH_GAP_MS = 10 * 1000; // placements à moins de 10 s d'intervalle = un même lot
   const NEXT_HIGHLIGHT = 2;
   const SEATED_ANIM_MS = 2800;
   const IMMINENT_MS = 2 * MIN;
+  const PAGE_MS = 10 * 1000; // file longue : une page toutes les 10 s
+  // Place minimale de la file (en lignes d'environ 5u) avant de réduire « À vos tables ! ».
+  const QUEUE_MIN_ROWS = { paysage: 8, portrait: 6 };
 
   const root = document.documentElement;
   const $ = (id) => document.getElementById(id);
@@ -24,6 +31,8 @@
     conn: $('conn'),
     tables: $('tables'),
     freeCount: $('freeCount'),
+    masthead: document.querySelector('.masthead'),
+    meta: document.querySelector('.masthead .meta'),
     side: $('side'),
     wait: $('wait'),
     waitEyebrow: $('waitEyebrow'),
@@ -58,19 +67,31 @@
   if (rotation) root.dataset.rotation = rotation;
   const portraitQuery = window.matchMedia('(orientation: portrait)');
 
+  const isPortrait = () => root.dataset.layout === 'portrait';
+
+  // Paysage : la carte d'attente rejoint l'en-tête, entre RADIANCE et l'horloge (place libre),
+  // pour laisser toute la colonne de droite à « À vos tables ! » et à la file. Portrait : l'en-tête
+  // est déjà plein, elle reste au-dessus de la file.
+  function placeWait() {
+    if (isPortrait()) {
+      if (els.wait.parentElement !== els.side) els.side.insertBefore(els.wait, els.side.firstChild);
+    } else if (els.wait.parentElement !== els.masthead) {
+      els.masthead.insertBefore(els.wait, els.meta);
+    }
+  }
+
   function applyLayout() {
     let portrait = portraitQuery.matches;
     if (rotation === '90' || rotation === '-90') portrait = !portrait;
     const layout = forcedLayout || (portrait ? 'portrait' : 'paysage');
     if (root.dataset.layout !== layout) root.dataset.layout = layout;
+    placeWait();
   }
   applyLayout();
   portraitQuery.addEventListener('change', () => {
     applyLayout();
     scheduleFit();
   });
-
-  const isPortrait = () => root.dataset.layout === 'portrait';
 
   // ---------------------------------------------------------------- utilitaires
 
@@ -88,6 +109,17 @@
     const ini = fn.nextElementSibling;
     const need = fn.scrollWidth + (ini ? ini.offsetWidth : 0) + 1;
     return Math.max(need - nm.clientWidth, fn.scrollWidth - fn.clientWidth);
+  }
+
+  // L'emplacement tient-il dans sa zone de contenu ? Le padding réserve le cadre d'état
+  // (« 5 dernières minutes », « Nouveau ») : un nom qui y déborde toucherait le cadre. (scrollHeight
+  // ne le voit pas : un débordement dans le padding ne compte pas.)
+  function slotFits(slot) {
+    const last = slot.querySelector('.pl2');
+    if (!last) return true;
+    const cs = getComputedStyle(slot);
+    const limit = slot.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) - parseFloat(cs.borderBottomWidth);
+    return last.getBoundingClientRect().bottom <= limit + 0.5;
   }
 
   // Noms du plan, jamais coupés tant qu'il reste une solution : police réduite (jusqu'à 0,78),
@@ -127,7 +159,7 @@
           nm.classList.add('wrap');
           nm.style.fontSize = `${k}em`;
           const lines = Math.round(nm.scrollHeight / (parseFloat(getComputedStyle(nm).lineHeight) || 1));
-          if (nm.scrollWidth <= nm.clientWidth + 1 && lines <= 2 && slot.scrollHeight <= slot.clientHeight + 1) return true;
+          if (nm.scrollWidth <= nm.clientWidth + 1 && lines <= 2 && slotFits(slot)) return true;
         }
         return false;
       };
@@ -188,6 +220,67 @@
   const seatedAt = new Map();
   let firstRender = true;
 
+  // Places à la table : joueur 1 = chaise du haut, joueur 2 = chaise du bas. L'état public ne
+  // contient que les joueurs encore en jeu : après « Absent », il faut savoir lequel reste. On
+  // utilise `seat` (1 | 2) si le serveur le fournit, sinon l'ordre de la paire mémorisé tant
+  // qu'elle était complète (conservé au rechargement de la page, sans donnée personnelle : des
+  // numéros internes). Inconnue (joueur seul dès l'inscription) : joueur en haut, animateur en bas.
+  const SEATS_KEY = 'rb-ecran-seats';
+  const seatMemory = new Map();
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(SEATS_KEY) || '[]');
+    if (Array.isArray(saved)) {
+      for (const row of saved) {
+        if (Array.isArray(row) && row.length === 2 && Array.isArray(row[1])) seatMemory.set(row[0], row[1]);
+      }
+    }
+  } catch {
+    // Stockage indisponible (navigation privée, kiosque) : mémoire de la session seulement.
+  }
+
+  function saveSeats() {
+    try {
+      window.localStorage.setItem(SEATS_KEY, JSON.stringify([...seatMemory]));
+    } catch {
+      // Sans stockage, la mémoire vit le temps de la page.
+    }
+  }
+
+  // { top, bottom, host } : joueurs (ou null) sur les chaises du haut et du bas ; host = chaise de
+  // l'animateur ('top' | 'bottom' | null).
+  function seatsOf(match) {
+    const players = match.players || [];
+    if (players.length >= 2) {
+      const ids = [players[0].id, players[1].id];
+      const known = seatMemory.get(match.matchId);
+      if (ids.every((id) => id !== undefined && id !== null) && (!known || known[0] !== ids[0] || known[1] !== ids[1])) {
+        seatMemory.set(match.matchId, ids);
+        saveSeats();
+      }
+      const [a, b] = players[0].seat === 2 || players[1].seat === 1 ? [players[1], players[0]] : players;
+      return { top: a, bottom: b, host: null };
+    }
+    const p = players[0] || null;
+    let seat = p && (p.seat === 1 || p.seat === 2) ? p.seat : null;
+    if (!seat && p) {
+      const known = seatMemory.get(match.matchId);
+      const i = known ? known.indexOf(p.id) : -1;
+      if (i >= 0) seat = i + 1;
+    }
+    return seat === 2 ? { top: null, bottom: p, host: 'top' } : { top: p, bottom: null, host: 'bottom' };
+  }
+
+  function forgetSeats(activeIds) {
+    let changed = false;
+    for (const id of seatMemory.keys()) {
+      if (!activeIds.has(id)) {
+        seatMemory.delete(id);
+        changed = true;
+      }
+    }
+    if (changed) saveSeats();
+  }
+
   function buildTables(tables) {
     els.tables.textContent = '';
     tableViews.clear();
@@ -216,7 +309,9 @@
   function slotKey(table, name, closed) {
     const s = table.slots[name];
     if (!s) return `free:${table.enabled}:${closed}`;
-    return JSON.stringify([s.matchId, s.startedAt, s.endsAt, s.vsAnimator, s.players.map((p) => p.displayName)]);
+    const seats = seatsOf(s);
+    const who = (p) => (p ? [p.id, p.displayName] : null);
+    return JSON.stringify([s.matchId, s.startedAt, s.endsAt, s.vsAnimator, who(seats.top), who(seats.bottom), seats.host]);
   }
 
   function renderBoard(view, table, closed) {
@@ -254,9 +349,11 @@
 
   function setChairs(view, name, match) {
     const [top, bottom] = view.chairs[name];
+    const host = match ? seatsOf(match).host : null;
     top.classList.toggle('taken', !!match);
     bottom.classList.toggle('taken', !!match);
-    bottom.classList.toggle('host', !!match && match.players.length < 2);
+    top.classList.toggle('host', host === 'top');
+    bottom.classList.toggle('host', host === 'bottom');
   }
 
   function renderSlot(el, table, name, closed) {
@@ -282,20 +379,21 @@
       return;
     }
 
-    // Un seul joueur (contre un animateur dès l'inscription, ou partenaire déclaré absent).
-    const [p1, p2] = match.players;
-    const second = p2
-      ? `<div class="pl pl2">${nameHtml(p2.displayName)}</div>`
-      : '<div class="pl pl2 animator"><span class="anim-pill">Animateur</span></div>';
+    // Un seul joueur (contre un animateur dès l'inscription, ou partenaire déclaré absent) :
+    // l'animateur prend la chaise libre (celle de l'absent).
+    const seats = seatsOf(match);
+    const line = (p, cls) => (p
+      ? `<div class="pl ${cls}">${nameHtml(p.displayName)}</div>`
+      : `<div class="pl ${cls} animator"><span class="anim-pill">Animateur</span></div>`);
     el.className = 'slot busy';
     el.innerHTML =
       '<span class="fx" aria-hidden="true"></span>' +
       '<span class="new-tag">Nouveau</span>' +
-      `<div class="pl pl1">${nameHtml(p1 ? p1.displayName : 'Joueur')}</div>` +
+      line(seats.top, 'pl1') +
       `<div class="vs">${tag}<span class="vs-word">VS</span></div>` +
       '<div class="time"></div>' +
       '<div class="gauge"><i></i></div>' +
-      second;
+      line(seats.bottom, 'pl2');
 
     // Nouveaux joueurs installés pendant que la page est ouverte : reflet irisé (une fois).
     if (!firstRender && !seatedAt.has(match.matchId)) seatedAt.set(match.matchId, Date.now());
@@ -332,6 +430,7 @@
     }
     const active = new Set(state.tables.flatMap((t) => SLOT_NAMES.map((n) => t.slots[n] && t.slots[n].matchId)));
     for (const id of seatedAt.keys()) if (!active.has(id)) seatedAt.delete(id);
+    forgetSeats(active);
 
     if (closed) {
       const playing = activeMatchCount(state);
@@ -366,23 +465,25 @@
     let mode;
     let value;
     let sub;
-    let eyebrow = 'Attente estimée · nouvelle inscription';
+    // Sur-titre en segments insécables : une coupure ne peut tomber qu'après « · ».
+    const seg = (a, b) => `<span class="nb">${a}&nbsp;·</span> <span class="nb">${b}</span>`;
+    let eyebrow = seg('Attente estimée', 'nouvelle inscription');
     if (est.newcomerAt === null) {
       mode = 'none';
       value = '<span class="wv-text">Tables momentanément indisponibles</span>';
       sub = 'Renseignez-vous à l’accueil';
     } else if (free > 0 && est.newcomerAt - now < MIN) {
       mode = 'free';
-      eyebrow = 'Nouvelle inscription · pas d’attente';
+      eyebrow = seg('Nouvelle inscription', 'pas d’attente');
       value =
         `<span class="wv-num">${free}</span>` +
-        `<span class="wv-lines"><span>${plural(free, 'place libre', 'places libres')}</span><span>maintenant&nbsp;!</span></span>`;
-      sub = 'Présentez-vous à l’accueil';
+        `<span class="wv-text">${plural(free, 'place libre', 'places libres')} maintenant&nbsp;!</span>`;
+      sub = '';
     } else {
       mode = 'wait';
       const w = waitLabel(est.newcomerAt - now);
       value = `<span class="wv-tilde">~</span><span class="wv-num">${esc(w.num)}</span>${w.unit ? `<span class="wv-unit">${w.unit}</span>` : ''}`;
-      sub = `Début de partie vers <b>${esc(LC.formatClock(est.newcomerAt))}</b>`;
+      sub = `début de partie vers <b>${esc(LC.formatClock(est.newcomerAt))}</b>`;
     }
     const key = `${mode}|${eyebrow}|${value}|${sub}`;
     const wasHidden = els.wait.hidden;
@@ -393,6 +494,7 @@
     els.waitEyebrow.innerHTML = eyebrow;
     els.waitValue.innerHTML = value;
     els.waitSub.innerHTML = sub;
+    els.waitSub.hidden = !sub;
     return true;
   }
 
@@ -402,6 +504,8 @@
   let placedMax = PLACED_MAX;
 
   // Parties commencées depuis moins de 3 minutes (heure du serveur : juste après un rechargement aussi).
+  // Les placements faits ensemble (ouverture, réouverture, tables remises en service : quelques
+  // millisecondes d'écart) forment un lot : lot le plus récent d'abord, puis ordre du plan (1 A, 1 B, 2 A…).
   function recentMatches(state, now) {
     const list = [];
     for (const t of state.tables) {
@@ -410,7 +514,13 @@
         if (m && now - m.startedAt < PLACED_MS && m.endsAt > now) list.push({ no: t.no, slot: s, m });
       }
     }
-    return list.sort((a, b) => b.m.startedAt - a.m.startedAt || a.no - b.no);
+    list.sort((a, b) => b.m.startedAt - a.m.startedAt);
+    let batch = 0;
+    list.forEach((x, i) => {
+      if (i > 0 && list[i - 1].m.startedAt - x.m.startedAt > BATCH_GAP_MS) batch += 1;
+      x.batch = batch;
+    });
+    return list.sort((a, b) => a.batch - b.batch || a.no - b.no || a.slot.localeCompare(b.slot));
   }
 
   function renderPlaced(state, now) {
@@ -426,18 +536,55 @@
       return true;
     }
     const rows = shown.map(({ no, slot, m }) => {
-      const names = m.players.map((p) => esc(p.displayName));
-      const who = names.length >= 2
-        ? `<span class="pn">${names[0]}</span> <span class="pn"><span class="amp">&amp;</span> ${names[1]}</span>`
-        : `<span class="pn">${names[0] || 'Joueur'}</span><span class="vs-host">contre un animateur</span>`;
+      const [a, b] = m.players;
+      const who = b
+        ? `<span class="pn">${nameHtml(a.displayName)}</span><span class="pn"><span class="amp">&amp;</span>${nameHtml(b.displayName)}</span>`
+        : `<span class="pn">${nameHtml(a ? a.displayName : 'Joueur')}</span><span class="vs-host">contre un animateur</span>`;
       return `<li><span class="where"><small>Table</small>${esc(no)}<i>${slot}</i></span><span class="placed-names">${who}</span></li>`;
     });
     const rest = recent.length - shown.length;
     if (rest > 0) {
-      rows.push(`<li class="more">+ ${rest} ${plural(rest, 'autre', 'autres')} : étiquette « Nouveau » sur le plan</li>`);
+      rows.push(`<li class="more">+ ${rest} ${plural(rest, 'autre', 'autres')}&nbsp;: étiquette «&nbsp;Nouveau&nbsp;» sur le plan</li>`);
     }
     els.placedList.innerHTML = rows.join('');
+    fitPlacedNames();
     return true;
+  }
+
+  // Noms de « À vos tables ! » jamais coupés au bord du panneau : police réduite (jusqu'à 0,8),
+  // puis deux lignes si le prénom se coupe (tiret, espace), et en dernier recours « … » sur le
+  // prénom seulement : l'initiale du nom reste visible.
+  // Débordement d'un nom par rapport à la largeur de la ligne (moins « & » pour le second joueur) :
+  // le nom prend la largeur de son texte, on le compare donc à la place offerte, pas à sa boîte.
+  function placedOverflow(nm) {
+    const fn = nm.firstElementChild;
+    const ini = fn.nextElementSibling;
+    const pn = nm.parentElement;
+    const gap = parseFloat(getComputedStyle(pn).columnGap) || 0;
+    let avail = pn.parentElement.clientWidth;
+    for (const kid of pn.children) if (kid !== nm) avail -= kid.offsetWidth + gap;
+    return { over: fn.scrollWidth + (ini ? ini.offsetWidth : 0) + 1 - avail, avail };
+  }
+
+  function fitPlacedNames() {
+    for (const nm of els.placedList.querySelectorAll('.nm')) {
+      nm.style.fontSize = '';
+      nm.classList.remove('cut', 'wrap');
+      const first = placedOverflow(nm);
+      if (first.over <= 0) continue;
+      const ratio = first.avail > 0 ? first.avail / (first.avail + first.over) : 1;
+      nm.style.fontSize = `${Math.max(0.8, ratio * 0.97).toFixed(3)}em`;
+      if (placedOverflow(nm).over <= 0) continue;
+      if (/[\s\-‐]\S/u.test(nm.firstElementChild.textContent.trim())) {
+        nm.style.fontSize = '0.9em';
+        nm.classList.add('wrap');
+        const lines = Math.round(nm.scrollHeight / (parseFloat(getComputedStyle(nm).lineHeight) || 1));
+        if (nm.scrollWidth <= nm.clientWidth + 1 && lines <= 2) continue;
+        nm.classList.remove('wrap');
+        nm.style.fontSize = '0.8em';
+      }
+      if (placedOverflow(nm).over > 0) nm.classList.add('cut');
+    }
   }
 
   // ---------------------------------------------------------------- file d'attente
@@ -495,7 +642,7 @@
         if (entry.kind === 'pair') {
           const [a, b] = entry.players;
           return (
-            `<li class="q pair${isNext ? ' next' : ''}">${rank}` +
+            `<li class="q pair${isNext ? ' next' : ''}" data-rank="${esc(entry.rank)}">${rank}` +
             `<span class="names">${nameHtml(a.displayName)}<span class="amp">&amp;</span>${nameHtml(b.displayName)}</span>` +
             `${tail}</li>`
           );
@@ -503,14 +650,14 @@
         const solo = entry.players[0] || { displayName: '' };
         if (entry.ready) {
           return (
-            `<li class="q solo vs-host${isNext ? ' next' : ''}">${rank}` +
+            `<li class="q solo vs-host${isNext ? ' next' : ''}" data-rank="${esc(entry.rank)}">${rank}` +
             `<span class="names">${nameHtml(solo.displayName)}` +
             '<span class="note">contre un animateur</span></span>' +
             `${tail}</li>`
           );
         }
         return (
-          `<li class="q solo seeking">${rank}<span class="body">` +
+          `<li class="q solo seeking" data-rank="${esc(entry.rank)}">${rank}<span class="body">` +
           `<span class="names">${nameHtml(solo.displayName)}` +
           '<span class="note">cherche un partenaire</span></span>' +
           '<span class="invite">Venu seul&nbsp;? <b>Inscrivez-vous</b> pour jouer ensemble&nbsp;!</span>' +
@@ -571,13 +718,62 @@
     for (const nm of li.querySelectorAll('.nm')) if (nameOverflow(nm) > 0) nm.classList.add('cut');
   }
 
-  // N'affiche que les entrées qui tiennent, puis « + N autres ». Renvoie true si la file déborde.
+  // File longue : pages qui défilent (une toutes les 10 s), pour que chaque visiteur voie son nom
+  // passer à l'écran (« Suivez votre nom à l'écran »). Chaque page montre autant d'entrées que la
+  // place le permet, plus une ligne « Rangs 1 à 9 sur 39 » avec l'avancement des pages.
+  let pages = []; // [[début, fin[)] en indices des entrées
+  let pageIndex = 0;
+  let pageShownAt = 0;
+
+  function pagerHtml(items, page) {
+    const [start, end] = pages[page];
+    const first = esc(items[start].dataset.rank);
+    const last = esc(items[end - 1].dataset.rank);
+    const total = esc(items[items.length - 1].dataset.rank);
+    const range = first === last ? `Rang ${first}` : `Rangs ${first} à ${last}`;
+    const bars = pages
+      .map((_, i) => `<i class="${i < page ? 'seen' : i === page ? 'on' : ''}"></i>`)
+      .join('');
+    return `<span class="pg-bars" aria-hidden="true">${bars}</span><span class="pg-text">${range} <small>sur ${total}</small></span>`;
+  }
+
+  // Affiche la page `page` (sans recalcul de mise en page : chaque page a été mesurée).
+  function showPage(page, restart) {
+    const list = els.queueList;
+    const items = [...list.children].filter((li) => !li.classList.contains('more'));
+    const pager = list.querySelector('.pager');
+    if (!pages.length || !pager || !items.length) return;
+    pageIndex = Math.min(Math.max(0, page), pages.length - 1);
+    if (restart) pageShownAt = Date.now();
+    const [start, end] = pages[pageIndex];
+    items.forEach((li, i) => {
+      li.hidden = i < start || i >= end;
+    });
+    pager.innerHTML = pagerHtml(items, pageIndex);
+    // Barre d'avancement de la page en cours (animation CSS, reprise au bon endroit après un recalcul).
+    pager.style.setProperty('--page-ms', `${PAGE_MS}ms`);
+    pager.style.setProperty('--page-delay', `${-Math.min(PAGE_MS, Date.now() - pageShownAt)}ms`);
+    if (restart) {
+      list.classList.remove('page-in');
+      void list.offsetWidth; // relance l'apparition en fondu
+      list.classList.add('page-in');
+    }
+  }
+
+  function nextPage() {
+    if (pages.length < 2) return;
+    showPage((pageIndex + 1) % pages.length, true);
+  }
+
+  // Découpe la file en pages qui tiennent dans la place disponible. Renvoie true s'il en faut
+  // plusieurs (la file ne tient pas en entier).
   function fitQueue() {
     const list = els.queueList;
-    if (list.hidden) return false;
-    const items = [...list.children].filter((li) => !li.classList.contains('more'));
+    pages = [];
     const old = list.querySelector('.more');
     if (old) old.remove();
+    if (list.hidden) return false;
+    const items = [...list.children];
     for (const li of items) li.hidden = false;
     if (!items.length) return false;
 
@@ -585,24 +781,44 @@
     const maxW = list.clientWidth;
     if (!maxH) return true;
     const fits = (el) => el.offsetTop + el.offsetHeight <= maxH + 1 && el.offsetLeft + el.offsetWidth <= maxW + 1;
-    let visible = items.findIndex((li) => !fits(li));
-    if (visible === -1) return false;
+    if (items.every(fits)) return false;
 
-    const more = document.createElement('li');
-    more.className = 'q more';
-    list.appendChild(more);
-    for (;;) {
-      items.forEach((li, i) => {
-        li.hidden = i >= visible;
-      });
-      const hidden = items.slice(visible);
-      const hiddenPlayers = hidden.reduce((n, li) => n + li.querySelectorAll('.nm').length, 0);
-      more.innerHTML =
-        `+ ${hidden.length} ${plural(hidden.length, 'autre', 'autres')}` +
-        `<small>${hiddenPlayers} ${plural(hiddenPlayers, 'joueur', 'joueurs')}</small>`;
-      if (fits(more) || visible === 0) break;
-      visible -= 1;
+    const pager = document.createElement('li');
+    pager.className = 'q more pager';
+    pager.innerHTML = '<span class="pg-bars"><i></i></span><span class="pg-text">Rangs 00 à 00 <small>sur 00</small></span>';
+    list.appendChild(pager);
+    // Pages remplies au maximum (`cap` = nombre d'entrées au plus par page).
+    const split = (cap) => {
+      const out = [];
+      let start = 0;
+      while (start < items.length) {
+        items.forEach((li, i) => {
+          li.hidden = i < start;
+        });
+        let end = items.findIndex((li, i) => i >= start && !fits(li));
+        if (end === -1) end = items.length;
+        end = Math.min(Math.max(end, start + 1), start + cap);
+        items.forEach((li, i) => {
+          li.hidden = i < start || i >= end;
+        });
+        while (end > start + 1 && !fits(pager)) {
+          end -= 1;
+          items[end].hidden = true;
+        }
+        out.push([start, end]);
+        start = end;
+      }
+      return out;
+    };
+    pages = split(items.length);
+    // Pages équilibrées (39 entrées : 10 + 10 + 10 + 9 plutôt que 12 + 13 + 13 + 1), si elles
+    // tiennent dans le même nombre de pages.
+    if (pages.length > 1) {
+      const even = split(Math.ceil(items.length / pages.length));
+      if (even.length === pages.length) pages = even;
     }
+    // Première mise en pages : la page 1 commence maintenant.
+    showPage(pageIndex, !pageShownAt);
     return true;
   }
 
@@ -618,6 +834,7 @@
     const closed = isClosed(lastState);
     const entries = lastState && !closed ? (lastState.queue || []).length : 0;
     list.classList.toggle('cols-2', isPortrait() && entries >= 2);
+    pages = [];
     for (const li of list.querySelectorAll('.q.more')) li.remove();
     for (const li of list.children) li.hidden = false;
     for (const li of list.children) fitEntry(li);
@@ -632,8 +849,9 @@
     }
   }
 
-  // La colonne de droite garde la priorité à la file (au moins 3 lignes) et au message de fin de
-  // journée : « À vos tables ! » montre moins d'entrées s'il le faut.
+  // La colonne garde la priorité à la file et au message de fin de journée : si la file doit
+  // passer par pages, chaque page garde au moins 8 lignes en paysage (6 par colonne en portrait),
+  // et « À vos tables ! » montre moins d'entrées s'il le faut.
   const probe = document.createElement('div');
   probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:var(--u);height:0';
   document.body.appendChild(probe);
@@ -644,8 +862,11 @@
     if (!lastState) return true;
     if (isClosed(lastState)) return !overflows(els.queueClosed);
     if (!(lastState.queue || []).length) return !overflows(els.queueEmpty);
+    if (!pages.length) return true;
     const u = probe.offsetWidth || 10;
-    return els.queueList.parentElement.clientHeight >= u * 17.4;
+    const rows = QUEUE_MIN_ROWS[isPortrait() ? 'portrait' : 'paysage'];
+    // Hauteur offerte à la file (la liste elle-même prend la hauteur de la page affichée).
+    return els.queueList.parentElement.clientHeight >= u * (rows * 5 + 4);
   }
 
   function fitAll() {
@@ -661,6 +882,11 @@
       placedMax -= 1;
       placedKey = '';
       renderPlaced(lastState, client ? client.now() : Date.now());
+    }
+    // File redevenue courte : la prochaine mise en pages repartira de la page 1.
+    if (!pages.length) {
+      pageIndex = 0;
+      pageShownAt = 0;
     }
   }
 
@@ -722,6 +948,8 @@
         t.fresh = fresh;
       }
     }
+
+    if (pages.length > 1 && Date.now() - pageShownAt >= PAGE_MS) nextPage();
 
     let refit = renderWait(lastState, now);
     if (renderPlaced(lastState, now)) refit = true;

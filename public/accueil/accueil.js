@@ -205,9 +205,12 @@
   // ================================================================ toasts
 
   // Une seule notification à la fois, posée sur la barre du haut (au-dessus des statistiques) :
-  // elle ne recouvre jamais un panneau de travail, un menu ni le panneau d'un emplacement. Elle
-  // laisse passer les clics (seule la croix est cliquable) et s'estompe sous la souris. Les
-  // placements à annoncer et le résultat d'une inscription ont leurs propres zones persistantes.
+  // elle ne recouvre jamais un panneau de travail, un menu ni le panneau d'un emplacement. Texte
+  // affiché en entier (jamais tronqué). À la souris, elle laisse passer les clics (seule la croix est
+  // cliquable) et s'estompe sous le pointeur ; au toucher (rien à survoler), un tap dessus la ferme au
+  // lieu d'actionner à l'aveugle le bouton caché dessous. Elle se retire dès que le focus clavier
+  // entre dans la barre du haut. Les placements à annoncer et le résultat d'une inscription ont
+  // leurs propres zones persistantes.
   const toastBox = $('#toasts');
 
   function toast(message, type = 'success', timeout) {
@@ -229,14 +232,32 @@
     el.append(msg, close);
     toastBox.append(el);
     requestAnimationFrame(updateToastPeek);
-    const dismiss = () => {
-      if (!el.isConnected) return;
+    el.dismiss = () => {
+      if (!el.isConnected || el.classList.contains('is-leaving')) return;
       el.classList.add('is-leaving');
       setTimeout(() => el.remove(), 220);
     };
-    close.addEventListener('click', dismiss);
-    setTimeout(dismiss, timeout || (type === 'error' ? 8000 : type === 'info' ? 6000 : 4000));
+    // Croix, ou tap n'importe où sur la notification (seulement en mode tactile, voir .is-touch).
+    el.addEventListener('click', el.dismiss);
+    setTimeout(el.dismiss, timeout || (type === 'error' ? 8000 : type === 'info' ? 6000 : 4000));
   }
+
+  function dismissToasts() {
+    for (const t of toastBox.children) t.dismiss?.();
+  }
+
+  // Mode tactile (tablette) : la notification capte les taps (voir .is-touch .toast dans le CSS).
+  const rootEl = document.documentElement;
+  rootEl.classList.toggle('is-touch', !!window.matchMedia?.('(hover: none)').matches);
+  document.addEventListener('pointerdown', (e) => {
+    rootEl.classList.toggle('is-touch', e.pointerType === 'touch' || e.pointerType === 'pen');
+  }, true);
+
+  // Focus clavier dans la barre du haut (Maj+Tab vers « Rechercher », « Réglages »…) : la
+  // notification ne doit pas le masquer.
+  $('#topbar').addEventListener('focusin', (e) => {
+    if (e.target.matches(':focus-visible')) dismissToasts();
+  });
 
   // Sous la souris, la notification s'estompe (on voit et on clique ce qu'elle recouvre).
   let pointer = null;
@@ -1123,7 +1144,7 @@
           const cur = slotNow();
           const head = `${name} absent(e), retiré(e) sans goodies. Partie annulée`;
           if (cur.match && cur.match.matchId !== r.matchId) {
-            toast(`${head} ; emplacement ${place} aussitôt redonné à ${joinNames(matchNames(cur.match, false))} (voir « À appeler »).`);
+            toast(`${place} redonné à ${joinNames(matchNames(cur.match, false))} : voir « À appeler ». ${shortName(p)} absent(e), retiré(e) sans goodies, partie annulée.`);
           } else if (cur.match) {
             toast(`${head} (${place}).`);
           } else {
@@ -1131,7 +1152,8 @@
             toast(`${head} : ${place} est libre${why}.`);
           }
         } else if (r.vsAnimator && partners.length) {
-          toast(`${name} absent(e), retiré(e) sans goodies. ${joinNames(partners)} joue contre un animateur (${place}) : prévenez un animateur.`, 'info');
+          const partnersShort = match.players.filter((x) => x.id !== participantId).map((x) => shortName(x));
+          toast(`Prévenez un animateur : il joue contre ${joinNames(partnersShort)} (${place}). ${shortName(p)} absent(e), retiré(e) sans goodies.`, 'info');
         } else {
           toast(`${name} absent(e), retiré(e) sans goodies.`);
         }
@@ -1257,7 +1279,7 @@
           notes.push(`<p class="pop-note" data-noshow-until="${noShowUntil}">Joueur pas venu&nbsp;? <b>«&nbsp;Absent&nbsp;»</b> à côté de son nom&nbsp;: il pourra se réinscrire
             (son partenaire jouera contre un animateur).</p>`);
         } else {
-          notes.push('<p class="pop-note">Joueur absent après 15&nbsp;min&nbsp;: si son partenaire est là, <b>laissez jouer</b> contre un animateur&nbsp;; «&nbsp;Libérer&nbsp;» sort les deux joueurs.</p>');
+          notes.push(`<p class="pop-note">Joueur absent après ${Math.round(noShowWindow() / MIN)}&nbsp;min&nbsp;: si son partenaire est là, <b>laissez jouer</b> contre un animateur&nbsp;; «&nbsp;Libérer&nbsp;» sort les deux joueurs.</p>`);
         }
         if (!table.enabled) notes.push("<p class=\"pop-note\">Table hors service : l'emplacement restera libre après cette partie.</p>");
         return `${popHead(table, slot, `Démarrée à\u00a0${clock(m.startedAt)} · fin\u00a0prévue\u00a0à\u00a0${clock(m.endsAt)}`)}
@@ -2010,11 +2032,16 @@
       actions = `<button type="button" class="btn btn-sm btn-outline" data-action="cancel-anyway" data-entry="${info.entryId}" data-focus="r-cancel">Annuler animateur</button>`;
     }
     const fresh = Date.now() - lastRegistration.at < 90 * 1000;
-    const label = fresh ? 'Inscription réussie · à annoncer' : `Dernière inscription · ${info.who}`;
+    const inUse = formInUse();
+    // Version compacte (> 90 s) seulement quand le formulaire est au repos : jamais pendant la saisie.
+    // Une fois compacté, le cadre le reste (sinon il regrandirait au premier caractère tapé).
+    if (!fresh && !inUse) lastRegistration.compact = true;
+    const compact = !!lastRegistration.compact;
+    const label = fresh ? 'Inscription réussie · à annoncer' : compact ? `Dernière inscription · ${info.who}` : 'Dernière inscription';
     const key = JSON.stringify([lastRegistration.at, label, info.tone, info.who, info.where, info.detail, actions]);
     regResult.hidden = false;
     regResult.dataset.tone = info.tone;
-    regResult.classList.toggle('is-old', !fresh);
+    regResult.classList.toggle('is-old', compact);
     const changed = patch(regResult, key, () => `
       <div class="reg-result-label">${esc(label)}</div>
       <div class="reg-result-who">${esc(info.who)}</div>
@@ -2027,6 +2054,66 @@
       regResult.style.animation = '';
       if (Date.now() - lastRegistration.at < REVEAL_REG_MS && form.contains(document.activeElement)) revealRegResult();
     }
+    lockRegResult(inUse);
+  }
+
+  // Le cadre de résultat est AU-DESSUS du formulaire : pendant la saisie, il ne doit jamais déplacer
+  // les champs. Tant que le formulaire est utilisé, sa hauteur est verrouillée (il ne rétrécit pas,
+  // la version compacte attend le repos) ; s'il grandit (paire placée entre-temps), la colonne
+  // défile d'autant, avec au besoin une cale en bas pour pouvoir défiler. Au repos, tout est relâché.
+  const REG_IDLE_MS = 20 * 1000;
+  let regTouchedAt = 0;
+  let regLock = null; // { at, h }
+  const regSpacer = document.createElement('div');
+  regSpacer.className = 'reg-spacer';
+  regSpacer.setAttribute('aria-hidden', 'true');
+  colLeft.append(regSpacer);
+  for (const type of ['pointerdown', 'keydown', 'input', 'focusin']) {
+    colLeft.addEventListener(type, () => { regTouchedAt = Date.now(); }, true);
+  }
+
+  // Formulaire en cours d'utilisation : un champ rempli, ou le focus dedans avec une action récente.
+  function formInUse() {
+    for (let i = 0; i < mode(); i++) for (const f of FIELDS) if (inputOf(i, f).value.trim()) return true;
+    return colLeft.contains(document.activeElement) && Date.now() - regTouchedAt < REG_IDLE_MS;
+  }
+
+  function releaseRegLock() {
+    if (!regLock) return;
+    regLock = null;
+    regResult.style.minHeight = '';
+    regSpacer.style.height = '';
+  }
+
+  function lockRegResult(inUse) {
+    if (!inUse || regResult.hidden || !lastRegistration) {
+      releaseRegLock();
+      return;
+    }
+    // Juste après l'inscription, le cadre suit son contenu (l'hôtesse le regarde, revealRegResult).
+    const settling = Date.now() - lastRegistration.at < REVEAL_REG_MS;
+    if (!regLock || regLock.at !== lastRegistration.at || settling) {
+      regResult.style.minHeight = '';
+      regSpacer.style.height = '';
+      regLock = { at: lastRegistration.at, h: regResult.offsetHeight };
+      if (!settling) regResult.style.minHeight = `${regLock.h}px`;
+      return;
+    }
+    const h = regResult.offsetHeight; // ≥ regLock.h (min-height)
+    if (h > regLock.h) {
+      const target = colLeft.scrollTop + (h - regLock.h);
+      regLock.h = h;
+      // Cale juste suffisante pour pouvoir défiler jusqu'à `target` (le vide éventuel sous le
+      // formulaire absorbe d'abord une partie de la cale : deuxième ajustement).
+      const short = () => target - (colLeft.scrollHeight - colLeft.clientHeight);
+      regSpacer.style.height = '0px';
+      let spacer = Math.max(0, short());
+      regSpacer.style.height = `${spacer}px`;
+      if (short() > 0) spacer += short();
+      regSpacer.style.height = `${Math.ceil(spacer)}px`;
+      colLeft.scrollTo({ top: target, behavior: 'instant' });
+    }
+    regResult.style.minHeight = `${regLock.h}px`;
   }
 
   function revealRegResult() {
@@ -2528,7 +2615,7 @@
   function setTab(name) {
     if (layout.dataset.tab === name) return;
     layout.dataset.tab = name;
-    for (const t of $$('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
+    for (const t of $$('.tab')) t.setAttribute('aria-pressed', String(t.dataset.tab === name));
     closeSlotPop();
     closeRowMenu();
   }
@@ -2542,6 +2629,19 @@
 
   function tick() {
     const t = now();
+    // « Absent » disparaît de lui-même à la fin du délai, sans attendre un nouvel état ; le panneau
+    // ouvert est alors redessiné pour afficher la consigne d'après délai (« laissez jouer… »).
+    let noShowClosed = false;
+    for (const el of $$('[data-noshow-until]')) {
+      const open = t < Number(el.dataset.noshowUntil);
+      if (el.hidden !== !open) {
+        // Le focus revient sur le panneau (jamais sur une action : Entrée ne doit rien déclencher).
+        if (!open && el.contains(document.activeElement)) pop.focus({ preventScroll: true });
+        el.hidden = !open;
+        if (!open && pop.contains(el)) noShowClosed = true;
+      }
+    }
+    if (noShowClosed) renderSlotPop();
     renderStandState();
     renderWaitPill();
     if (lastRegistration && state) renderLastRegistration(); // version compacte au bout de 90 s
@@ -2577,15 +2677,6 @@
     }
     for (const el of $$('[data-new-until]')) {
       el.hidden = t >= Number(el.dataset.newUntil);
-    }
-    // « Absent » disparaît de lui-même à la fin du délai, sans attendre un nouvel état.
-    for (const el of $$('[data-noshow-until]')) {
-      const open = t < Number(el.dataset.noshowUntil);
-      if (el.hidden !== !open) {
-        // Le focus revient sur le panneau (jamais sur une action : Entrée ne doit rien déclencher).
-        if (!open && el.contains(document.activeElement)) pop.focus({ preventScroll: true });
-        el.hidden = !open;
-      }
     }
     for (const el of $$('[data-noshow-left]')) {
       const left = Number(el.dataset.noshowLeft) - t;

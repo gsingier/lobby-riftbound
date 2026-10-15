@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS participants (
                    CHECK (status IN ('waiting', 'playing', 'completed', 'left_early', 'removed', 'expired', 'interrupted')),
   created_at       INTEGER NOT NULL,
   removed_at       INTEGER,
-  goodies_given_at INTEGER
+  goodies_given_at INTEGER,
+  seat             INTEGER  -- 1 = chaise du haut, 2 = chaise du bas (fixé au placement)
 );
 CREATE INDEX IF NOT EXISTS ix_participants_entry ON participants(entry_id);
 -- Un email / billet ne peut être utilisé qu'une fois, sauf par un joueur qui n'a pas joué
@@ -80,6 +81,9 @@ function openDb(file) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(SCHEMA);
+  // Migrations des bases créées par une version antérieure.
+  const columns = db.prepare('PRAGMA table_info(participants)').all().map((c) => c.name);
+  if (!columns.includes('seat')) db.exec('ALTER TABLE participants ADD COLUMN seat INTEGER');
   return db;
 }
 

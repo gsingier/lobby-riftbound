@@ -364,7 +364,7 @@ test('socket public : état public sans email ni billet, toutes les actions refu
   assert.deepEqual(Object.keys(pub.state).sort(), ['day', 'queue', 'serverNow', 'settings', 'tables']);
   assert.equal(pub.state.serverNow, T0);
   assert.deepEqual(pub.state.tables[0].slots.A.players.map((p) => p.displayName), ['Lucas M.', 'Emma B.']);
-  assert.deepEqual(Object.keys(pub.state.tables[0].slots.A.players[0]).sort(), ['displayName', 'id']);
+  assert.deepEqual(Object.keys(pub.state.tables[0].slots.A.players[0]).sort(), ['displayName', 'id', 'seat']);
   assert.deepEqual(pub.state.queue[0].players.map((p) => p.displayName), ['Hugo D.']);
   assert.deepEqual(Object.keys(pub.state.queue[0].players[0]).sort(), ['displayName', 'id']);
 
