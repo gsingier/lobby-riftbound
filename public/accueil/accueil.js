@@ -60,7 +60,10 @@
     if (p.displayName) return p.displayName;
     const first = cleanName(p.firstName);
     const last = cleanName(p.lastName);
-    return [first, last ? `${last.charAt(0).toLocaleUpperCase('fr-FR')}.` : ''].filter(Boolean).join(' ');
+    // Même règle que le serveur : première lettre du nom, à défaut premier caractère.
+    const chars = Array.from(last);
+    const letter = chars.find((c) => /\p{L}/u.test(c)) || chars[0];
+    return [first, letter ? `${letter.toLocaleUpperCase('fr-FR')}.` : ''].filter(Boolean).join(' ');
   }
 
   function joinNames(names) {

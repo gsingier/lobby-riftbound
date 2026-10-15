@@ -157,9 +157,11 @@ test('« libérer l’emplacement » : pas de goodies', () => {
 });
 
 test('un email ou un billet déjà utilisé est refusé, même un autre jour', () => {
-  const { lobby, player } = setup();
+  const { lobby, player, clock } = setup();
   const p = player('Ana');
   lobby.register([p, player()]);
+  clock.t += HOUR;
+  lobby.tick(); // partie terminée la veille
   assert.throws(() => lobby.register([{ ...player(), email: `  ${p.email.toUpperCase()} ` }]), (e) => e.code === 'email_used');
   lobby.newDay();
   assert.throws(() => lobby.register([{ ...player(), ticket: p.ticket.toLowerCase().replace('-', ' ') }]), (e) => e.code === 'ticket_used');
@@ -252,4 +254,14 @@ test('l’initiale affichée est la première lettre du nom', () => {
   assert.equal(displayName('Zélie', '<b>Quartz</b>'), 'Zélie B.');
   assert.equal(displayName('Jean', "d'Artagnan"), 'Jean D.');
   assert.equal(displayName('Ana', '123'), 'Ana 1.');
+});
+
+test('une partie interrompue par « Nouvelle journée » ne bloque pas la réinscription', () => {
+  const { lobby, player } = setup();
+  const p = player('Interrompu');
+  lobby.register([p, player()]);
+  const res = lobby.newDay();
+  assert.equal(res.interruptedMatches, 1);
+  assert.doesNotThrow(() => lobby.register([p]));
+  assert.equal(lobby.check({ email: p.email }).email.status, 'waiting');
 });

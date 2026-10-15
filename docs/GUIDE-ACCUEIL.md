@@ -79,7 +79,8 @@ Effets :
 
 - la **file d'attente est vidée** : les joueurs qui attendaient la veille
   pourront se **réinscrire** (leur email et leur billet ne sont pas bloqués) ;
-- les parties encore en cours sont **interrompues** (sans goodies) ;
+- les parties encore en cours sont **interrompues** (sans goodies) ; ces
+  joueurs pourront eux aussi se **réinscrire** ;
 - le stand est **rouvert** s'il avait été fermé la veille (« Fermer le stand »,
   [partie 10](#10-fin-de-journée--fermer-le-stand-et-exporter)) : les placements
   automatiques reprennent ;

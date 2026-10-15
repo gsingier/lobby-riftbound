@@ -27,8 +27,9 @@ plan des tables et la file d'attente.
 - Un **email** ou un **numéro de billet** déjà utilisé (quel que soit le jour du
   salon) est **refusé**.
   - Exception : un joueur **retiré pour absence** (« Retirer » dans la file, ou
-    « Absent » à sa table) ou encore **en attente lors de la remise à zéro du
-    matin** n'a pas joué ; il peut se réinscrire.
+    « Absent » à sa table), encore **en attente lors de la remise à zéro du
+    matin**, ou dont la partie a été **interrompue par « Nouvelle journée »**
+    n'a pas joué (ou pas jusqu'au bout sans le vouloir) ; il peut se réinscrire.
   - Un joueur parti avant la fin (« Libérer l'emplacement ») a participé : il
     reste bloqué.
 - Normalisation : email en minuscules sans espaces ; billet en majuscules, sans

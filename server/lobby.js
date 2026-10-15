@@ -19,7 +19,7 @@ const TICKET_MAX = 64;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Statuts qui ne bloquent pas une nouvelle inscription : le joueur n'a pas joué.
-const NON_BLOCKING_STATUSES = ['removed', 'expired'];
+const NON_BLOCKING_STATUSES = ['removed', 'expired', 'interrupted'];
 
 class LobbyError extends Error {
   constructor(code, message, details) {
@@ -162,7 +162,7 @@ class Lobby {
         `SELECT p.id, p.first_name, p.last_name, p.status, p.created_at, p.day_id
            FROM participants p
           WHERE p.${column} = ?
-            AND p.status NOT IN ('removed', 'expired')
+            AND p.status NOT IN ('removed', 'expired', 'interrupted')
             AND (? IS NULL OR p.id <> ?)
           ORDER BY p.id DESC LIMIT 1`,
       )
