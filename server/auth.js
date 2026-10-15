@@ -9,6 +9,11 @@ const COOKIE_NAME = 'rb_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
+// Par connexion TCP (le proxy, ou le client en accès direct) : borne aussi les essais d'un client
+// qui ferait varier X-Forwarded-For. Derrière le proxy, c'est un plafond toutes IP confondues.
+const LOGIN_MAX_ATTEMPTS_PER_PEER = 50;
+// Nombre de compteurs suivis au plus : mémoire et temps de purge bornés.
+const LOGIN_MAX_TRACKED = 10000;
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest();
@@ -61,18 +66,32 @@ function createAuth({ password, secret, now = () => Date.now() }) {
     return verifyToken(parseCookies(cookieHeader)[COOKIE_NAME]);
   }
 
-  // Limite les essais de mot de passe par adresse IP.
-  function allowAttempt(ip) {
-    const t = now();
-    for (const [k, v] of attempts) if (v.resetAt <= t) attempts.delete(k);
-    const entry = attempts.get(ip) || { count: 0, resetAt: t + LOGIN_WINDOW_MS };
+  function bump(key, t, max) {
+    let entry = attempts.get(key);
+    if (!entry) {
+      if (attempts.size >= LOGIN_MAX_TRACKED) return false;
+      entry = { count: 0, resetAt: t + LOGIN_WINDOW_MS };
+      attempts.set(key, entry);
+    }
     entry.count += 1;
-    attempts.set(ip, entry);
-    return entry.count <= LOGIN_MAX_ATTEMPTS;
+    return entry.count <= max;
+  }
+
+  // Limite les essais de mot de passe par adresse IP du client et par connexion (`peer`).
+  function allowAttempt(ip, peer = ip) {
+    const t = now();
+    // Compteurs rangés par date de création : on s'arrête au premier encore valable.
+    for (const [k, v] of attempts) {
+      if (v.resetAt > t) break;
+      attempts.delete(k);
+    }
+    const ipOk = bump(`ip:${ip}`, t, LOGIN_MAX_ATTEMPTS);
+    const peerOk = peer === ip || bump(`peer:${peer}`, t, LOGIN_MAX_ATTEMPTS_PER_PEER);
+    return ipOk && peerOk;
   }
 
   function resetAttempts(ip) {
-    attempts.delete(ip);
+    attempts.delete(`ip:${ip}`);
   }
 
   function cookieHeader(token, { secure }) {
@@ -105,4 +124,11 @@ function createAuth({ password, secret, now = () => Date.now() }) {
   };
 }
 
-module.exports = { createAuth, parseCookies, COOKIE_NAME };
+module.exports = {
+  createAuth,
+  parseCookies,
+  COOKIE_NAME,
+  LOGIN_MAX_ATTEMPTS,
+  LOGIN_MAX_ATTEMPTS_PER_PEER,
+  LOGIN_MAX_TRACKED,
+};

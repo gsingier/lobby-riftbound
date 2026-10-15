@@ -1,0 +1,24 @@
+# Lancement avec Docker sur un ordinateur ou un serveur SANS Coolify.
+# (Sur Coolify, utilisez le build pack « Dockerfile » : ce fichier n'est pas nécessaire.)
+#
+#   ACCUEIL_PASSWORD='un-mot-de-passe-fort' docker compose up -d --build
+#   → écran : http://localhost:3000/ecran   accueil : http://localhost:3000/accueil
+#
+# Arrêt : docker compose down   (les données restent dans le volume « lobby-data »)
+
+services:
+  lobby:
+    build: .
+    image: lobby-riftbound:local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      ACCUEIL_PASSWORD: ${ACCUEIL_PASSWORD:?Définissez ACCUEIL_PASSWORD (mot de passe de l'accueil)}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+    volumes:
+      - lobby-data:/data
+    stop_grace_period: 15s
+
+volumes:
+  lobby-data:

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Accueil – Riftbound Radiance</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/shared/theme.css">
+  <link rel="stylesheet" href="/accueil/accueil.css">
+</head>
+<body class="accueil">
+  <header class="topbar" id="topbar">
+    <div class="brand">
+      <h1 class="brand-title">Accueil <span class="brand-sep">–</span> <span class="brand-name">Riftbound Radiance</span></h1>
+      <span class="day-badge" id="day-badge" title="Journée du salon en cours">Jour –</span>
+    </div>
+
+    <dl class="stats" aria-label="Statistiques">
+      <div class="stat" title="Joueurs en file d'attente"><dt><span class="lbl-full">En attente</span><span class="lbl-abbr" aria-hidden="true">Attente</span></dt><dd id="stat-waiting">–</dd></div>
+      <div class="stat" title="Joueurs actuellement à une table"><dt>En jeu</dt><dd id="stat-playing">–</dd></div>
+      <div class="stat" title="Joueurs ayant terminé leur partie aujourd'hui"><dt><span class="lbl-full">Terminés auj.</span><span class="lbl-abbr" aria-hidden="true">Terminés</span></dt><dd id="stat-completed">–</dd></div>
+      <div class="stat stat-goodies" id="stat-goodies-box" title="Goodies à remettre"><dt><span class="lbl-full">Goodies à remettre</span><span class="lbl-abbr" aria-hidden="true">Goodies</span></dt><dd id="stat-goodies">–</dd></div>
+      <div class="stat" title="Total des participants (tous les jours)"><dt><span class="lbl-full">Total participants</span><span class="lbl-abbr" aria-hidden="true">Total</span></dt><dd id="stat-total">–</dd></div>
+    </dl>
+
+    <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">
+      <span class="conn-dot" aria-hidden="true"></span>
+      <span class="conn-label" id="conn-label">Connexion…</span>
+    </div>
+
+    <nav class="top-actions" aria-label="Actions générales">
+      <a class="btn btn-ghost btn-sm" href="/api/export.csv" download>Exporter CSV</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-settings">Réglages</button>
+      <button type="button" class="btn btn-ghost btn-sm btn-danger-ghost" id="btn-newday">Nouvelle journée</button>
+      <form method="post" action="/logout" class="logout-form">
+        <button type="submit" class="btn btn-ghost btn-sm">Déconnexion</button>
+      </form>
+    </nav>
+  </header>
+
+  <div class="offline-banner" id="offline-banner" role="alert" hidden>
+    Connexion au serveur perdue – reconnexion en cours… Les informations affichées peuvent être périmées.
+  </div>
+
+  <main class="layout">
+    <!-- Colonne gauche : inscription + recherche -->
+    <div class="col-left">
+      <section class="panel panel-register" aria-labelledby="reg-title">
+        <div class="panel-head">
+          <h2 id="reg-title">Inscription</h2>
+          <span class="kbd-hint" title="Raccourcis clavier">Alt+1 / Alt+2</span>
+        </div>
+
+        <form id="register-form" class="register-form" novalidate autocomplete="off">
+          <div class="mode-toggle" role="radiogroup" aria-label="Nombre de joueurs">
+            <label class="mode-option">
+              <input type="radio" name="mode" value="1">
+              <span>1 joueur</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode" value="2" checked>
+              <span>2 joueurs ensemble</span>
+            </label>
+          </div>
+
+          <fieldset class="player" id="player-0" data-index="0">
+            <legend><span class="player-no">1</span> Joueur 1</legend>
+            <div class="field-grid">
+              <div class="field">
+                <label for="p0-firstName">Prénom</label>
+                <input id="p0-firstName" data-index="0" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+                <p class="field-msg" id="p0-firstName-msg" aria-live="polite"></p>
+              </div>
+              <div class="field">
+                <label for="p0-lastName">Nom</label>
+                <input id="p0-lastName" data-index="0" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+                <p class="field-msg" id="p0-lastName-msg" aria-live="polite"></p>
+              </div>
+              <div class="field field-wide">
+                <label for="p0-email">Email</label>
+                <input id="p0-email" data-index="0" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
+                <p class="field-msg" id="p0-email-msg" aria-live="polite"></p>
+              </div>
+              <div class="field field-wide">
+                <label for="p0-ticket">N° de billet</label>
+                <input id="p0-ticket" data-index="0" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <p class="field-msg" id="p0-ticket-msg" aria-live="polite"></p>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="player" id="player-1" data-index="1">
+            <legend><span class="player-no">2</span> Joueur 2</legend>
+            <div class="field-grid">
+              <div class="field">
+                <label for="p1-firstName">Prénom</label>
+                <input id="p1-firstName" data-index="1" data-field="firstName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+                <p class="field-msg" id="p1-firstName-msg" aria-live="polite"></p>
+              </div>
+              <div class="field">
+                <label for="p1-lastName">Nom</label>
+                <input id="p1-lastName" data-index="1" data-field="lastName" type="text" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false">
+                <p class="field-msg" id="p1-lastName-msg" aria-live="polite"></p>
+              </div>
+              <div class="field field-wide">
+                <label for="p1-email">Email</label>
+                <input id="p1-email" data-index="1" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
+                <p class="field-msg" id="p1-email-msg" aria-live="polite"></p>
+              </div>
+              <div class="field field-wide">
+                <label for="p1-ticket">N° de billet</label>
+                <input id="p1-ticket" data-index="1" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <p class="field-msg" id="p1-ticket-msg" aria-live="polite"></p>
+              </div>
+            </div>
+          </fieldset>
+
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg" id="register-submit">Inscrire les 2 joueurs</button>
+            <button type="button" class="btn btn-ghost" id="register-clear" title="Vider le formulaire">Effacer</button>
+          </div>
+          <p class="form-hint">Entrée : inscrire · Alt+1 / Alt+2 : 1 ou 2 joueurs · Alt+R : rechercher</p>
+        </form>
+
+        <div class="reg-result" id="reg-result" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="panel panel-search" aria-labelledby="search-title">
+        <div class="panel-head">
+          <h2 id="search-title">Rechercher un participant</h2>
+        </div>
+        <div class="search-box">
+          <input type="search" id="search-input" placeholder="Nom, email ou n° de billet (Alt+R)" autocomplete="off" spellcheck="false" aria-label="Rechercher un participant">
+        </div>
+        <div class="search-results" id="search-results" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <!-- Plan des tables -->
+    <section class="panel panel-tables" aria-labelledby="tables-title">
+      <div class="panel-head">
+        <h2 id="tables-title">Plan des tables</h2>
+        <span class="panel-sub" id="tables-summary"></span>
+      </div>
+      <div class="panel-body">
+        <div class="tables-grid" id="tables-grid"></div>
+      </div>
+    </section>
+
+    <!-- File d'attente -->
+    <section class="panel panel-queue" aria-labelledby="queue-title">
+      <div class="panel-head">
+        <h2 id="queue-title">File d'attente</h2>
+        <span class="panel-sub" id="queue-summary"></span>
+      </div>
+      <div class="panel-body">
+        <ol class="queue-list" id="queue-list"></ol>
+      </div>
+    </section>
+
+    <!-- Goodies -->
+    <section class="panel panel-goodies" aria-labelledby="goodies-title">
+      <div class="panel-head">
+        <h2 id="goodies-title">Goodies à remettre</h2>
+        <span class="count-badge" id="goodies-count">0</span>
+      </div>
+      <div class="panel-body">
+        <ul class="goodies-list" id="goodies-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Réglages -->
+  <dialog class="modal" id="settings-dialog" aria-labelledby="settings-title">
+    <div class="modal-head">
+      <h2 id="settings-title">Réglages</h2>
+      <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer">×</button>
+    </div>
+    <form class="modal-section" id="duration-form" novalidate>
+      <h3>Durée des parties</h3>
+      <div class="duration-row">
+        <label for="duration-input">Durée (minutes)</label>
+        <input type="number" id="duration-input" min="1" max="180" step="1" inputmode="numeric" required>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+      <p class="field-msg" id="duration-msg"></p>
+      <p class="hint">S'applique aux prochaines parties. Les parties en cours gardent leur heure de fin (utilisez « +5 min » / « −5 min » sur le plan).</p>
+    </form>
+    <div class="modal-section">
+      <h3>Tables en service</h3>
+      <div class="toggles-grid" id="tables-toggles"></div>
+      <p class="hint">Une table hors service ne reçoit plus de nouveaux joueurs ; les parties déjà en cours continuent jusqu'à leur fin.</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close>Fermer</button>
+    </div>
+  </dialog>
+
+  <!-- Nouvelle journée -->
+  <dialog class="modal modal-danger" id="newday-dialog" aria-labelledby="newday-title">
+    <div class="modal-head">
+      <h2 id="newday-title">Démarrer une nouvelle journée ?</h2>
+    </div>
+    <div class="modal-section">
+      <p class="newday-lead">Vous allez passer du <strong>jour <span data-nd="current">–</span></strong> au <strong>jour <span data-nd="next">–</span></strong>.</p>
+      <ul class="impact-list" id="newday-impact"></ul>
+      <p class="hint">Tous les participants restent enregistrés (visibles dans la recherche et l'export CSV). À faire le matin, avant l'ouverture.</p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close id="newday-cancel">Annuler</button>
+      <button type="button" class="btn btn-danger" id="newday-confirm">Démarrer le jour –</button>
+    </div>
+  </dialog>
+
+  <!-- Modifier un participant -->
+  <dialog class="modal" id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form" novalidate autocomplete="off">
+      <div class="modal-head">
+        <h2 id="edit-title">Modifier le joueur</h2>
+        <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="Fermer">×</button>
+      </div>
+      <div class="modal-section">
+        <p class="hint" id="edit-context"></p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="edit-firstName">Prénom</label>
+            <input id="edit-firstName" data-field="firstName" type="text" maxlength="60" autocomplete="off" spellcheck="false">
+            <p class="field-msg" id="edit-firstName-msg"></p>
+          </div>
+          <div class="field">
+            <label for="edit-lastName">Nom</label>
+            <input id="edit-lastName" data-field="lastName" type="text" maxlength="60" autocomplete="off" spellcheck="false">
+            <p class="field-msg" id="edit-lastName-msg"></p>
+          </div>
+          <div class="field field-wide">
+            <label for="edit-email">Email</label>
+            <input id="edit-email" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
+            <p class="field-msg" id="edit-email-msg"></p>
+          </div>
+          <div class="field field-wide">
+            <label for="edit-ticket">N° de billet</label>
+            <input id="edit-ticket" data-field="ticket" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <p class="field-msg" id="edit-ticket-msg"></p>
+          </div>
+        </div>
+        <p class="form-error" id="edit-error" role="alert" hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close>Annuler</button>
+        <button type="submit" class="btn btn-primary" id="edit-submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirmation générique -->
+  <dialog class="modal modal-confirm" id="confirm-dialog" aria-labelledby="confirm-title">
+    <div class="modal-head">
+      <h2 id="confirm-title">Confirmer</h2>
+    </div>
+    <div class="modal-section" id="confirm-body"></div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" id="confirm-cancel">Annuler</button>
+      <button type="button" class="btn btn-primary" id="confirm-ok">Confirmer</button>
+    </div>
+  </dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/shared/client.js"></script>
+  <script src="/accueil/accueil.js"></script>
+</body>
+</html>

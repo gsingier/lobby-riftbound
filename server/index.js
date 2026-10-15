@@ -14,6 +14,11 @@ const { buildCsv } = require('./csv');
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const FONTS_DIR = path.join(path.dirname(require.resolve('@fontsource/cinzel/package.json')), '..');
 const TICK_MS = 1000;
+// Proxys dont on croit X-Forwarded-For / X-Forwarded-Proto (IP du client, HTTPS) : par défaut les
+// adresses locales et privées, d'où le Traefik de Coolify joint le conteneur. Un client Internet
+// connecté directement n'est pas cru. TRUST_PROXY=false si le port est exposé sans proxy devant.
+const DEFAULT_TRUST_PROXY = 'loopback, linklocal, uniquelocal';
+const HSTS_MAX_AGE_S = 365 * 24 * 60 * 60;
 
 // Actions de l'accueil reçues via Socket.IO : `action` { type, payload } → ack.
 // `mutates: false` = lecture seule, pas de diffusion d'un nouvel état.
@@ -22,6 +27,7 @@ const ACTIONS = {
   check: { run: (l, p) => l.check(p), mutates: false },
   search: { run: (l, p) => l.search(p.query), mutates: false },
   removeParticipant: { run: (l, p) => l.removeParticipant(p.participantId) },
+  noShow: { run: (l, p) => l.noShow(p.participantId) },
   editParticipant: { run: (l, p) => l.editParticipant(p.participantId, p.fields) },
   placeAnyway: { run: (l, p) => l.placeAnyway(p.entryId) },
   cancelPlaceAnyway: { run: (l, p) => l.cancelPlaceAnyway(p.entryId) },
@@ -30,8 +36,19 @@ const ACTIONS = {
   giveGoodies: { run: (l, p) => l.giveGoodies(p.participantId, p.given !== false) },
   setDuration: { run: (l, p) => l.setDuration(p.durationMs) },
   setTableEnabled: { run: (l, p) => l.setTableEnabled(p.tableNo, p.enabled) },
+  setPlacementsPaused: { run: (l, p) => l.setPlacementsPaused(p.paused) },
   newDay: { run: (l) => l.newDay() },
 };
+
+// Valeur de TRUST_PROXY : « true » / « false », un nombre de proxys, ou une liste d'adresses
+// ou de sous-réseaux séparés par des virgules (syntaxe Express).
+function parseTrustProxy(value) {
+  const v = String(value ?? '').trim();
+  if (!v) return DEFAULT_TRUST_PROXY;
+  if (/^(true|false)$/i.test(v)) return v.toLowerCase() === 'true';
+  if (/^\d+$/.test(v)) return Number(v);
+  return v;
+}
 
 function sameOrigin(req) {
   const origin = req.headers.origin;
@@ -44,7 +61,14 @@ function sameOrigin(req) {
   }
 }
 
-function createApp({ dbFile = ':memory:', password, sessionSecret, now = () => Date.now(), tickMs = TICK_MS } = {}) {
+function createApp({
+  dbFile = ':memory:',
+  password,
+  sessionSecret,
+  now = () => Date.now(),
+  tickMs = TICK_MS,
+  trustProxy = DEFAULT_TRUST_PROXY,
+} = {}) {
   const db = openDb(dbFile);
   const lobby = new Lobby(db, { now });
 
@@ -60,10 +84,16 @@ function createApp({ dbFile = ':memory:', password, sessionSecret, now = () => D
 
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  try {
+    app.set('trust proxy', trustProxy);
+  } catch (err) {
+    throw new Error(`TRUST_PROXY invalide (${trustProxy}) : ${err.message}`);
+  }
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'same-origin');
+    // HTTPS (derrière le proxy) : le navigateur ne repassera plus en HTTP clair sur ce domaine.
+    if (req.secure) res.set('Strict-Transport-Security', `max-age=${HSTS_MAX_AGE_S}`);
     next();
   });
 
@@ -89,7 +119,9 @@ function createApp({ dbFile = ':memory:', password, sessionSecret, now = () => D
   app.post('/login', express.urlencoded({ extended: false, limit: '4kb' }), (req, res) => {
     const ip = req.ip || 'unknown';
     if (!sameOrigin(req)) return res.status(403).send('Origine refusée.');
-    if (!auth.allowAttempt(ip)) return res.redirect('/login?error=trop');
+    // Deux compteurs : l'IP du client (req.ip, d'après le proxy) et l'adresse de la connexion TCP,
+    // qu'un X-Forwarded-For inventé ne peut pas faire varier.
+    if (!auth.allowAttempt(ip, req.socket.remoteAddress || 'unknown')) return res.redirect('/login?error=trop');
     if (!auth.checkPassword(req.body?.password)) return res.redirect('/login?error=1');
     auth.resetAttempts(ip);
     res.set('Set-Cookie', auth.cookieHeader(auth.issueToken(), { secure: req.secure }));
@@ -194,6 +226,7 @@ if (require.main === module) {
     dbFile: path.join(dataDir, 'lobby.db'),
     password,
     sessionSecret: process.env.SESSION_SECRET,
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   });
   instance.server.listen(port, () => {
     console.log(`Lobby Riftbound prêt sur http://localhost:${port}  (écran : /ecran, accueil : /accueil)`);
@@ -207,4 +240,4 @@ if (require.main === module) {
   process.on('SIGINT', shutdown);
 }
 
-module.exports = { createApp, ACTIONS };
+module.exports = { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY };

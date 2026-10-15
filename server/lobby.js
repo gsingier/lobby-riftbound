@@ -10,6 +10,8 @@ const DEFAULT_DURATION_MS = 60 * 60 * 1000;
 const MIN_DURATION_MS = 60 * 1000;
 const MAX_DURATION_MS = 3 * 60 * 60 * 1000;
 const MAX_ADJUST_MS = 2 * 60 * 60 * 1000;
+// Un joueur placé qui ne se présente pas à l'appel peut être déclaré absent pendant ce délai.
+const NO_SHOW_WINDOW_MS = 15 * 60 * 1000;
 
 const NAME_MAX = 60;
 const EMAIL_MAX = 254;
@@ -32,19 +34,33 @@ function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+// \p{Pd} : tous les tirets (« - », « – », « — », trait d'union insécable…).
 function normalizeTicket(value) {
-  return String(value ?? '').trim().toUpperCase().replace(/[\s\-_.]/g, '');
+  return String(value ?? '').trim().toUpperCase().replace(/[\s\p{Pd}_.]/gu, '');
 }
 
 function cleanName(value) {
-  return String(value ?? '').trim().replace(/\s+/g, ' ');
+  return String(value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
+}
+
+// Pour la recherche : minuscules, sans accents (« Émilie » ≈ « emilie »).
+function foldText(value) {
+  return String(value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+// Identifiant reçu de l'accueil (nombre, ou nombre en texte).
+function toId(value) {
+  const n = typeof value === 'string' && /^\s*\d+\s*$/.test(value) ? Number(value) : value;
+  if (!Number.isSafeInteger(n) || n <= 0) throw new LobbyError('invalid', 'Identifiant invalide.');
+  return n;
 }
 
 // « Lucas M. » : seul format affiché sur l'écran public.
 function displayName(firstName, lastName) {
   const first = cleanName(firstName);
   const last = cleanName(lastName);
-  const initial = last ? `${last.charAt(0).toLocaleUpperCase('fr-FR')}.` : '';
+  // Array.from : premier caractère complet (pas une moitié de paire de substitution).
+  const initial = last ? `${Array.from(last)[0].toLocaleUpperCase('fr-FR')}.` : '';
   return [first, initial].filter(Boolean).join(' ');
 }
 
@@ -87,6 +103,8 @@ class Lobby {
   constructor(db, { now = () => Date.now() } = {}) {
     this.db = db;
     this.now = now;
+    // SQLite lower() ne gère que l'ASCII : la recherche passe par cette fonction.
+    db.function('rb_fold', { deterministic: true }, (value) => foldText(value));
     this.ensureDay();
   }
 
@@ -111,6 +129,9 @@ class Lobby {
     return {
       matchDurationMs: this.getSetting('match_duration_ms', DEFAULT_DURATION_MS),
       disabledTables: this.getSetting('disabled_tables', []),
+      // Stand fermé (le soir) : plus aucun placement automatique, la file attend.
+      placementsPaused: this.getSetting('placements_paused', false) === true,
+      noShowWindowMs: NO_SHOW_WINDOW_MS,
     };
   }
 
@@ -156,9 +177,10 @@ class Lobby {
   }
 
   check({ email, ticket, excludeParticipantId = null } = {}) {
+    const exclude = excludeParticipantId == null || excludeParticipantId === '' ? null : toId(excludeParticipantId);
     return {
-      email: this.findConflict('email', normalizeEmail(email), excludeParticipantId),
-      ticket: this.findConflict('ticket', normalizeTicket(ticket), excludeParticipantId),
+      email: this.findConflict('email', normalizeEmail(email), exclude),
+      ticket: this.findConflict('ticket', normalizeTicket(ticket), exclude),
     };
   }
 
@@ -296,6 +318,7 @@ class Lobby {
   }
 
   fill() {
+    if (this.getSettings().placementsPaused) return 0;
     let placed = 0;
     for (;;) {
       const slot = this.freeSlots()[0];
@@ -345,25 +368,33 @@ class Lobby {
     return match;
   }
 
+  // Termine (goodies dus) les parties dont le timer est écoulé. Renvoie leur nombre.
+  completeDueMatches() {
+    const due = this.db
+      .prepare('SELECT id FROM matches WHERE ended_at IS NULL AND ends_at <= ? ORDER BY ends_at, id')
+      .all(this.now());
+    for (const m of due) this.endMatch(m.id, 'completed');
+    return due.length;
+  }
+
   // Appelé chaque seconde : termine les parties dont le timer est écoulé et place les suivants.
   // Renvoie true si l'état a changé.
   tick() {
     return this.tx(() => {
-      const due = this.db
-        .prepare('SELECT id FROM matches WHERE ended_at IS NULL AND ends_at <= ? ORDER BY ends_at, id')
-        .all(this.now());
-      for (const m of due) this.endMatch(m.id, 'completed');
+      const ended = this.completeDueMatches();
       const placed = this.fill();
-      return due.length > 0 || placed > 0;
+      return ended > 0 || placed > 0;
     });
   }
 
   releaseMatch(matchId) {
+    const id = toId(matchId);
     return this.tx(() => {
-      this.getActiveMatch(matchId);
-      this.endMatch(matchId, 'released');
+      const match = this.getActiveMatch(id);
+      // Timer déjà écoulé (le tick n'est pas encore passé) : partie terminée, goodies dus.
+      this.endMatch(id, match.ends_at <= this.now() ? 'completed' : 'released');
       this.fill();
-      return { released: matchId };
+      return { released: id };
     });
   }
 
@@ -372,30 +403,32 @@ class Lobby {
     if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > MAX_ADJUST_MS) {
       throw new LobbyError('invalid', 'Ajustement de temps invalide.');
     }
+    const id = toId(matchId);
     return this.tx(() => {
-      const match = this.getActiveMatch(matchId);
+      const match = this.getActiveMatch(id);
       const endsAt = Math.max(this.now(), match.ends_at + delta);
-      this.db.prepare('UPDATE matches SET ends_at = ? WHERE id = ?').run(endsAt, matchId);
+      this.db.prepare('UPDATE matches SET ends_at = ? WHERE id = ?').run(endsAt, id);
       if (endsAt <= this.now()) {
-        this.endMatch(matchId, 'completed');
+        this.endMatch(id, 'completed');
         this.fill();
       }
-      return { matchId, endsAt };
+      return { matchId: id, endsAt };
     });
   }
 
   // ---------------------------------------------------------------- actions de l'accueil
 
   removeParticipant(participantId) {
+    const id = toId(participantId);
     return this.tx(() => {
-      const p = this.db.prepare('SELECT * FROM participants WHERE id = ?').get(participantId);
+      const p = this.db.prepare('SELECT * FROM participants WHERE id = ?').get(id);
       if (!p) throw new LobbyError('not_found', 'Joueur introuvable.');
       if (p.status !== 'waiting') {
         throw new LobbyError('conflict', "Seul un joueur en file d'attente peut être retiré.");
       }
       this.db
         .prepare("UPDATE participants SET status = 'removed', removed_at = ? WHERE id = ?")
-        .run(this.now(), participantId);
+        .run(this.now(), id);
       const remaining = this.db
         .prepare("SELECT COUNT(*) AS n FROM participants WHERE entry_id = ? AND status = 'waiting'")
         .get(p.entry_id).n;
@@ -407,12 +440,49 @@ class Lobby {
       }
       this.mergeSolos();
       this.fill();
-      return { removed: participantId };
+      return { removed: id };
+    });
+  }
+
+  // Joueur placé mais absent à l'appel (début de partie) : il n'a pas joué et pourra se réinscrire.
+  // Son partenaire continue contre un animateur ; sans partenaire, la partie est annulée.
+  noShow(participantId) {
+    const id = toId(participantId);
+    return this.tx(() => {
+      const p = this.db.prepare('SELECT * FROM participants WHERE id = ?').get(id);
+      if (!p) throw new LobbyError('not_found', 'Joueur introuvable.');
+      if (p.status === 'waiting') {
+        throw new LobbyError('conflict', "Ce joueur est en file d'attente : utilisez « Retirer ».");
+      }
+      const match = this.db.prepare('SELECT * FROM matches WHERE entry_id = ? AND ended_at IS NULL').get(p.entry_id);
+      if (p.status !== 'playing' || !match) throw new LobbyError('conflict', "Ce joueur n'est pas à une table.");
+      const t = this.now();
+      if (t - match.started_at > NO_SHOW_WINDOW_MS) {
+        throw new LobbyError(
+          'conflict',
+          `La partie a commencé il y a plus de ${Math.round(NO_SHOW_WINDOW_MS / 60000)} minutes : ` +
+            "le joueur ne peut plus être déclaré absent (utilisez « Libérer l'emplacement »).",
+        );
+      }
+      this.db.prepare("UPDATE participants SET status = 'removed', removed_at = ? WHERE id = ?").run(t, id);
+      const remaining = this.db
+        .prepare("SELECT COUNT(*) AS n FROM participants WHERE entry_id = ? AND status = 'playing'")
+        .get(p.entry_id).n;
+      if (remaining > 0) {
+        this.db.prepare('UPDATE matches SET vs_animator = 1 WHERE id = ?').run(match.id);
+        return { removed: id, matchId: match.id, cancelled: false, vsAnimator: true };
+      }
+      // Plus personne à la table : partie annulée (aucun joueur n'est marqué « parti avant la fin »).
+      this.endMatch(match.id, 'released');
+      this.db.prepare("UPDATE entries SET status = 'removed' WHERE id = ?").run(p.entry_id);
+      this.fill();
+      return { removed: id, matchId: match.id, cancelled: true, vsAnimator: false };
     });
   }
 
   getWaitingSoloEntry(entryId) {
-    const entry = this.waitingEntries().find((e) => e.id === entryId);
+    const id = toId(entryId);
+    const entry = this.waitingEntries().find((e) => e.id === id);
     if (!entry) throw new LobbyError('not_found', "Cette entrée n'est plus en file d'attente.");
     if (entry.n !== 1) throw new LobbyError('conflict', 'Seul un joueur seul peut jouer contre un animateur.');
     return entry;
@@ -421,10 +491,10 @@ class Lobby {
   // Le joueur seul jouera contre un animateur : il devient prêt et est placé dès qu'un emplacement est libre.
   placeAnyway(entryId) {
     return this.tx(() => {
-      this.getWaitingSoloEntry(entryId);
-      this.db.prepare('UPDATE entries SET vs_animator = 1 WHERE id = ?').run(entryId);
+      const { id } = this.getWaitingSoloEntry(entryId);
+      this.db.prepare('UPDATE entries SET vs_animator = 1 WHERE id = ?').run(id);
       this.fill();
-      const match = this.db.prepare('SELECT id, table_no, slot FROM matches WHERE entry_id = ?').get(entryId);
+      const match = this.db.prepare('SELECT id, table_no, slot FROM matches WHERE entry_id = ?').get(id);
       return match
         ? { placed: true, matchId: match.id, tableNo: match.table_no, slot: match.slot }
         : { placed: false };
@@ -433,29 +503,31 @@ class Lobby {
 
   cancelPlaceAnyway(entryId) {
     return this.tx(() => {
-      this.getWaitingSoloEntry(entryId);
-      this.db.prepare('UPDATE entries SET vs_animator = 0 WHERE id = ?').run(entryId);
-      return { entryId };
+      const { id } = this.getWaitingSoloEntry(entryId);
+      this.db.prepare('UPDATE entries SET vs_animator = 0 WHERE id = ?').run(id);
+      return { entryId: id };
     });
   }
 
   giveGoodies(participantId, given = true) {
+    const id = toId(participantId);
     return this.tx(() => {
-      const p = this.db.prepare('SELECT status FROM participants WHERE id = ?').get(participantId);
+      const p = this.db.prepare('SELECT status FROM participants WHERE id = ?').get(id);
       if (!p) throw new LobbyError('not_found', 'Joueur introuvable.');
       if (p.status !== 'completed') {
         throw new LobbyError('conflict', "Ce joueur n'a pas terminé sa partie : pas de goodies.");
       }
       this.db
         .prepare('UPDATE participants SET goodies_given_at = ? WHERE id = ?')
-        .run(given ? this.now() : null, participantId);
-      return { participantId, given: !!given };
+        .run(given ? this.now() : null, id);
+      return { participantId: id, given: !!given };
     });
   }
 
   editParticipant(participantId, fields) {
+    const id = toId(participantId);
     return this.tx(() => {
-      const current = this.db.prepare('SELECT * FROM participants WHERE id = ?').get(participantId);
+      const current = this.db.prepare('SELECT * FROM participants WHERE id = ?').get(id);
       if (!current) throw new LobbyError('not_found', 'Joueur introuvable.');
       const merged = {
         firstName: fields?.firstName ?? current.first_name,
@@ -464,15 +536,15 @@ class Lobby {
         ticket: fields?.ticket ?? current.ticket,
       };
       const player = validatePlayer(merged, 0);
-      if (!NON_BLOCKING_STATUSES.includes(current.status)) this.assertAvailable(player, 0, participantId);
+      if (!NON_BLOCKING_STATUSES.includes(current.status)) this.assertAvailable(player, 0, id);
       this.db
         .prepare(
           `UPDATE participants
               SET first_name = ?, last_name = ?, email = ?, email_norm = ?, ticket = ?, ticket_norm = ?
             WHERE id = ?`,
         )
-        .run(player.firstName, player.lastName, player.email, player.emailNorm, player.ticket, player.ticketNorm, participantId);
-      return { participantId };
+        .run(player.firstName, player.lastName, player.email, player.emailNorm, player.ticket, player.ticketNorm, id);
+      return { participantId: id };
     });
   }
 
@@ -498,17 +570,32 @@ class Lobby {
     });
   }
 
+  // « Fermer le stand » le soir : les parties en cours continuent, mais plus personne n'est
+  // placé (les joueurs encore en file pourront se réinscrire après la « Nouvelle journée »).
+  setPlacementsPaused(paused) {
+    if (typeof paused !== 'boolean') throw new LobbyError('invalid', 'Valeur invalide (oui ou non attendu).');
+    return this.tx(() => {
+      this.setSetting('placements_paused', paused);
+      const placed = this.fill();
+      return { placementsPaused: paused, placed };
+    });
+  }
+
   // Remise à zéro du matin : la file est vidée, tous les participants restent en base.
   newDay() {
     return this.tx(() => {
       const t = this.now();
       const day = this.currentDay();
+      // Les parties dont le timer est déjà écoulé sont terminées normalement (goodies dus).
+      this.completeDueMatches();
       const active = this.db.prepare('SELECT id FROM matches WHERE ended_at IS NULL').all();
       for (const m of active) this.endMatch(m.id, 'day_end');
       const expired = this.db
         .prepare("UPDATE participants SET status = 'expired' WHERE status = 'waiting'")
         .run().changes;
       this.db.prepare("UPDATE entries SET status = 'expired' WHERE status = 'waiting'").run();
+      // Le stand rouvre : les placements automatiques reprennent.
+      this.setSetting('placements_paused', false);
       const newDayId = Number(this.db.prepare('INSERT INTO days (started_at) VALUES (?)').run(t).lastInsertRowid);
       return {
         previousDayId: day.id,
@@ -521,16 +608,16 @@ class Lobby {
   }
 
   search(query) {
-    const q = String(query ?? '').trim();
+    const q = cleanName(query);
     if (q.length < 2) return [];
-    const like = `%${q.toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const like = `%${foldText(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const ticketLike = `%${normalizeTicket(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const rows = this.db
       .prepare(
         `SELECT * FROM participants
-          WHERE lower(first_name || ' ' || last_name) LIKE ? ESCAPE '\\'
-             OR lower(last_name || ' ' || first_name) LIKE ? ESCAPE '\\'
-             OR email_norm LIKE ? ESCAPE '\\'
+          WHERE rb_fold(first_name || ' ' || last_name) LIKE ? ESCAPE '\\'
+             OR rb_fold(last_name || ' ' || first_name) LIKE ? ESCAPE '\\'
+             OR rb_fold(email_norm) LIKE ? ESCAPE '\\'
              OR (? <> '%%' AND ticket_norm LIKE ? ESCAPE '\\')
           ORDER BY id DESC LIMIT 25`,
       )
@@ -655,7 +742,9 @@ class Lobby {
         `SELECT p.*, m.table_no, m.slot, m.started_at AS match_started_at, m.ended_at AS match_ended_at,
                 m.end_reason, m.vs_animator AS match_vs_animator
            FROM participants p
+           -- un joueur retiré garde l'entrée de son ex-partenaire : il n'a pas joué sa partie
            LEFT JOIN matches m ON m.entry_id = p.entry_id
+                              AND p.status IN ('playing', 'completed', 'left_early', 'interrupted')
           ORDER BY p.id`,
       )
       .all()

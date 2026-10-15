@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr" data-layout="paysage">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Riftbound – Zone de jeu</title>
+  <link rel="stylesheet" href="/shared/theme.css">
+  <link rel="stylesheet" href="/ecran/ecran.css">
+</head>
+<body>
+  <div class="screen" id="screen">
+    <div class="backdrop" aria-hidden="true"></div>
+
+    <header class="top">
+      <div class="brand">
+        <img class="logo-rb" src="/assets/logo-riftbound.svg" alt="Riftbound">
+        <span class="brand-sep" aria-hidden="true"></span>
+        <img class="logo-set" src="/assets/logo-radiance.svg" alt="Radiance">
+      </div>
+      <div class="title">
+        <h1>Zone de jeu</h1>
+        <p class="subtitle">Stand Riftbound · Paris Games Week</p>
+      </div>
+      <div class="meta">
+        <div class="clock" id="clock" aria-label="Heure actuelle">--:--</div>
+        <div class="conn" id="conn" data-state="pending"><i aria-hidden="true"></i><span>Connexion…</span></div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="plan-panel" aria-label="Plan des tables">
+        <div class="enclosure" id="enclosure">
+          <span class="barrier h b-top" aria-hidden="true"></span>
+          <span class="barrier v b-left" aria-hidden="true"></span>
+          <span class="barrier v b-right" aria-hidden="true"></span>
+          <span class="barrier h b-bottom-left" aria-hidden="true"></span>
+          <span class="barrier h b-bottom-right" aria-hidden="true"></span>
+          <span class="doorway" aria-hidden="true"></span>
+          <div class="tables" id="tables">
+            <p class="loading">Connexion au plan des tables…</p>
+          </div>
+        </div>
+        <div class="plan-foot">
+          <ul class="legend" aria-label="Légende">
+            <li><i class="lg-free"></i>Libre</li>
+            <li><i class="lg-busy"></i>En jeu</li>
+            <li><i class="lg-warn"></i>Fin proche</li>
+          </ul>
+          <div class="entrance"><span class="chevrons" aria-hidden="true"></span>Entrée</div>
+          <div class="free-count" id="freeCount"></div>
+        </div>
+      </section>
+
+      <aside class="queue-panel" id="queuePanel" aria-label="File d'attente">
+        <div class="queue-head">
+          <h2>File d'attente</h2>
+          <div class="queue-count"><b id="queueCount">0</b><span id="queueCountLabel">joueur en attente</span></div>
+        </div>
+        <p class="queue-next" id="queueNext" hidden></p>
+        <div class="queue-body">
+          <ol class="queue-list" id="queueList"></ol>
+          <div class="queue-empty" id="queueEmpty" hidden>
+            <span class="burst" aria-hidden="true"></span>
+            <p class="qe-title">Aucune attente&nbsp;:</p>
+            <p class="qe-text">présentez-vous à l'accueil&nbsp;!</p>
+            <p class="qe-sub" id="queueEmptySub"></p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="cta">
+      <div class="cta-main">
+        <span class="spark" aria-hidden="true"></span>
+        <span>Inscrivez-vous à l'accueil pour jouer&nbsp;!</span>
+      </div>
+      <div class="cta-goodies">
+        <svg class="gift" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 10h18v4H3z M5 14h14v7H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M12 10v11" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M12 10c-1.5-3.5-6-4.5-6.5-2S9 10 12 10zm0 0c1.5-3.5 6-4.5 6.5-2S15 10 12 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+        <span id="goodiesText"><b>1 heure de jeu</b> = goodies offerts</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/shared/client.js"></script>
+  <script src="/ecran/ecran.js"></script>
+</body>
+</html>
