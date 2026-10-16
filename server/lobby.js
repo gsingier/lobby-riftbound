@@ -586,7 +586,7 @@ class Lobby {
       const p = this.db.prepare('SELECT status, goodies_given_at FROM participants WHERE id = ?').get(id);
       if (!p) throw new LobbyError('not_found', 'Joueur introuvable.');
       if (p.status !== 'completed') {
-        throw new LobbyError('conflict', "Ce joueur n'a pas terminé sa partie : pas de goodies.");
+        throw new LobbyError('conflict', "Ce joueur n'a pas terminé sa partie : pas de carte promo.");
       }
       // Une seule carte promo par joueur : deux postes (accueil, boutique) ne peuvent pas la remettre deux fois.
       if (given && p.goodies_given_at !== null) {

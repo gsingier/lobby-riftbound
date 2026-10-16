@@ -754,13 +754,15 @@
     const q = cleanQuery(input.value);
     clearTimeout(debounceTimer);
     debounceTimer = 0;
+    // Un message d'erreur ou d'information concerne le visiteur précédent : il laisse la place à la
+    // consigne dès qu'on cherche quelqu'un d'autre. Seul le reçu (avec « Annuler ») reste affiché.
     if (q.length < 2) {
       cancelSearch();
       setMode('pending');
-      if (feedbackKind === 'hint') showHint();
+      if (feedbackKind !== 'done') showHint();
       return;
     }
-    if (feedbackKind === 'hint') showHint();
+    if (feedbackKind !== 'done') showHint();
     if (layout.dataset.mode !== 'results') {
       results = null;
       setMode('results');
@@ -778,7 +780,7 @@
     clearBtn.hidden = true;
     cancelSearch();
     setMode('pending');
-    if (feedbackKind === 'hint') showHint();
+    if (feedbackKind !== 'done') showHint();
     input.focus({ preventScroll: true });
   }
 
