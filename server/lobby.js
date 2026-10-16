@@ -471,7 +471,8 @@ class Lobby {
         throw new LobbyError(
           'conflict',
           `La partie a commencé il y a plus de ${Math.round(NO_SHOW_WINDOW_MS / 60000)} minutes : ` +
-            "le joueur ne peut plus être déclaré absent (utilisez « Libérer l'emplacement »).",
+            'le joueur ne peut plus être déclaré absent (partenaire présent : laissez jouer contre un animateur ; ' +
+            'personne à la table : « Libérer sans goodies »).',
         );
       }
       this.db.prepare("UPDATE participants SET status = 'removed', removed_at = ? WHERE id = ?").run(t, id);

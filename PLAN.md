@@ -5,11 +5,11 @@ Riftbound (set **Radiance**) de la Paris Games Week.
 
 ## Objectif
 
-À leur arrivée, les visiteurs s'enregistrent à l'accueil (prénom, nom, email,
-numéro de billet). Ils sont mis en file d'attente puis placés automatiquement à
-une table dès qu'un emplacement se libère. Chaque partie dure **1 heure** :
-c'est le temps à rester à table pour gagner les goodies. Un écran TV diffuse le
-plan des tables et la file d'attente.
+À leur arrivée, les visiteurs s'enregistrent à l'accueil (prénom, nom, numéro
+de billet et, s'ils acceptent de le donner, email). Ils sont mis en file
+d'attente puis placés automatiquement à une table dès qu'un emplacement se
+libère. Chaque partie dure **1 heure** : c'est le temps à rester à table pour
+gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente.
 
 ## Organisation du stand
 
@@ -22,18 +22,24 @@ plan des tables et la file d'attente.
 ## Règles métier
 
 ### Inscription
-- L'hôtesse saisit prénom, nom, email et numéro de billet pour **1 joueur seul**
-  ou **2 joueurs inscrits ensemble** (ils seront placés ensemble).
+- L'hôtesse saisit prénom, nom, numéro de billet et email pour **1 joueur
+  seul** ou **2 joueurs inscrits ensemble** (ils seront placés ensemble).
+- Prénom, nom et **numéro de billet** sont **obligatoires**. L'**email est
+  facultatif** : un visiteur peut refuser de le donner (champ vide, aucun
+  contrôle de doublon ; `check({ email: '' })` renvoie `email: null`). S'il est
+  saisi, il doit être **valide** et **unique**, comme le billet.
 - Un **email** ou un **numéro de billet** déjà utilisé (quel que soit le jour du
-  salon) est **refusé**.
+  salon) est **refusé**. Deux joueurs inscrits ensemble ne peuvent pas avoir le
+  même billet, ni le même email (s'ils en donnent un).
   - Exception : un joueur **retiré pour absence** (« Retirer » dans la file, ou
     « Absent » à sa table), encore **en attente lors de la remise à zéro du
     matin**, ou dont la partie a été **interrompue par « Nouvelle journée »**
     n'a pas joué (ou pas jusqu'au bout sans le vouloir) ; il peut se réinscrire.
-  - Un joueur parti avant la fin (« Libérer l'emplacement ») a participé : il
-    reste bloqué.
-- Normalisation : email en minuscules sans espaces ; billet en majuscules, sans
-  espaces, tirets, points ni underscores.
+  - Un joueur parti avant la fin (« Libérer sans goodies ») ou dont la partie
+    a été terminée par l'hôtesse (« Terminer la partie (goodies) ») a
+    participé : il reste bloqué.
+- Normalisation : email en minuscules sans espaces autour ; billet en
+  majuscules, sans espaces, tirets, points ni underscores.
 
 ### Formation des paires (unité de placement = un match)
 - Deux joueurs inscrits ensemble forment une paire.
@@ -61,8 +67,21 @@ plan des tables et la file d'attente.
 - **Timer écoulé** → partie terminée, les joueurs ont droit aux goodies
   (liste « Goodies à remettre » côté accueil, bouton « Remis »), l'emplacement
   est libéré et la paire suivante est placée.
-- **« Libérer l'emplacement »** → départ anticipé : pas de goodies.
-- L'hôtesse peut ajouter/retirer du temps à une partie en cours.
+- Avant la fin du timer, deux façons de libérer l'emplacement (action
+  `releaseMatch`, résultat `{ released, withGoodies }`) :
+  - **« Terminer la partie (goodies) »** (`releaseMatch { matchId, withGoodies:
+    true }`) : l'hôtesse confirme la participation (les joueurs ont bien joué).
+    Partie terminée comme à la fin du timer : joueurs « partie terminée »,
+    goodies dus (liste « 03 Goodies à remettre »), emplacement réattribué.
+  - **« Libérer sans goodies »** (`releaseMatch { matchId }`) → départ
+    anticipé : joueurs « parti avant la fin », pas de goodies, emplacement
+    réattribué. Si le timer est déjà écoulé (le serveur ne l'a pas encore
+    traité), la partie est quand même terminée normalement, goodies dus
+    (`withGoodies: true` dans le résultat).
+  - Dans les deux cas, l'action concerne tous les joueurs encore à
+    l'emplacement et ne s'annule pas.
+- L'hôtesse peut ajouter/retirer du temps à une partie en cours (retirer plus
+  que le temps restant termine la partie, goodies dus).
 
 ### Joueur absent à sa table (« Absent »)
 - Un joueur **placé** qui ne se présente pas à sa table peut être déclaré
@@ -77,13 +96,14 @@ plan des tables et la file d'attente.
   contre un animateur), la partie est **annulée** : personne n'est marqué
   « parti avant la fin » et l'emplacement est réattribué aux suivants de la
   file (sauf si le stand est fermé).
-- **Au-delà des 15 minutes**, « Absent » est refusé. « Libérer
-  l'emplacement » termine la partie pour **les deux joueurs** (départ anticipé,
-  pas de goodies, joueurs bloqués), y compris un partenaire présent : on ne
-  l'utilise que s'il n'y a plus personne à la table. Si le partenaire est là,
-  on laisse la partie continuer (un animateur remplace l'absent, rien ne change
-  dans l'application) ; l'absent figurera dans « Goodies à remettre » et ne
-  doit pas les recevoir.
+- **Au-delà des 15 minutes**, « Absent » est refusé. « Libérer sans goodies »
+  termine la partie pour **les deux joueurs** (départ anticipé, pas de goodies,
+  joueurs bloqués), y compris un partenaire présent : on ne l'utilise que s'il
+  n'y a plus personne à la table. « Terminer la partie (goodies) » donnerait,
+  lui, les goodies aux deux, absent compris. Si le partenaire est là, on laisse
+  la partie continuer (un animateur remplace l'absent, rien ne change dans
+  l'application) ; l'absent figurera dans « Goodies à remettre » et ne doit pas
+  les recevoir.
 
 ### Fermeture du stand (le soir)
 - Bouton **« Fermer le stand »** / **« Rouvrir le stand »** (réglage
@@ -117,6 +137,11 @@ plan des tables et la file d'attente.
 ### Affichage public
 - Sur l'écran TV, uniquement **Prénom + initiale du nom** (« Lucas M. »).
   Jamais l'email ni le billet.
+- En-tête de l'écran TV : logo officiel Riftbound, « Paris Games Week · Stand
+  Riftbound », horloge et état de la connexion. **Ni mot « Radiance » ni
+  pastille « Nouveau set »**, et **pas de bandeau en bas** (« Inscrivez-vous à
+  l'accueil pour jouer ! », « 1 heure de jeu = goodies offerts » et ses
+  variantes stand fermé) : retirés à la demande du client.
 - Stand fermé : l'écran TV n'affiche plus la file (message de fin de journée à
   la place) et les emplacements libres y sont marqués « Fermé ».
 
@@ -168,14 +193,14 @@ Direction « Aurore holographique » (lauréate du concours de design pour le
 look), appliquée à l'ergonomie de la version éditoriale (lauréate pour
 l'ergonomie) : fond nacré perle à halos irisés cyan → lavande → rose et cercles
 concentriques du key art (dégradés statiques pré-calculés, aucun flou en
-direct), cartes en verre clair, mot RADIANCE en chrome bleu-argent, médaillons
-et anneaux de progression irisés, polices Outfit et Inter, crépuscule mauve
-quand le stand est fermé. **Orange Riftbound** pour l'action (places libres,
+direct), cartes en verre clair, médaillons et anneaux de progression irisés,
+polices Outfit et Inter, crépuscule mauve quand le stand est fermé. **Orange Riftbound** pour l'action (places libres,
 « À appeler », bouton principal ; texte encre sur l'orange), **rose** pour les
-5 dernières minutes. Logo officiel Riftbound posé sur une carte nacrée claire ;
-le logotype Radiance et un visuel HD sont attendus d'UVS (propriété de Riot
-Games / UVS Games, voir `public/assets/README.md`). Détails dans le README
-(section « Interface »).
+5 dernières minutes. Logo officiel Riftbound posé sur une carte nacrée claire,
+seule marque affichée en tête de l'écran TV (le mot « Radiance » et la pastille
+« Nouveau set » ont été retirés à la demande du client) ; un key art HD est
+attendu d'UVS (propriété de Riot Games / UVS Games, voir
+`public/assets/README.md`). Détails dans le README (section « Interface »).
 
 ## Étapes
 
@@ -187,3 +212,7 @@ Games / UVS Games, voir `public/assets/README.md`). Détails dans le README
 6. Fermeture du stand le soir, « Absent » après placement.
 7. Refonte visuelle et ergonomique (DA Radiance, logo officiel, « À appeler »,
    panneau d'actions d'emplacement, attente estimée sur la TV).
+8. Retours du client : email facultatif, « Terminer la partie (goodies) » à
+   côté de « Libérer sans goodies », raccourci de recherche Ctrl+K (⌘K sur
+   Mac) et « / » (Alt+R, intercepté par certains navigateurs, reste en
+   secours), écran TV sans bandeau du bas ni « Radiance / Nouveau set ».

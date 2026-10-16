@@ -10,9 +10,12 @@ résume tout.
   **place automatiquement** à une table dès qu'une place se libère, et l'écran
   TV indique où aller.
 - Une partie dure **1 heure**. Rester jusqu'au bout = **goodies**. Partir avant
-  = pas de goodies.
-- Un **email** et un **numéro de billet** ne servent **qu'une fois sur tout le
-  salon**.
+  = pas de goodies. Des joueurs qui ont bien joué mais s'arrêtent avant la fin
+  du temps : **« Terminer la partie (goodies) »**
+  ([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)).
+- Le **numéro de billet** est **obligatoire** et ne sert **qu'une fois sur tout
+  le salon**. L'**email** est **facultatif** : un visiteur peut refuser de le
+  donner ; s'il est donné, il ne sert lui aussi qu'une fois.
 - Le stand compte **9 tables numérotées de 1 à 9** (de gauche à droite, puis de
   haut en bas). Chaque table accueille **2 matchs** : l'emplacement **A** (moitié
   gauche) et l'emplacement **B** (moitié droite), soit 18 matchs en même temps.
@@ -32,7 +35,7 @@ L'écran suit votre boucle de travail, numérotée **01 → 02 → 03** :
 
 | Zone | Où | Rôle |
 |---|---|---|
-| **Barre du haut** | tout en haut | Logo, « Accueil », **jour du salon**, compteurs (En attente, En jeu, Terminés, **Goodies**, Total), **Rechercher**, état de la connexion, **Réglages** (roue dentée), **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »** (Exporter CSV, Déconnexion) |
+| **Barre du haut** | tout en haut | Logo, « Accueil », **jour du salon**, compteurs (En attente, En jeu, Terminés, **Goodies**, Total), **Rechercher** (Ctrl + K), état de la connexion, **Réglages** (roue dentée), **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »** (Exporter CSV, Déconnexion) |
 | **01 Inscrire** | colonne de gauche | Formulaire d'inscription, attente estimée, cadre de résultat à annoncer |
 | **02 À appeler** | en haut au centre | Joueurs placés **automatiquement** à appeler, avec leur table ([partie 4](#4-appeler-les-joueurs-placés---à-appeler-)) |
 | **Plan des tables** | au centre | Les 9 tables et leurs comptes à rebours ; un clic sur un emplacement ouvre ses actions ([partie 8](#8-pendant-les-parties)) |
@@ -112,6 +115,12 @@ de 3 minutes, et la **file d'attente** avec l'heure de passage estimée. Stand
 fermé, la TV passe au mauve (« crépuscule ») et les places vides affichent
 « Fermé ». La légende au-dessus du plan rappelle les couleurs.
 
+L'en-tête de la TV ne montre que le **logo Riftbound**, « Paris Games Week ·
+Stand Riftbound », l'horloge et le voyant de connexion (en paysage, la carte
+d'attente estimée s'y place aussi). Il n'y a **pas de bandeau en bas** de
+l'écran, ni de rappel des goodies : annoncez vous-même la règle (1 heure de
+jeu = goodies) aux visiteurs qui s'inscrivent.
+
 ---
 
 ## 2. Chaque matin : « Nouvelle journée »
@@ -160,8 +169,8 @@ revient tout seul après chaque inscription.
 
 1. Choisissez **« 2 joueurs ensemble »** (par défaut) ou **« 1 joueur »**.
    Raccourcis clavier : **Alt + 2** / **Alt + 1**.
-2. Pour chaque joueur, remplissez **Prénom**, **Nom**, **Email** et
-   **N° de billet**. Le **joueur 1** s'assoit sur la **chaise du haut**, le
+2. Pour chaque joueur, remplissez **Prénom**, **Nom**, **Email** (facultatif)
+   et **N° de billet**. Le **joueur 1** s'assoit sur la **chaise du haut**, le
    **joueur 2** sur la **chaise du bas** (indiqué à côté de « Joueur 1 » /
    « Joueur 2 »).
 3. Appuyez sur **Entrée** (ou cliquez sur le bouton orange
@@ -195,6 +204,11 @@ Bon à savoir :
   l'autre) ;
 - les **tables entièrement libres** sont remplies en premier, puis les
   demi-tables ;
+- l'**email est facultatif** : si le visiteur préfère ne pas le donner,
+  laissez le champ vide (sa fiche indique alors « sans email »). S'il est
+  saisi, il doit être valide et ne pas avoir déjà servi au salon
+  ([partie 5](#5--email-ou-billet-déjà-utilisé-)). Le **billet**, lui, est
+  toujours obligatoire ;
 - pour le billet, les espaces, tirets et points sont ignorés ; pour l'email,
   les majuscules sont ignorées ;
 - un champ oublié ou mal rempli est signalé **en rouge sous le champ**, et le
@@ -231,7 +245,7 @@ Pour chaque carte :
 3. Personne ne vient ? Le bouton **« ⋯ »** de la carte propose
    **« Absent : Prénom Nom »** pendant les 15 premières minutes de la partie
    ([partie 7](#7-joueur-absent-à-lappel)) et **« Ouvrir Table 4 · B »** (le
-   panneau de l'emplacement : ±5 min, Libérer). Un clic sur la plaque
+   panneau de l'emplacement : ±5 min, Terminer, Libérer). Un clic sur la plaque
    « Table 4 · B » ouvre aussi ce panneau.
 
 Bon à savoir :
@@ -251,7 +265,9 @@ Bon à savoir :
 
 ## 5. « Email ou billet déjà utilisé »
 
-Règle du salon : **une seule participation par personne**. Dès la saisie, un
+Règle du salon : **une seule participation par personne**. Un numéro de
+billet ne sert qu'une fois, un email aussi quand il est donné (un champ email
+laissé vide n'est jamais « déjà utilisé »). Dès la saisie, un
 avertissement orange apparaît sous le champ, par exemple :
 *« Déjà utilisé par Lucas Martin – jour 1 – partie terminée »*. L'inscription
 est alors **refusée** (message rouge sous le champ).
@@ -265,8 +281,8 @@ Que faire :
   l'email ou le billet avec le visiteur ; si l'inscription précédente
   contenait une faute, retrouvez-la avec la recherche et corrigez-la avec
   **« Modifier »**.
-- **Deux joueurs ensemble** ne peuvent pas avoir le même email ni le même
-  billet : chacun doit donner les siens.
+- **Deux joueurs ensemble** ne peuvent pas avoir le même billet, ni le même
+  email : chacun donne le sien (ou laisse l'email vide).
 - En cas de doute, voyez avec le responsable du stand.
 
 Ne sont **pas** bloqués (ils n'ont pas joué) et peuvent se réinscrire
@@ -315,8 +331,8 @@ présents près du stand.
   - S'il faisait partie d'une **paire**, son partenaire redevient **joueur
     seul**, **à la même place** dans la file (il sera associé au prochain
     joueur seul, ou vous pouvez le « Placer quand même »).
-  - Le joueur retiré **pourra se réinscrire** plus tard avec le même email et
-    le même billet (il repartira en fin de file).
+  - Le joueur retiré **pourra se réinscrire** plus tard avec le même billet
+    (et le même email) ; il repartira en fin de file.
 - « Retirer » ne concerne que les joueurs **en file d'attente**. Pour des
   joueurs **déjà placés**, voir ci-dessous.
 
@@ -333,8 +349,8 @@ directement **« Absent : Prénom Nom »**.
 Le joueur ne s'est pas présenté : cliquez sur **« Absent »**, puis confirmez.
 
 - Il est retiré de la partie, **sans goodies**. Il n'a pas joué : il **pourra
-  se réinscrire** avec le même email et le même billet (il repartira en fin de
-  file).
+  se réinscrire** avec le même billet (et le même email) ; il repartira en fin
+  de file.
 - **Son partenaire est là ?** La partie **continue contre un animateur**, avec
   le même compte à rebours : **prévenez un animateur**. Sur le plan,
   l'adversaire est indiqué « Animateur ». Le partenaire a droit aux goodies
@@ -347,19 +363,22 @@ Le joueur ne s'est pas présenté : cliquez sur **« Absent »**, puis confirmez
 ### Après 15 minutes
 
 Passé ce délai, « Absent » n'est plus proposé (le panneau de l'emplacement le
-rappelle). Attention : **« Libérer » fait sortir les deux joueurs de la
-partie**, y compris celui qui est bien à sa table. Tous deux sont alors
-considérés comme ayant participé : pas de goodies, pas de réinscription, et
-cela ne s'annule pas.
+rappelle). Attention : les deux boutons de fin de partie
+([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)) concernent
+**les deux joueurs** de l'emplacement, y compris celui qui est bien à sa
+table : **« Libérer sans goodies »** les sort tous les deux sans goodies ;
+**« Terminer la partie (goodies) »** donne les goodies aux deux, absent
+compris. Dans les deux cas, tous deux sont considérés comme ayant participé
+(pas de réinscription), et cela ne s'annule pas.
 
-- **Son partenaire est là ?** Ne cliquez pas sur « Libérer » : laissez la
+- **Son partenaire est là ?** Ne cliquez sur aucun des deux : laissez la
   partie continuer, **un animateur joue à la place de l'absent** (prévenez-en
   un). Sur le plan, le nom de l'absent reste affiché. En fin de partie, les
   deux joueurs apparaissent dans « Goodies à remettre » : ne remettez les
   goodies qu'au joueur présent (ne cliquez pas sur « Remis » pour l'absent).
-- **Plus personne à la table ?** Utilisez **« Libérer »**
-  ([partie 8](#8-pendant-les-parties)) : l'emplacement est donné aux suivants
-  de la file.
+- **Plus personne à la table ?** Utilisez **« Libérer sans goodies »**
+  ([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)) :
+  l'emplacement est donné aux suivants de la file.
 - En cas de doute, voyez avec le responsable.
 
 ---
@@ -402,12 +421,14 @@ au clavier) : un panneau s'ouvre à côté, avec :
 
 - le **compte à rebours** en grand, l'heure de début et de fin prévue ;
 - les joueurs, avec leur place (**« Joueur 1 · chaise du haut »**,
-  **« Joueur 2 · chaise du bas »**), leur email et leur billet, et le bouton
-  **« Absent »** pendant les 15 premières minutes
+  **« Joueur 2 · chaise du bas »**), leur email (ou « sans email ») et leur
+  billet, et le bouton **« Absent »** pendant les 15 premières minutes
   ([partie 7](#7-joueur-absent-à-lappel)) ;
 - **« Joueurs installés »** si la partie est encore dans « À appeler » ;
 - **« −5 min »** et **« +5 min »** ;
-- en bas, séparé du reste : **« Libérer l'emplacement… »**.
+- en bas, séparés du reste : **« Terminer la partie (goodies)… »** et
+  **« Libérer sans goodies (départ anticipé)… »**
+  ([voir plus bas](#terminer-ou-libérer-un-emplacement-avant-la-fin)).
 
 Pour un emplacement **libre**, le panneau propose **« Mettre la table N hors
 service »** (ou « Remettre la table N en service »). La croix, la touche
@@ -427,27 +448,43 @@ automatiquement (ils arrivent dans « À appeler »).
 Pour ajuster le temps d'une partie (installation un peu longue, petit
 incident…). Retirer 5 minutes alors qu'il en reste moins de 5 **termine la
 partie tout de suite** (une confirmation le signale) : les joueurs ont alors
-droit à leurs goodies.
+droit à leurs goodies. Pour arrêter plus tôt une partie **avec** les goodies,
+utilisez plutôt « Terminer la partie (goodies) » (ci-dessous).
 
-### « Libérer » : départ anticipé
+### Terminer ou libérer un emplacement avant la fin
 
-Les joueurs quittent la table avant la fin : dans le panneau de l'emplacement,
-cliquez sur **« Libérer l'emplacement… »**, puis **« Libérer (pas de
-goodies) »**. Dans cette confirmation, c'est **« Annuler »** qui est sélectionné
-par défaut : appuyer sur Entrée n'a donc aucun effet.
+En bas du panneau de l'emplacement, deux boutons arrêtent la partie avant la
+fin du compte à rebours. Choisissez selon ce qui s'est passé :
 
-- les joueurs **n'ont pas droit aux goodies** ;
-- ils sont considérés comme ayant participé : ils **ne peuvent pas se
-  réinscrire** ;
-- l'emplacement est donné tout de suite aux suivants de la file.
+| Les joueurs… | Bouton | Goodies | Réinscription |
+|---|---|---|---|
+| ont **bien joué** et s'arrêtent avant la fin du temps | **« Terminer la partie (goodies)… »** | **oui** (« 03 Goodies à remettre ») | non (ils ont participé) |
+| **partent avant la fin** (départ anticipé) | **« Libérer sans goodies (départ anticipé)… »** | non | non (ils ont participé) |
+
+Dans les deux cas, une confirmation s'affiche, la partie s'arrête pour **tous
+les joueurs** de l'emplacement (les deux, ou le joueur seul face à un
+animateur) et l'emplacement est donné tout de suite aux suivants de la file
+(sauf stand fermé ou table hors service). Cela ne s'annule pas.
+
+**« Terminer la partie (goodies) »** : vous confirmez leur participation. La
+partie compte comme **terminée**, exactement comme à la fin normale du temps :
+les joueurs passent « partie terminée » et apparaissent dans
+**« 03 Goodies à remettre »** ([partie 9](#9-remettre-les-goodies)).
+
+**« Libérer sans goodies »** : départ anticipé. Dans cette confirmation, c'est
+**« Annuler »** qui est sélectionné par défaut : appuyer sur Entrée n'a donc
+aucun effet. Les joueurs sont « partis avant la fin » : **pas de goodies**, et
+ils **ne peuvent pas se réinscrire**. (Si le compte à rebours venait de
+s'écouler, la partie compte comme terminée normalement, goodies dus : la
+notification l'indique.)
 
 Des joueurs placés ne viennent pas à leur table : pendant les 15 premières
 minutes, préférez **« Absent »** ([partie 7](#7-joueur-absent-à-lappel)),
-qui leur permet de se réinscrire. Au-delà, « Libérer » seulement si
-**aucun des deux** n'est à la table, avec la même conséquence que ci-dessus
-(ils ne pourront pas se réinscrire) ; si l'un des deux est là, laissez la
-partie continuer contre un animateur ([partie 7](#7-joueur-absent-à-lappel)).
-En cas de souci, voyez avec le responsable.
+qui leur permet de se réinscrire. Au-delà, « Libérer sans goodies » seulement
+si **aucun des deux** n'est à la table (ils ne pourront pas se réinscrire) ;
+si l'un des deux est là, laissez la partie continuer contre un animateur
+([partie 7](#7-joueur-absent-à-lappel)). En cas de souci, voyez avec le
+responsable.
 
 ### Réglages (bouton « Réglages », roue dentée dans la barre du haut)
 
@@ -464,7 +501,8 @@ En cas de souci, voyez avec le responsable.
 
 Le panneau **« 03 Goodies à remettre »** (colonne de droite ; sur une tablette,
 onglet « Goodies ») liste les joueurs du jour qui sont **allés au bout** de leur
-partie, avec la table et l'heure de fin. Le compteur **« Goodies »** de la barre
+partie, ou dont vous avez terminé la partie avec **« Terminer la partie
+(goodies) »**, avec la table et l'heure de fin. Le compteur **« Goodies »** de la barre
 du haut passe en or quand il y en a à remettre ; un clic dessus mène à la
 liste.
 
@@ -473,8 +511,8 @@ liste.
    (repliée en bas de la liste).
 3. Erreur de clic : ouvrez **« Déjà remis »** et cliquez sur **« Annuler »**.
 
-Les joueurs partis avant la fin (« Libérer ») ou déclarés « Absent »
-n'apparaissent pas dans cette liste. Exception : un absent repéré après les
+Les joueurs partis avant la fin (« Libérer sans goodies ») ou déclarés
+« Absent » n'apparaissent pas dans cette liste. Exception : un absent repéré après les
 15 minutes, dont le partenaire a joué contre un animateur
 ([partie 7](#7-joueur-absent-à-lappel)), y figure : ne lui remettez pas de
 goodies.
@@ -483,9 +521,19 @@ goodies.
 
 ## 10. Rechercher ou corriger un joueur
 
-Champ **« Rechercher »** dans la barre du haut (une loupe sur une tablette ;
-raccourci **Alt + R**) : tapez au moins 2 caractères d'un nom, prénom, email ou
-numéro de billet. Pour chaque résultat, vous voyez son statut (en file, en jeu,
+Champ **« Rechercher »** dans la barre du haut (une loupe sur une tablette) :
+tapez au moins 2 caractères d'un nom, prénom, numéro de billet ou email.
+
+Raccourcis clavier pour ouvrir la recherche :
+
+- **Ctrl + K** (**⌘ K** sur Mac) : fonctionne aussi pendant la saisie dans
+  un champ du formulaire ;
+- **/** (sur un clavier français : **Maj + :**, ou la touche **/** du pavé
+  numérique), quand le curseur n'est pas dans un champ de saisie ;
+- **Alt + R** reste accepté, mais certains navigateurs ou ordinateurs
+  l'interceptent : préférez **Ctrl + K**.
+
+Pour chaque résultat, vous voyez son statut (en file, en jeu,
 partie terminée, goodies remis ou non…), où il se trouve (table et temps
 restant, ou rang dans la file), le jour de son inscription, et les boutons
 **« Modifier »** (corriger une faute), **« Retirer »** (s'il est en file
@@ -519,8 +567,10 @@ terminé sa partie). **Échap** vide la recherche, puis la ferme.
    Dites-le-leur s'ils sont encore là.
 3. **Parties en cours** : laissez-les finir (goodies). Si elles ne peuvent pas
    aller au bout avant la fermeture du salon, selon la consigne du responsable,
-   terminez-les (« −5 min » jusqu'à la fin → goodies) ou libérez-les
-   (« Libérer » → pas de goodies). Remettez les goodies restants.
+   terminez-les avec **« Terminer la partie (goodies) »** (goodies dus) ou
+   libérez-les avec **« Libérer sans goodies »**
+   ([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)). Remettez
+   les goodies restants.
 4. Avant de partir, vérifiez sur le plan que **toutes les tables sont libres**.
    Une partie laissée en cours se termine seule à la fin de son compte à
    rebours, et ses joueurs sont alors comptés comme étant allés au bout
@@ -532,8 +582,9 @@ terminé sa partie). **Échap** vide la recherche, puis la ferme.
 vide la file et **rouvre le stand** : inutile de cliquer sur « Rouvrir le
 stand ».
 
-> **Pourquoi fermer le stand ?** Sinon, chaque place libérée (« Libérer »,
-> « −5 min » ou fin du temps) est **aussitôt donnée aux suivants de la file**,
+> **Pourquoi fermer le stand ?** Sinon, chaque place libérée (« Terminer la
+> partie », « Libérer sans goodies », « −5 min » ou fin du temps) est
+> **aussitôt donnée aux suivants de la file**,
 > même après l'heure de fermeture, et même la nuit si des parties sont restées
 > en cours. Des joueurs placés à la fermeture puis libérés seraient **bloqués
 > pour tout le salon** (« parti avant la fin ») sans avoir vraiment joué.
@@ -565,7 +616,8 @@ reste utile pour un joueur qui renonce et s'en va.
 2. Il contient **tous les participants de tous les jours** (statut, table,
    horaires, goodies) et s'ouvre directement dans Excel.
 3. Rangez-le à l'endroit convenu avec le responsable. Il contient des **données
-   personnelles** (emails) : ne le laissez pas sur un ordinateur partagé.
+   personnelles** (noms, billets, emails quand ils ont été donnés) : ne le
+   laissez pas sur un ordinateur partagé.
 
 ---
 
@@ -601,11 +653,12 @@ continuer pendant une coupure du Wi-Fi.
 | « Trop de tentatives » | Attendez 5 minutes (le blocage concerne tout le Wi-Fi du stand). |
 | L'écran TV s'est éteint | Vérifiez la mise en veille de la TV et de l'ordinateur ([partie 1](#la-tv-écran-public)). |
 | Personne n'est placé alors que des places sont libres | Bandeau « Stand fermé » ? Le stand a été fermé : **« Rouvrir le stand »** (ou, le matin, **« Nouvelle journée »**). Sinon, vérifiez que les tables ne sont pas hors service (« Réglages ») et que la file ne contient pas que des joueurs seuls en attente d'un partenaire ([partie 6](#6-joueur-seul)). |
-| « Absent » n'apparaît plus | La partie a commencé il y a plus de 15 minutes. Partenaire présent : laissez la partie continuer contre un animateur ; personne à la table : « Libérer » ([partie 7](#7-joueur-absent-à-lappel)). |
+| « Absent » n'apparaît plus | La partie a commencé il y a plus de 15 minutes. Partenaire présent : laissez la partie continuer contre un animateur ; personne à la table : « Libérer sans goodies » ([partie 7](#7-joueur-absent-à-lappel)). |
 | Un appel a été marqué « Installés » par erreur | Les joueurs sont toujours sur le plan : cliquez sur leur emplacement pour retrouver la table. |
 | Mauvais « Retirer » | Le joueur peut se réinscrire tout de suite (il repart en fin de file). |
 | Mauvais « Absent » | Ne s'annule pas : le joueur peut se réinscrire (il repart en fin de file) ; prévenez le responsable. |
-| Mauvais « Libérer » | Ne s'annule pas : prévenez le responsable du stand. |
+| Mauvais « Libérer sans goodies » ou « Terminer la partie (goodies) » | Ne s'annule pas : prévenez le responsable du stand. |
+| Le raccourci de recherche ne fait rien | Utilisez **Ctrl + K** (**⌘ K** sur Mac) ou cliquez sur « Rechercher » : **Alt + R** est intercepté par certains navigateurs ou ordinateurs. |
 | Stand fermé par erreur | **« Rouvrir le stand »** dans le bandeau : les placements reprennent aussitôt ; vérifiez que les joueurs placés sont bien là (sinon « Absent »). |
 | Besoin d'une pause en journée | Tables **hors service** (« Réglages »), pas « Fermer le stand » (la TV annoncerait la fin de la journée). |
 
@@ -620,12 +673,14 @@ continuer pendant une coupure du Wi-Fi.
 | Un visiteur vient seul | « 1 joueur » → Entrée (associé au prochain joueur seul) |
 | Joueurs placés automatiquement | Les appeler (« 02 À appeler »), puis **« Installés »** |
 | Le joueur seul attend trop | **« Placer quand même (vs animateur) »** (sa ligne dans la file) + prévenir un animateur |
+| Le visiteur refuse de donner son email | Laisser le champ « Email » vide (facultatif) ; le billet reste obligatoire |
 | Email ou billet « déjà utilisé » | Refuser poliment, ou corriger une faute de saisie (« Modifier ») |
 | Un joueur de la file est absent | « ⋯ » sur sa ligne → **« Retirer de la file »** |
 | Un joueur placé ne vient pas à sa table (moins de 15 min) | Clic sur l'emplacement → **« Absent »** à côté de son nom (ou « ⋯ » de la carte « À appeler ») ; son partenaire joue contre un animateur |
-| … plus de 15 min après le début, son partenaire est là | Laisser jouer contre un animateur (**pas** « Libérer », qui sortirait aussi le partenaire) ; pas de goodies pour l'absent |
-| … plus de 15 min après le début, personne à la table | Clic sur l'emplacement → **« Libérer l'emplacement… »** (pas de goodies) |
-| Des joueurs partent avant la fin | Clic sur l'emplacement → **« Libérer l'emplacement… »** (pas de goodies) |
+| … plus de 15 min après le début, son partenaire est là | Laisser jouer contre un animateur (ni « Libérer sans goodies », qui sortirait aussi le partenaire, ni « Terminer la partie », qui donnerait les goodies à l'absent) ; pas de goodies pour l'absent |
+| … plus de 15 min après le début, personne à la table | Clic sur l'emplacement → **« Libérer sans goodies (départ anticipé)… »** |
+| Les joueurs ont bien joué mais s'arrêtent avant la fin du temps | Clic sur l'emplacement → **« Terminer la partie (goodies)… »** → **« Remis »** dans « 03 Goodies à remettre » |
+| Des joueurs partent avant la fin | Clic sur l'emplacement → **« Libérer sans goodies (départ anticipé)… »** |
 | Retard au démarrage, incident | Clic sur l'emplacement → **« +5 min »** / **« −5 min »** |
 | Fin du temps | Automatique → **« Remis »** dans « 03 Goodies à remettre » quand les goodies sont donnés |
 | Table inutilisable | « Réglages » → Tables en service (ou clic sur un emplacement libre → « Mettre la table hors service ») |
@@ -633,5 +688,6 @@ continuer pendant une coupure du Wi-Fi.
 | Coupure d'internet | Noter sur papier ; tout se resynchronise au retour |
 
 Raccourcis clavier : **Entrée** inscrire · **Alt + 1** / **Alt + 2** : 1 ou 2
-joueurs · **Alt + R** : rechercher · **Alt + N** : revenir au champ « Prénom » ·
-**Échap** : fermer le panneau, le menu ou la recherche.
+joueurs · **Ctrl + K** (**⌘ K** sur Mac) ou **/** (hors d'un champ) :
+rechercher (**Alt + R** en secours) · **Alt + N** : revenir au champ
+« Prénom » · **Échap** : fermer le panneau, le menu ou la recherche.

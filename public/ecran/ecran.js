@@ -50,9 +50,6 @@
     queueClosed: $('queueClosed'),
     queueClosedNote: $('queueClosedNote'),
     howto: $('howto'),
-    cta: $('cta'),
-    ctaGoodies: $('ctaGoodies'),
-    goodiesText: $('goodiesText'),
   };
 
   // ---------------------------------------------------------------- orientation
@@ -71,9 +68,9 @@
 
   const isPortrait = () => root.dataset.layout === 'portrait';
 
-  // Paysage : la carte d'attente rejoint l'en-tête, entre RADIANCE et l'horloge (place libre),
-  // pour laisser toute la colonne de droite à « À vos tables ! » et à la file. Portrait : l'en-tête
-  // est déjà plein, elle reste au-dessus de la file.
+  // Paysage : la carte d'attente rejoint l'en-tête, entre « Paris Games Week » et l'horloge (place
+  // libre), pour laisser toute la colonne de droite à « À vos tables ! » et à la file. Portrait :
+  // l'en-tête est trop étroit, elle reste au-dessus de la file.
   function placeWait() {
     if (isPortrait()) {
       if (els.wait.parentElement !== els.side) els.side.insertBefore(els.wait, els.side.firstChild);
@@ -191,17 +188,6 @@
 
   function freeSlotCount(state) {
     return state.tables.reduce((n, t) => n + (t.enabled ? SLOT_NAMES.filter((s) => !t.slots[s]).length : 0), 0);
-  }
-
-  // « 1 heure de jeu », « 45 minutes de jeu », « 1 h 30 de jeu ».
-  function durationLabel(ms) {
-    const minutes = Math.round(ms / 60000);
-    if (minutes % 60 === 0) {
-      const h = minutes / 60;
-      return `${h} ${plural(h, 'heure', 'heures')}`;
-    }
-    if (minutes < 60) return `${minutes} ${plural(minutes, 'minute', 'minutes')}`;
-    return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
   }
 
   // Attente annoncée au public (même règle que l'accueil) : à la minute supérieure sous 10 min,
@@ -958,22 +944,6 @@
     document.fonts.addEventListener('loadingdone', scheduleFit);
   }
 
-  // ---------------------------------------------------------------- bandeau
-
-  function renderFooter(state) {
-    if (isClosed(state)) {
-      const playing = activeMatchCount(state) > 0;
-      els.cta.classList.toggle('single', !playing);
-      els.ctaGoodies.hidden = !playing;
-      els.goodiesText.innerHTML = '<b>Parties en cours</b> : goodies offerts en fin de partie';
-      return;
-    }
-    els.cta.classList.remove('single');
-    els.ctaGoodies.hidden = false;
-    const ms = (state.settings && state.settings.matchDurationMs) || 60 * MIN;
-    els.goodiesText.innerHTML = `<b>${esc(durationLabel(ms))} de jeu</b> = goodies offerts`;
-  }
-
   // ---------------------------------------------------------------- horloge et timers
 
   let client = null;
@@ -1064,7 +1034,6 @@
     const stand = isClosed(state) ? 'ferme' : 'ouvert';
     if (root.dataset.stand !== stand) root.dataset.stand = stand;
     renderTables(state);
-    renderFooter(state);
     renderWait(state, now);
     els.side.classList.toggle('no-wait', els.wait.hidden);
     renderPlaced(state, now);

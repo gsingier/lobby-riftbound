@@ -868,7 +868,9 @@ test('absent à la table : refusé après le délai, pour un joueur en file, qui
   assert.throws(() => lobby.noShow(reg.participantIds[0]), (err) => {
     code('conflict')(err);
     assert.match(err.message, /plus de 15 minutes/);
-    assert.match(err.message, /Libérer l'emplacement/);
+    assert.match(err.message, /« Libérer sans goodies »/);
+    assert.match(err.message, /contre un animateur/);
+    assert.doesNotMatch(err.message, /Libérer l'emplacement/, 'ce bouton n’existe plus');
     return true;
   });
   assert.equal(lobby.whereIs(reg.participantIds[0]).status, 'playing', 'rien n’a changé');

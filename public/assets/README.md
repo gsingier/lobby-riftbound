@@ -16,17 +16,17 @@ Legends » disparaît sur un fond sombre) : il est toujours posé sur blanc ou s
 la carte nacrée `.rb-logo-card` (`public/shared/theme.css`), jamais recoloré ni
 déformé (hauteur fixée, largeur proportionnelle).
 
-Le mot **RADIANCE** de l'en-tête de l'écran TV est un texte stylé (dégradé
-bleu-argent métallisé, classe `.rb-metal`), en attendant le logotype officiel du set.
-Le halo irisé et les cercles concentriques sont dessinés en CSS (dégradés
-statiques) : aucun fichier d'image n'est nécessaire.
+L'en-tête de l'écran TV ne montre que le logo officiel Riftbound, suivi de
+« Paris Games Week · Stand Riftbound » en texte : ni mot « Radiance » ni
+pastille « Nouveau set » (retirés à la demande du client). Le halo irisé et les
+cercles concentriques sont dessinés en CSS (dégradés statiques) : aucun fichier
+d'image n'est nécessaire.
 
 ## Visuels encore attendus d'UVS
 
 | Visuel | Usage prévu | Format conseillé |
 |---|---|---|
-| Logotype **RADIANCE** haute définition | Remplacer le mot stylé « Radiance » de l'en-tête TV | SVG, ou PNG à fond transparent d'au moins 1200 px de large ; version pour fond clair |
-| **Key art Radiance HD** sans logo incrusté | Éventuel fond ou bandeau (l'actuel, trop petit, n'est pas affiché) | JPG/WebP, 3840 × 2160 px (16:9), < 1 Mo |
+| **Key art Radiance HD** sans logo incrusté | Éventuel fond d'écran (l'actuel, trop petit, n'est pas affiché) | JPG/WebP, 3840 × 2160 px (16:9), < 1 Mo |
 | Logo Riftbound en **SVG** (facultatif) | Netteté parfaite en 4K | SVG |
 | Charte (couleurs, polices officielles), si elle existe | Ajuster les variables `--rb-*` de `public/shared/theme.css` | — |
 
@@ -38,11 +38,6 @@ statiques) : aucun fichier d'image n'est nécessaire.
   `public/ecran/index.html`, `public/accueil/index.html` et `public/login.html`.
   Recadrer au plus près du dessin (pas de marge transparente inutile) : la
   hauteur est fixée, une marge rendrait le logo plus petit.
-- **Logotype RADIANCE** : dans `public/ecran/index.html`, remplacer
-  `<p class="rb-metal wordmark">Radiance</p>` par
-  `<img class="wordmark-img" src="/assets/radiance-logo.svg" alt="Radiance">`
-  (la classe `.wordmark-img` est déjà prévue dans `public/ecran/ecran.css`,
-  avec la bonne hauteur en paysage et en portrait).
 
 Les couleurs, le halo et les polices (Outfit et Inter, auto-hébergées) se
 règlent dans `public/shared/theme.css` (variables `--rb-*`, classes `.rb-aura`,
