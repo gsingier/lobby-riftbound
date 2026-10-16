@@ -288,7 +288,7 @@ test('Origin étranger refusé pour /login, /logout et le handshake Socket.IO', 
     assert.equal(socket.connected, false);
   }
   const ok = await openSocket(ctx, { origin: ctx.base, cookie });
-  assert.deepEqual(ok.session, { admin: true });
+  assert.deepEqual(ok.session, { admin: true, role: 'admin' });
 });
 
 test('/logout efface le cookie', async (t) => {
@@ -329,7 +329,7 @@ test('cookie falsifié, signé par un autre serveur ou expiré : refusé (HTTP e
     assert.equal(res.headers.get('location'), '/login');
   }
   const s = await openSocket(ctx, { cookie: forged[0] });
-  assert.deepEqual(s.session, { admin: false });
+  assert.deepEqual(s.session, { admin: false, role: null });
   assert.equal((await action(s.socket, 'newDay')).code, 'unauthorized');
 
   // cookie valide…
@@ -340,7 +340,7 @@ test('cookie falsifié, signé par un autre serveur ou expiré : refusé (HTTP e
   assert.equal(expired.status, 302);
   assert.equal((await get(ctx.base, '/api/export.csv', { cookie, accept: 'application/json' })).status, 401);
   const late = await openSocket(ctx, { cookie });
-  assert.deepEqual(late.session, { admin: false });
+  assert.deepEqual(late.session, { admin: false, role: null });
 });
 
 // ---------------------------------------------------------------- Socket.IO
@@ -354,7 +354,7 @@ test('socket public : état public sans email ni billet, toutes les actions refu
   ]);
   ctx.lobby.register([{ firstName: 'Hugo', lastName: 'Dubois', email: 'hugo.secret@exemple.fr', ticket: 'BILLET-SECRET-3' }]);
   const pub = await openSocket(ctx);
-  assert.deepEqual(pub.session, { admin: false });
+  assert.deepEqual(pub.session, { admin: false, role: null });
   const json = JSON.stringify(pub.state);
   for (const secret of ['secret', 'SECRET', '@', 'Martin', 'Bernard', 'Dubois']) {
     assert.ok(!json.includes(secret), `l'état public contient « ${secret} »`);
@@ -387,7 +387,7 @@ test('socket admin : action mutante → état diffusé aux sockets publics et ad
   const admin = await openSocket(ctx, { cookie });
   const admin2 = await openSocket(ctx, { cookie });
   const pub = await openSocket(ctx);
-  assert.deepEqual(admin.session, { admin: true });
+  assert.deepEqual(admin.session, { admin: true, role: 'admin' });
   assert.ok(Array.isArray(admin.state.goodies));
   assert.ok(admin.state.stats);
 
@@ -715,7 +715,7 @@ test('persistance : redémarrage sur le même fichier, timers écoulés pendant 
   // le secret de session est en base : le cookie émis avant le redémarrage reste valide
   assert.equal((await get(second.base, '/accueil', { cookie })).status, 200);
   const admin = await openSocket(second, { cookie });
-  assert.deepEqual(admin.session, { admin: true });
+  assert.deepEqual(admin.session, { admin: true, role: 'admin' });
   assert.equal(admin.state.goodies.length, 36);
   const res = await action(admin.socket, 'giveGoodies', { participantId: st.goodies[0].id });
   assert.equal(res.ok, true);

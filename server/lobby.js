@@ -21,6 +21,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Statuts qui ne bloquent pas une nouvelle inscription : le joueur n'a pas joué.
 const NON_BLOCKING_STATUSES = ['removed', 'expired', 'interrupted'];
 
+const parisDateTime = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+// « le 16/10 à 14:32 »
+function formatParisDateTime(ms) {
+  const parts = Object.fromEntries(parisDateTime.formatToParts(new Date(ms)).map((p) => [p.type, p.value]));
+  return `le ${parts.day}/${parts.month} à ${parts.hour}:${parts.minute}`;
+}
+
 class LobbyError extends Error {
   constructor(code, message, details) {
     super(message);
@@ -523,10 +537,16 @@ class Lobby {
   giveGoodies(participantId, given = true) {
     const id = toId(participantId);
     return this.tx(() => {
-      const p = this.db.prepare('SELECT status FROM participants WHERE id = ?').get(id);
+      const p = this.db.prepare('SELECT status, goodies_given_at FROM participants WHERE id = ?').get(id);
       if (!p) throw new LobbyError('not_found', 'Joueur introuvable.');
       if (p.status !== 'completed') {
         throw new LobbyError('conflict', "Ce joueur n'a pas terminé sa partie : pas de goodies.");
+      }
+      // Une seule carte promo par joueur : deux postes (accueil, boutique) ne peuvent pas la remettre deux fois.
+      if (given && p.goodies_given_at !== null) {
+        throw new LobbyError('already_given', `Carte promo déjà remise ${formatParisDateTime(p.goodies_given_at)}.`, {
+          givenAt: p.goodies_given_at,
+        });
       }
       this.db
         .prepare('UPDATE participants SET goodies_given_at = ? WHERE id = ?')
@@ -634,6 +654,95 @@ class Lobby {
       )
       .all(like, like, like, ticketLike, ticketLike);
     return rows.map((r) => this.participantView(r, true));
+  }
+
+  // ---------------------------------------------------------------- boutique (cartes promo)
+
+  // Vue boutique d'un participant : identité, billet, droit à la carte promo. Jamais l'email.
+  boutiqueView(row) {
+    const view = {
+      id: row.id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      displayName: displayName(row.first_name, row.last_name),
+      ticket: row.ticket,
+      status: row.status,
+      statusLabel: PARTICIPANT_STATUS_LABELS[row.status],
+      dayNumber: this.dayNumber(row.day_id),
+      eligible: row.status === 'completed',
+      goodiesGivenAt: row.goodies_given_at,
+      tableNo: null,
+      slot: null,
+      endedAt: null,
+      endsAt: null,
+    };
+    const match = ['playing', 'completed', 'left_early', 'interrupted'].includes(row.status)
+      ? this.db.prepare('SELECT table_no, slot, ends_at, ended_at FROM matches WHERE entry_id = ?').get(row.entry_id)
+      : null;
+    if (match) {
+      view.tableNo = match.table_no;
+      view.slot = match.slot;
+      view.endedAt = match.ended_at;
+      if (row.status === 'playing') view.endsAt = match.ends_at;
+    }
+    return view;
+  }
+
+  // Recherche par nom ou n° de billet (email accepté mais jamais renvoyé) : billet exact d'abord,
+  // puis les cartes à remettre, puis les plus récents.
+  boutiqueSearch(query) {
+    const q = cleanName(query);
+    if (q.length < 2) return [];
+    const like = `%${foldText(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const ticket = normalizeTicket(q);
+    const ticketLike = `%${ticket.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM participants
+          WHERE rb_fold(first_name || ' ' || last_name) LIKE ? ESCAPE '\\'
+             OR rb_fold(last_name || ' ' || first_name) LIKE ? ESCAPE '\\'
+             OR rb_fold(email_norm) LIKE ? ESCAPE '\\'
+             OR (? <> '%%' AND ticket_norm LIKE ? ESCAPE '\\')
+          ORDER BY (ticket_norm = ?) DESC,
+                   (status = 'completed' AND goodies_given_at IS NULL) DESC,
+                   id DESC
+          LIMIT 25`,
+      )
+      .all(like, like, like, ticketLike, ticketLike, ticket);
+    return rows.map((r) => this.boutiqueView(r));
+  }
+
+  getBoutiqueState() {
+    const day = this.currentDay();
+    const pending = this.db
+      .prepare(
+        `SELECT p.* FROM participants p JOIN matches m ON m.entry_id = p.entry_id
+          WHERE p.status = 'completed' AND p.goodies_given_at IS NULL
+          ORDER BY m.ended_at DESC, p.id LIMIT 300`,
+      )
+      .all()
+      .map((r) => this.boutiqueView(r));
+    const recentGiven = this.db
+      .prepare(
+        `SELECT * FROM participants
+          WHERE status = 'completed' AND goodies_given_at IS NOT NULL
+          ORDER BY goodies_given_at DESC, id DESC LIMIT 20`,
+      )
+      .all()
+      .map((r) => this.boutiqueView(r));
+    const count = (sql, ...args) => this.db.prepare(sql).get(...args).n;
+    return {
+      serverNow: this.now(),
+      day: { id: day.id, number: this.dayNumber(day.id), startedAt: day.started_at },
+      pending,
+      recentGiven,
+      stats: {
+        pending: count("SELECT COUNT(*) AS n FROM participants WHERE status = 'completed' AND goodies_given_at IS NULL"),
+        givenToday: count('SELECT COUNT(*) AS n FROM participants WHERE goodies_given_at >= ?', day.started_at),
+        givenTotal: count('SELECT COUNT(*) AS n FROM participants WHERE goodies_given_at IS NOT NULL'),
+        playing: count("SELECT COUNT(*) AS n FROM participants WHERE status = 'playing'"),
+      },
+    };
   }
 
   // ---------------------------------------------------------------- projections

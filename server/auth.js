@@ -35,35 +35,62 @@ function parseCookies(header) {
   return out;
 }
 
-function createAuth({ password, secret, now = () => Date.now() }) {
+// Deux rôles : « admin » (accueil, mot de passe ACCUEIL_PASSWORD, accès à tout) et « boutique »
+// (remise des cartes promo, mot de passe BOUTIQUE_PASSWORD facultatif). Chaque rôle a sa propre clé
+// de signature : changer un mot de passe ne déconnecte que les sessions de ce rôle.
+function createAuth({ password, boutiquePassword = null, secret, now = () => Date.now() }) {
   if (!password) throw new Error('Mot de passe de l’accueil manquant.');
-  const key = sha256(`${secret}:${password}`);
-  const sign = (payload) => crypto.createHmac('sha256', key).update(payload).digest('base64url');
+  const keys = { admin: sha256(`${secret}:${password}`) };
+  if (boutiquePassword && boutiquePassword !== password) {
+    keys.boutique = sha256(`${secret}:boutique:${boutiquePassword}`);
+  }
+  const sign = (role, payload) => crypto.createHmac('sha256', keys[role]).update(payload).digest('base64url');
   const attempts = new Map();
 
-  function issueToken() {
+  function issueToken(role = 'admin') {
+    if (!keys[role]) throw new Error(`Rôle inconnu : ${role}`);
     const expires = now() + SESSION_TTL_MS;
-    const payload = `admin.${expires}`;
-    return `${payload}.${sign(payload)}`;
+    const payload = `${role}.${expires}`;
+    return `${payload}.${sign(role, payload)}`;
+  }
+
+  // Rôle porté par un jeton valide (« admin » ou « boutique »), sinon null.
+  function roleOfToken(token) {
+    if (typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || !Object.prototype.hasOwnProperty.call(keys, parts[0])) return null;
+    const expires = Number(parts[1]);
+    if (!Number.isFinite(expires) || expires < now()) return null;
+    const expected = Buffer.from(sign(parts[0], `${parts[0]}.${parts[1]}`));
+    const given = Buffer.from(parts[2]);
+    return expected.length === given.length && crypto.timingSafeEqual(expected, given) ? parts[0] : null;
   }
 
   function verifyToken(token) {
-    if (typeof token !== 'string') return false;
-    const parts = token.split('.');
-    if (parts.length !== 3 || parts[0] !== 'admin') return false;
-    const expires = Number(parts[1]);
-    if (!Number.isFinite(expires) || expires < now()) return false;
-    const expected = Buffer.from(sign(`${parts[0]}.${parts[1]}`));
-    const given = Buffer.from(parts[2]);
-    return expected.length === given.length && crypto.timingSafeEqual(expected, given);
+    return roleOfToken(token) === 'admin';
   }
 
+  const matches = (candidate, secretValue) =>
+    crypto.timingSafeEqual(sha256(candidate ?? ''), sha256(secretValue));
+
   function checkPassword(candidate) {
-    return crypto.timingSafeEqual(sha256(candidate ?? ''), sha256(password));
+    return matches(candidate, password);
+  }
+
+  // Rôle donné par un mot de passe (les deux comparaisons sont toujours faites), sinon null.
+  function roleForPassword(candidate) {
+    const admin = matches(candidate, password);
+    const boutique = keys.boutique ? matches(candidate, boutiquePassword) : false;
+    if (admin) return 'admin';
+    return boutique ? 'boutique' : null;
+  }
+
+  function roleOf(cookieHeader) {
+    return roleOfToken(parseCookies(cookieHeader)[COOKIE_NAME]);
   }
 
   function isAuthenticated(cookieHeader) {
-    return verifyToken(parseCookies(cookieHeader)[COOKIE_NAME]);
+    return roleOf(cookieHeader) === 'admin';
   }
 
   function bump(key, t, max) {
@@ -115,8 +142,12 @@ function createAuth({ password, secret, now = () => Date.now() }) {
   return {
     issueToken,
     verifyToken,
+    roleOfToken,
     checkPassword,
+    roleForPassword,
+    roleOf,
     isAuthenticated,
+    hasBoutiqueRole: Boolean(keys.boutique),
     allowAttempt,
     resetAttempts,
     cookieHeader,
