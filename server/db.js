@@ -48,11 +48,13 @@ CREATE TABLE IF NOT EXISTS participants (
 CREATE INDEX IF NOT EXISTS ix_participants_entry ON participants(entry_id);
 -- Un email / billet ne peut être utilisé qu'une fois, sauf par un joueur qui n'a pas joué
 -- (retiré pour absence, encore en attente lors de la remise à zéro, ou partie interrompue
--- par « Nouvelle journée »). Les anciens index (sans « interrupted ») sont remplacés.
+-- par « Nouvelle journée »). L'email est facultatif : un email vide ne bloque personne.
+-- Les index des versions précédentes sont remplacés.
 DROP INDEX IF EXISTS ux_participants_email;
+DROP INDEX IF EXISTS ux_participants_email_v2;
 DROP INDEX IF EXISTS ux_participants_ticket;
-CREATE UNIQUE INDEX IF NOT EXISTS ux_participants_email_v2
-  ON participants(email_norm) WHERE status NOT IN ('removed', 'expired', 'interrupted');
+CREATE UNIQUE INDEX IF NOT EXISTS ux_participants_email_v3
+  ON participants(email_norm) WHERE status NOT IN ('removed', 'expired', 'interrupted') AND email_norm <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS ux_participants_ticket_v2
   ON participants(ticket_norm) WHERE status NOT IN ('removed', 'expired', 'interrupted');
 

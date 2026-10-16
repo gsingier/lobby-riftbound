@@ -178,7 +178,7 @@ test('retirer : refusé pour un joueur qui joue, qui a fini, déjà retiré ou i
 test('libérer deux fois la même partie : la seconde est refusée', () => {
   const { lobby, player } = setup();
   const { matchId } = lobby.register([player(), player()]);
-  assert.deepEqual(lobby.releaseMatch(matchId), { released: matchId });
+  assert.deepEqual(lobby.releaseMatch(matchId), { released: matchId, withGoodies: false });
   assert.throws(() => lobby.releaseMatch(matchId), code('conflict'));
   assert.throws(() => lobby.releaseMatch(123456), code('not_found'));
 });

@@ -84,8 +84,10 @@ function validatePlayer(raw, index) {
   if (!player.lastName) fail('lastName', 'Le nom est obligatoire.');
   if (player.firstName.length > NAME_MAX) fail('firstName', 'Le prénom est trop long.');
   if (player.lastName.length > NAME_MAX) fail('lastName', 'Le nom est trop long.');
-  if (!player.email) fail('email', "L'email est obligatoire.");
-  if (player.email.length > EMAIL_MAX || !EMAIL_RE.test(player.emailNorm)) fail('email', "L'email n'est pas valide.");
+  // L'email est facultatif (un visiteur peut refuser de le donner) ; s'il est saisi, il doit être valide.
+  if (player.email && (player.email.length > EMAIL_MAX || !EMAIL_RE.test(player.emailNorm))) {
+    fail('email', "L'email n'est pas valide.");
+  }
   if (!player.ticketNorm) fail('ticket', 'Le numéro de billet est obligatoire.');
   if (player.ticket.length > TICKET_MAX) fail('ticket', 'Le numéro de billet est trop long.');
   return player;
@@ -213,7 +215,7 @@ class Lobby {
     }
     const clean = players.map((p, i) => validatePlayer(p, i));
     if (clean.length === 2) {
-      if (clean[0].emailNorm === clean[1].emailNorm) {
+      if (clean[0].emailNorm && clean[0].emailNorm === clean[1].emailNorm) {
         throw new LobbyError('invalid', 'Les deux joueurs ont le même email.', { field: 'email', index: 1 });
       }
       if (clean[0].ticketNorm === clean[1].ticketNorm) {
@@ -392,14 +394,17 @@ class Lobby {
     });
   }
 
-  releaseMatch(matchId) {
+  // Libère l'emplacement avant la fin du timer. withGoodies : l'hôtesse confirme la participation,
+  // la partie compte comme terminée (goodies dus) ; sinon départ anticipé, sans goodies.
+  releaseMatch(matchId, { withGoodies = false } = {}) {
     const id = toId(matchId);
     return this.tx(() => {
       const match = this.getActiveMatch(id);
       // Timer déjà écoulé (le tick n'est pas encore passé) : partie terminée, goodies dus.
-      this.endMatch(id, match.ends_at <= this.now() ? 'completed' : 'released');
+      const completed = withGoodies === true || match.ends_at <= this.now();
+      this.endMatch(id, completed ? 'completed' : 'released');
       this.fill();
-      return { released: id };
+      return { released: id, withGoodies: completed };
     });
   }
 
