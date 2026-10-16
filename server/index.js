@@ -41,7 +41,7 @@ const ACTIONS = {
   editParticipant: { run: (l, p) => l.editParticipant(p.participantId, p.fields) },
   placeAnyway: { run: (l, p) => l.placeAnyway(p.entryId) },
   cancelPlaceAnyway: { run: (l, p) => l.cancelPlaceAnyway(p.entryId) },
-  releaseMatch: { run: (l, p) => l.releaseMatch(p.matchId) },
+  releaseMatch: { run: (l, p) => l.releaseMatch(p.matchId, { withGoodies: p.withGoodies === true }) },
   adjustMatch: { run: (l, p) => l.adjustMatch(p.matchId, p.deltaMs) },
   giveGoodies: { run: (l, p) => l.giveGoodies(p.participantId, p.given !== false) },
   setDuration: { run: (l, p) => l.setDuration(p.durationMs) },

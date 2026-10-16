@@ -1,10 +1,10 @@
 /* Écran TV public (/ecran) — direction « Aurore holographique », ergonomie de la version retenue.
-   Plan du stand, attente estimée, « À vos tables ! », file d'attente, bandeau d'appel.
+   Plan du stand, attente estimée, « À vos tables ! », file d'attente : plan et file occupent toute
+   la hauteur sous l'en-tête (pas de bandeau en bas).
 
    Look Aurore : fond nacré à halos irisés (.rb-aura du thème, STATIQUE), cartes en verre clair
-   aux ombres douces, logo officiel sur carte nacrée, wordmark RADIANCE bleu-argent, médaillons de
-   table à liseré irisé, chaises en dégradé irisé, chrono en anneau de progression autour du « VS »,
-   police Outfit, accents orange Riftbound, crépuscule mauve quand le stand est fermé.
+   aux ombres douces, logo officiel sur carte nacrée, médaillons de table à liseré irisé, chaises
+   en dégradé irisé, chrono en anneau de progression autour du « VS », police Outfit, accents orange Riftbound, crépuscule mauve quand le stand est fermé.
 
    Sens des couleurs (toujours doublés d'un texte), communs avec l'accueil : orange Riftbound =
    place libre (tuile pêche, pastille « Libre », chaises en pointillés), à suivre, entrée, appel ;
@@ -23,8 +23,8 @@
 
    Tout est dimensionné à partir de --u (1 % de la hauteur d'un écran paysage, de la largeur en
    portrait) et, dans les tables, en unités de conteneur (cqw/cqh) : la page tient dans l'écran
-   quelle que soit sa résolution, sans défilement. Full HD paysage : noms ≈ 29 px, chronos ≈ 39 px,
-   lettres A/B ≈ 24 px (≈ 23 px en portrait), « VS » ≥ 16 px, « Nouveau » ≈ 20 px, attente ≈ 95 px. */
+   quelle que soit sa résolution, sans défilement. Full HD paysage : noms ≈ 32 px, chronos ≈ 39 px,
+   lettres A/B ≈ 27 px (≈ 23 px en portrait), « VS » ≥ 16 px, « Nouveau » ≈ 20 px, attente ≈ 95 px. */
 
 :root {
   --vw: 1vw;
@@ -80,7 +80,7 @@ body * {
   height: calc(var(--vh) * 100);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   row-gap: calc(var(--u) * 1.3);
   padding: calc(var(--u) * 1.1) calc(var(--u) * 2.2) calc(var(--u) * 1.3);
   overflow: hidden;
@@ -105,8 +105,8 @@ body * {
 
 /* ------------------------------------------------------------------ en-tête */
 
-/* Logo officiel sur sa carte nacrée, puis « Nouveau set / RADIANCE / Paris Games Week », horloge.
-   En paysage, la carte « Attente estimée » prend place entre RADIANCE et l'horloge (ecran.js). */
+/* Logo officiel sur sa carte nacrée, puis « Paris Games Week / Stand Riftbound », horloge.
+   En paysage, la carte « Attente estimée » prend place entre l'événement et l'horloge (ecran.js). */
 .masthead {
   display: flex;
   align-items: center;
@@ -125,58 +125,48 @@ body * {
   height: calc(var(--u) * 10);
 }
 
-/* Bloc du set : filet irisé vertical, pastille, mot RADIANCE métallisé, lieu. */
-.set {
+/* Événement : filet irisé vertical, « Paris Games Week » en titre, « Stand Riftbound » dessous. */
+.event {
   flex: none;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: calc(var(--u) * 0.55);
-  padding-left: calc(var(--u) * 2.2);
+  gap: calc(var(--u) * 1);
+  padding: calc(var(--u) * 0.6) 0 calc(var(--u) * 0.6) calc(var(--u) * 2.2);
   border-left: max(2px, calc(var(--u) * 0.2)) solid transparent;
   border-image: linear-gradient(180deg, rgba(167, 183, 207, 0), var(--rb-lavender) 30%, var(--rb-rose) 70%, rgba(229, 139, 201, 0)) 1;
 }
 
-.set p {
+.event p {
   margin: 0;
-}
-
-.kicker .rb-iris-pill {
-  font-size: calc(var(--u) * 1.45);
-  font-weight: 750;
-}
-
-.wordmark {
-  font-size: calc(var(--u) * 5.6);
-  letter-spacing: 0.2em;
-  margin-right: -0.2em; /* l'espacement final ne décale pas le bloc */
   white-space: nowrap;
 }
 
-/* Logotype officiel RADIANCE (quand UVS le fournira) : <img class="wordmark-img"> à la place du texte. */
-.wordmark-img {
-  display: block;
-  height: calc(var(--u) * 5.4);
-  width: auto;
+.event-name {
+  font-weight: 700;
+  font-size: calc(var(--u) * 4.4);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--rb-ink);
 }
 
-.set-sub {
+.event-sub {
   display: flex;
   align-items: center;
   gap: 0.6em;
   font-weight: 650;
-  font-size: calc(var(--u) * 1.5);
+  font-size: calc(var(--u) * 1.8);
   line-height: 1.1;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  white-space: nowrap;
   color: var(--rb-ink-2);
 }
 
-.set-sub .dot {
-  width: 0.42em;
-  height: 0.42em;
+.event-sub .dot {
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
   border-radius: 50%;
   background: var(--rb-orange);
 }
@@ -269,12 +259,8 @@ body * {
   height: calc(var(--u) * 9.6);
 }
 
-:root[data-layout="portrait"] .wordmark {
-  font-size: calc(var(--u) * 5);
-}
-
-:root[data-layout="portrait"] .wordmark-img {
-  height: calc(var(--u) * 4.8);
+:root[data-layout="portrait"] .event-name {
+  font-size: calc(var(--u) * 4.2);
 }
 
 :root[data-layout="portrait"] .clock {
@@ -299,7 +285,8 @@ body * {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   gap: calc(var(--u) * 1.1);
-  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8) calc(var(--u) * 1.6);
+  /* En bas : place pour la moitié de la pastille « Entrée », à cheval sur le mur de l'enceinte. */
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8) calc(var(--u) * 2.1);
 }
 
 .plan-head {
@@ -415,7 +402,7 @@ body * {
 }
 
 /* Enceinte (fidèle au plan du stand) : rubans irisés et poteaux nacrés sur trois côtés, entrée en
-   bas au centre ; sol perle avec les cercles concentriques de Radiance qui partent de l'entrée. */
+   bas au centre ; sol perle avec les cercles concentriques du key art qui partent de l'entrée. */
 .enclosure {
   position: relative;
   min-height: 0;
@@ -839,6 +826,14 @@ body * {
   background: radial-gradient(circle at 35% 35%, #c8a2c6, var(--rb-mauve));
 }
 
+/* Paysage : sans le bandeau du bas, les tables sont plus hautes et .pl (en cqh) grossit ; c'est alors
+   la borne en cqw qui s'applique. À 7cqw, « Animateur » + puce dépasse la pastille (inline-flex :
+   pas de « … », le texte mange le padding droit et touche le liseré). 6,3cqw : tient à toutes les
+   proportions paysage, même rendu qu'avant (≈ 22,7 px en Full HD). */
+:root[data-layout="paysage"] .anim-pill {
+  font-size: min(0.8em, 6.3cqw);
+}
+
 /* Portrait (emplacements étroits) : pastille sans puce, pour que « Animateur » tienne en entier. */
 :root[data-layout="portrait"] .anim-pill {
   padding-inline: 0.42em;
@@ -859,10 +854,12 @@ body * {
 }
 
 /* Anneau de progression irisé (.rb-ring du thème : --p = part restante, mise à jour par ecran.js).
-   Épaisseur ≥ 6 px en Full HD pour rester lisible à 4 m. */
+   Épaisseur ≥ 6 px en Full HD pour rester lisible à 4 m. Paysage, anneau et temps côte à côte :
+   tailles plafonnées aussi en largeur (cqw), pour qu'une table plus haute (plan sur toute la
+   hauteur, écran 16:10) ne fasse jamais déborder « 04:59 » de l'emplacement. */
 .ring {
   flex: none;
-  width: 21cqh;
+  width: min(21cqh, 12.8cqw);
   --rb-ring-w: 28%;
   --rb-ring-track: #dde3ee;
   --rb-ring-fill: conic-gradient(from 180deg, #33a8c2, #6c86cc 35%, #c460ab 68%, #de8a6c 88%, #33a8c2);
@@ -879,7 +876,7 @@ body * {
 .time {
   min-width: 0;
   font-weight: 650;
-  font-size: min(17.5cqh, 11.6cqw);
+  font-size: min(17.5cqh, 10.7cqw);
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -1594,7 +1591,7 @@ body * {
   line-height: 1;
 }
 
-/* Compteur au bleu-argent du mot RADIANCE (bande la plus claire ≥ 4,4:1). */
+/* Compteur en bleu-argent métallisé (--rb-metal du thème, bande la plus claire ≥ 4,4:1). */
 .queue-count b {
   font-weight: 700;
   font-size: calc(var(--u) * 3.8);
@@ -2244,137 +2241,6 @@ body * {
 
 :root[data-layout="portrait"] .howto.is-large b {
   font-size: calc(var(--u) * 3.2);
-}
-
-/* ------------------------------------------------------------------ bandeau */
-
-/* Bandeau d'appel : barre encre à liseré irisé (texte blanc 15,5:1, ≥ 34 px en Full HD), flèche
-   dans une pastille orange (flèche encre), cartouche doré des goodies. Crépuscule stand fermé. */
-.cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--u) * 3);
-  min-height: calc(var(--u) * 6.6);
-  padding: calc(var(--u) * 0.7) calc(var(--u) * 0.8);
-  border: max(2px, calc(var(--u) * 0.2)) solid transparent;
-  border-radius: 99px;
-  background:
-    linear-gradient(var(--rb-ink), var(--rb-ink)) padding-box,
-    var(--rb-iris) border-box;
-  box-shadow: var(--rb-shadow-2);
-  color: #fff;
-}
-
-.cta-main,
-.cta-goodies {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 1.3);
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.cta-main {
-  font-weight: 650;
-  font-size: calc(var(--u) * 3.2);
-  letter-spacing: -0.01em;
-}
-
-.cta-arrow {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: calc(var(--u) * 4.8);
-  height: calc(var(--u) * 4.8);
-  border-radius: 50%;
-  background: var(--rb-orange-grad);
-  box-shadow: var(--rb-shadow-orange);
-  color: var(--rb-on-orange);
-}
-
-.cta-arrow svg {
-  width: 56%;
-  height: 56%;
-}
-
-.cta-moon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: calc(var(--u) * 4.8);
-  height: calc(var(--u) * 4.8);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
-  color: var(--rb-gold);
-}
-
-.cta-moon::before {
-  content: '';
-  width: 46%;
-  height: 46%;
-  border-radius: 50%;
-  box-shadow: inset calc(var(--u) * -0.8) calc(var(--u) * -0.25) 0 0 currentColor;
-  transform: rotate(-20deg);
-}
-
-/* Cartouche doré : texte or foncé sur crème (≥ 5:1). */
-.cta-goodies {
-  padding: calc(var(--u) * 0.75) calc(var(--u) * 2.2) calc(var(--u) * 0.75) calc(var(--u) * 1.5);
-  border-radius: 99px;
-  background: linear-gradient(180deg, #fffaf0, #f6ecd2);
-  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, 0.55);
-  font-weight: 600;
-  font-size: calc(var(--u) * 2.6);
-  color: var(--rb-gold-ink);
-}
-
-.cta-goodies b {
-  font-weight: 750;
-  color: var(--rb-ink);
-}
-
-.gift {
-  flex: none;
-  width: calc(var(--u) * 3.2);
-  height: calc(var(--u) * 3.2);
-  color: var(--rb-gold);
-}
-
-.cta-closed,
-:root[data-stand="ferme"] .cta-open {
-  display: none;
-}
-
-:root[data-stand="ferme"] .cta-closed {
-  display: flex;
-}
-
-:root[data-stand="ferme"] .cta {
-  background:
-    linear-gradient(var(--rb-dusk), var(--rb-dusk)) padding-box,
-    var(--rb-iris-dusk) border-box;
-}
-
-.cta-goodies[hidden] {
-  display: none;
-}
-
-.cta.single {
-  justify-content: center;
-}
-
-/* Portrait : messages empilés (jamais de retour à la ligne à côté du cartouche goodies). */
-:root[data-layout="portrait"] .cta {
-  flex-direction: column;
-  justify-content: center;
-  gap: calc(var(--u) * 0.9);
-  padding: calc(var(--u) * 1.3) calc(var(--u) * 2.4);
-  border-radius: calc(var(--u) * 3.4);
-}
-
-:root[data-layout="portrait"] .cta-goodies {
-  font-size: calc(var(--u) * 2.4);
 }
 
 /* ------------------------------------------------------------------ sobriété */

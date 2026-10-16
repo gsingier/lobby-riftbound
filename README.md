@@ -12,9 +12,11 @@ Rester jusqu'au bout donne droit aux **goodies**.
 
 **Accueil (`/accueil`, protégé par mot de passe)**
 
-- Inscription de **1 joueur** ou de **2 joueurs ensemble** (prénom, nom, email,
-  numéro de billet), avec vérification immédiate des doublons : un email ou un
-  billet ne sert qu'**une fois sur tout le salon**.
+- Inscription de **1 joueur** ou de **2 joueurs ensemble** (prénom, nom,
+  numéro de billet obligatoire, **email facultatif** : un visiteur peut refuser
+  de le donner), avec vérification immédiate des doublons : un billet, et un
+  email s'il est saisi (il doit alors être valide), ne sert qu'**une fois sur
+  tout le salon**.
 - Placement **automatique** : tables entièrement libres d'abord, puis
   demi-tables ; deux joueurs seuls sont associés automatiquement ; un joueur
   seul peut être **« placé quand même »** contre un animateur.
@@ -23,15 +25,19 @@ Rester jusqu'au bout donne droit aux **goodies**.
   jusqu'à « Installés » ; liste mémorisée sur le poste.
 - Plan des 9 tables avec les comptes à rebours ; un clic sur un emplacement
   ouvre son panneau d'actions : **+5 / −5 min**, **« Absent »**,
-  **« Libérer »** (départ anticipé, sans goodies), table hors service.
+  **« Terminer la partie (goodies) »** (les joueurs ont bien joué : partie
+  terminée, goodies dus, emplacement réattribué), **« Libérer sans goodies »**
+  (départ anticipé), table hors service.
 - **« Absent »** sur chaque joueur placé, pendant les **15 premières minutes** de
   la partie : il est retiré sans goodies et pourra se réinscrire ; son
   partenaire continue contre un animateur (ou, s'il ne reste personne, la
-  partie est annulée et l'emplacement réattribué). Au-delà : « Libérer » (qui
-  sort les deux joueurs) s'il n'y a plus personne, sinon la partie continue.
+  partie est annulée et l'emplacement réattribué). Au-delà : « Libérer sans
+  goodies » (qui sort les deux joueurs) s'il n'y a plus personne, sinon la
+  partie continue.
 - File d'attente : **« Retirer »** un joueur absent (il pourra se réinscrire).
 - Liste **« Goodies à remettre »** avec bouton « Remis ».
-- Recherche et correction d'un participant.
+- Recherche et correction d'un participant (raccourci **Ctrl + K**, **⌘ K** sur
+  Mac, ou **/** hors d'un champ ; **Alt + R** reste accepté).
 - Réglages : durée des parties (1 h par défaut), tables hors service.
 - **« Fermer le stand »** le soir : plus aucun placement automatique (les
   parties en cours vont jusqu'au bout, goodies compris ; la file reste affichée
@@ -50,6 +56,9 @@ Rester jusqu'au bout donne droit aux **goodies**.
   libres maintenant ») et liste **« À vos tables ! »** des joueurs placés depuis
   moins de 3 minutes (étiquette « Nouveau » sur leur emplacement).
 - N'affiche que **« Prénom N. »** : jamais d'email ni de numéro de billet.
+- En-tête sobre : logo officiel Riftbound, « Paris Games Week · Stand
+  Riftbound », horloge. Ni mot « Radiance » ni pastille « Nouveau set », et pas
+  de bandeau en bas de l'écran (retirés à la demande du client).
 - Stand fermé (le soir) : l'écran l'annonce à la place de la file d'attente.
 - Mise en page paysage ou portrait (Full HD), rotation possible
   (`/ecran?rotation=90`, `/ecran?orientation=portrait`).
@@ -72,10 +81,10 @@ Les règles métier détaillées, validées avec le client, sont dans
 Direction artistique **« Aurore holographique »** (set Radiance), sur
 l'ergonomie de la version éditoriale retenue : fond nacré perle, halos irisés
 cyan → lavande → rose et cercles concentriques du key art, cartes en verre
-clair aux ombres douces, mot **RADIANCE** en chrome bleu-argent, médaillons de
-table et anneaux de progression irisés, polices **Outfit** (titres, noms,
-chiffres) et **Inter** (texte courant) auto-hébergées, **logo officiel**
-Riftbound posé sur une carte nacrée (jamais à nu sur le halo). Le fond est
+clair aux ombres douces, médaillons de table et anneaux de progression irisés,
+polices **Outfit** (titres, noms, chiffres) et **Inter** (texte courant)
+auto-hébergées, **logo officiel** Riftbound posé sur une carte nacrée (jamais à
+nu sur le halo), seule marque de l'en-tête TV. Le fond est
 pré-calculé en dégradés **statiques** (aucun `filter: blur`, aucun halo animé,
 pas de `backdrop-filter`) pour rester fluide sur le mini-PC du stand.
 
@@ -95,15 +104,16 @@ les composants communs sont dans `public/shared/theme.css`.
 l'hôtesse :
 
 - **Barre du haut** : jour du salon, compteurs cliquables (En attente, En jeu,
-  Terminés, Goodies, Total), **Rechercher** (Alt + R), état de la connexion,
-  **Réglages**, **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »**
-  (Exporter CSV, Déconnexion). Les notifications s'affichent quelques secondes
-  sur cette barre, sans couvrir les panneaux.
+  Terminés, Goodies, Total), **Rechercher** (Ctrl + K, ⌘ K sur Mac, « / » hors
+  d'un champ ; Alt + R en secours, car certains navigateurs l'interceptent),
+  état de la connexion, **Réglages**, **Fermer le stand**, **Nouvelle
+  journée**, menu **« ⋯ »** (Exporter CSV, Déconnexion). Les notifications
+  s'affichent quelques secondes sur cette barre, sans couvrir les panneaux.
 - **01 Inscrire** (colonne de gauche) : formulaire 1 ou 2 joueurs (joueur 1 =
-  chaise du haut, joueur 2 = chaise du bas), vérification des doublons en
-  direct, attente estimée (même calcul que la TV), **cadre de résultat** à
-  annoncer (« → Table 4 · B », rang dans la file, joueur seul…), qui suit la
-  situation du joueur.
+  chaise du haut, joueur 2 = chaise du bas ; email « (facultatif) », billet
+  obligatoire), vérification des doublons en direct, attente estimée (même
+  calcul que la TV), **cadre de résultat** à annoncer (« → Table 4 · B », rang
+  dans la file, joueur seul…), qui suit la situation du joueur.
 - **02 À appeler** (en haut au centre) : une carte par placement automatique
   (plaque table + A/B, noms complets, « prévenir un animateur » si besoin),
   bouton **« Installés »**, **« Tout marquer installés »**, menu « ⋯ » avec
@@ -114,10 +124,11 @@ l'hôtesse :
   (lettre dans un anneau de temps irisé, compte à rebours, noms, « Nouveau » /
   « À appeler ») ; un
   clic ouvre le **panneau d'actions de l'emplacement** : compte à rebours,
-  joueurs avec email et billet, **« Absent »** (avec le délai restant),
-  **−5 / +5 min**, **« Libérer l'emplacement… »** isolé en bas (confirmation
-  avec « Annuler » par défaut) ; pour un emplacement libre, mise hors service
-  de la table.
+  joueurs avec email (ou « sans email ») et billet, **« Absent »** (avec le
+  délai restant), **−5 / +5 min**, puis, isolés en bas, **« Terminer la partie
+  (goodies)… »** et **« Libérer sans goodies (départ anticipé)… »** (chacun
+  avec confirmation ; pour « Libérer », « Annuler » est sélectionné par
+  défaut) ; pour un emplacement libre, mise hors service de la table.
 - **03 Goodies à remettre** et **File d'attente** (colonne de droite) : bouton
   « Remis » / « Annuler » ; file avec rang, heure de passage estimée,
   « Placer quand même (vs animateur) » visible pour un joueur seul, et
@@ -129,13 +140,13 @@ l'hôtesse :
   deux colonnes, avec des onglets Plan / File / Goodies. Cibles tactiles d'au
   moins 44 px.
 
-**Écran TV (`/ecran`)** : en-tête (logo officiel dans une carte nacrée, mot
-« Radiance » en chrome bleu-argent, horloge, « En direct » / « Reconnexion… »),
-plan fidèle au stand
+**Écran TV (`/ecran`)** : en-tête (logo officiel dans une carte nacrée,
+« Paris Games Week · Stand Riftbound », horloge, « En direct » /
+« Reconnexion… » ; ni « Radiance » ni « Nouveau set »), plan fidèle au stand
 (enceinte, entrée en bas, plaques de table numérotées, A à gauche / B à droite,
 joueur 1 en haut / joueur 2 en bas), carte **attente estimée**, liste
 **« À vos tables ! »**, file d'attente (deux colonnes lues ligne par ligne en
-portrait), bandeau d'appel en bas. Les noms longs sont réduits ou passent sur
+portrait) ; pas de bandeau en bas. Les noms longs sont réduits ou passent sur
 deux lignes plutôt que d'être coupés. Animations limitées à `transform` et
 `opacity` (coupées si `prefers-reduced-motion`).
 
@@ -295,8 +306,8 @@ Gardez donc ce domaine en HTTPS. En HTTP (essais, adresse `sslip.io`), ni
 ```
 
 Aucune étape de construction côté navigateur : HTML, CSS et JavaScript sont
-servis tels quels. La police (Inter) est auto-hébergée : l'écran fonctionne sans
-dépendre de Google Fonts ni d'un CDN.
+servis tels quels. Les polices (Outfit et Inter) sont auto-hébergées : l'écran
+fonctionne sans dépendre de Google Fonts ni d'un CDN.
 
 ## Documentation
 
@@ -311,5 +322,5 @@ dépendre de Google Fonts ni d'un CDN.
 
 Riftbound, Radiance et les visuels associés sont la propriété de Riot Games et
 UVS Games. Le logo Riftbound de `public/assets/` est le fichier officiel fourni
-pour l'événement ; le logotype Radiance et un visuel HD sont encore attendus
-(voir `public/assets/README.md`).
+pour l'événement ; un key art HD est encore attendu (voir
+`public/assets/README.md`).

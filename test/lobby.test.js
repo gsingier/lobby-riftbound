@@ -276,3 +276,34 @@ test('chaque joueur garde sa chaise (seat) après l’absence de son partenaire'
   assert.equal(slot.vsAnimator, true);
   assert.deepEqual(slot.players.map((p) => [p.displayName.split(' ')[0], p.seat]), [['Bas', 2]]);
 });
+
+test('l’email est facultatif : plusieurs joueurs sans email peuvent s’inscrire', () => {
+  const { lobby, player } = setup();
+  const res = lobby.register([{ ...player('Sans1'), email: '' }, { ...player('Sans2'), email: '   ' }]);
+  assert.equal(res.status, 'playing');
+  assert.doesNotThrow(() => lobby.register([{ ...player('Sans3'), email: undefined }]));
+  assert.doesNotThrow(() => lobby.register([{ ...player('Sans4'), email: '' }]));
+  assert.equal(lobby.check({ email: '' }).email, null);
+  // un email saisi doit rester valide et unique
+  assert.throws(() => lobby.register([{ ...player(), email: 'pas-un-email' }]), (e) => e.code === 'invalid' && e.details.field === 'email');
+  const p = player('Avec');
+  lobby.register([p]);
+  assert.throws(() => lobby.register([{ ...player(), email: p.email }]), (e) => e.code === 'email_used');
+  // le billet reste obligatoire
+  assert.throws(() => lobby.register([{ ...player(), email: '', ticket: '' }]), (e) => e.details.field === 'ticket');
+});
+
+test('« Libérer » avec goodies : la participation est confirmée avant la fin du timer', () => {
+  const { lobby, player } = setup();
+  const { participantIds, matchId } = lobby.register([player('Ana'), player('Bob')]);
+  lobby.register([player('C'), player('D')]);
+  const res = lobby.releaseMatch(matchId, { withGoodies: true });
+  assert.equal(res.withGoodies, true);
+  const state = lobby.getAdminState();
+  assert.deepEqual(state.goodies.map((g) => g.id).sort(), participantIds.slice().sort());
+  assert.doesNotThrow(() => lobby.giveGoodies(participantIds[0]));
+  // l'emplacement est réattribué à la paire suivante
+  assert.ok(state.tables.some((t) => ['A', 'B'].some((s) => t.slots[s] && t.slots[s].players.some((p) => p.firstName === 'C'))));
+  // les joueurs restent bloqués (ils ont joué)
+  assert.throws(() => lobby.register([{ ...player(), ticket: 'X', email: lobby.getAdminState().goodies[0].email }]), (e) => e.code === 'email_used');
+});

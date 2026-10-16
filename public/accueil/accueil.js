@@ -29,6 +29,13 @@
   const OLD_CALLS_KEYS = ['rb-accueil-a-appeler-v1'];
   const TITLE = document.title;
   const ICON = (id, cls = 'ic') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  // Raccourci de recherche affiché : ⌘K sur Mac (et iPad avec clavier), Ctrl+K ailleurs.
+  const IS_MAC = (() => {
+    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    return /mac|iphone|ipad|ipod/i.test(platform) || (!platform && /Macintosh|Mac OS X/i.test(navigator.userAgent || ''));
+  })();
+  const SEARCH_KBD = IS_MAC ? '⌘ K' : 'Ctrl K';
+  const SEARCH_SHORTCUT = IS_MAC ? '⌘K' : 'Ctrl+K';
 
   let client = null;
   let state = null;
@@ -55,6 +62,21 @@
   }
 
   const normEmail = (v) => String(v ?? '').trim().toLowerCase();
+  // L'email est facultatif (un visiteur peut refuser de le donner) : jamais de séparateur orphelin.
+  const hasEmail = (p) => !!(p && String(p.email ?? '').trim());
+  // Ce qui empêchera une réinscription : « email et billet », ou le billet seul sans email.
+  const idsUsed = (players) => (players.some(hasEmail) ? 'email et billet déjà utilisés' : 'billet déjà utilisé');
+  // « email · billet X » ou « sans email · billet X » (HTML échappé).
+  function contactHtml(p) {
+    const parts = [hasEmail(p) ? esc(String(p.email).trim()) : '<span class="no-email">sans email</span>'];
+    if (p.ticket) parts.push(`billet ${esc(p.ticket)}`);
+    return parts.join(' · ');
+  }
+  function contactText(p) {
+    const parts = [hasEmail(p) ? String(p.email).trim() : 'sans email'];
+    if (p.ticket) parts.push(`billet ${p.ticket}`);
+    return parts.join(' · ');
+  }
   // Même normalisation que le serveur : \p{Pd} couvre tous les tirets (« - », « – », « — »…).
   const normTicket = (v) => String(v ?? '').trim().toUpperCase().replace(/[\s\p{Pd}_.]/gu, '');
   const cleanName = (v) => String(v ?? '').trim().replace(/\s+/g, ' ');
@@ -347,7 +369,7 @@
       title.textContent = t;
       body.innerHTML = html;
       ok.textContent = okLabel;
-      ok.className = `btn ${tone === 'danger' ? 'btn-danger' : tone === 'warn' ? 'btn-primary' : 'btn-dark'}`;
+      ok.className = `btn ${{ danger: 'btn-danger', warn: 'btn-primary', success: 'btn-dark btn-success' }[tone] || 'btn-dark'}`;
       return new Promise((resolve) => {
         resolver = resolve;
         openDialog(dialog, focus === 'cancel' ? cancel : ok);
@@ -571,10 +593,17 @@
 
   // Fins de partie → courte notification « goodies à remettre » (la liste 03 fait foi).
   // Les placements automatiques vont dans la liste persistante « À appeler » (syncCalls).
+  // Joueurs dont l'hôtesse vient de terminer la partie (« Terminer la partie (goodies) ») : sa
+  // propre notification suffit, pas de seconde « fin de partie » à la réception de l'état.
+  const quietGoodies = new Set();
+
   function notifyChanges(prev, next) {
     if (prev.day.id !== next.day.id) return;
     const prevGoodies = new Set((prev.goodies || []).map((g) => g.id));
-    const ended = (next.goodies || []).filter((g) => !prevGoodies.has(g.id) && !g.goodiesGivenAt);
+    const ended = (next.goodies || []).filter((g) => {
+      if (prevGoodies.has(g.id) || g.goodiesGivenAt) return false;
+      return !quietGoodies.delete(g.id);
+    });
     const byMatch = new Map();
     for (const g of ended) {
       const k = `${g.tableNo}${g.slot}`;
@@ -821,7 +850,7 @@
     const animator = m.vsAnimator ? '<span class="call-chip">Prévenir un animateur</span>' : '';
     return `<li class="call" data-match="${id}">
       <button type="button" class="call-place" data-action="open-slot" data-table="${table.no}" data-slot="${slot}" data-focus="call-open-${id}"
-        title="Ouvrir le panneau de l'emplacement (±5 min, Absent, Libérer)" aria-label="${esc(`Table ${table.no}, emplacement ${slot} : ouvrir le panneau`)}">
+        title="Ouvrir le panneau de l'emplacement (±5 min, Absent, Terminer, Libérer)" aria-label="${esc(`Table ${table.no}, emplacement ${slot} : ouvrir le panneau`)}">
         <span class="plate"><small>Table</small>${table.no}</span><span class="call-slot">${slot}</span>
       </button>
       <div class="call-main">
@@ -927,7 +956,7 @@
       items.push(`<p class="menu-note">« Absent » n'est plus possible : la partie a commencé il y a plus de ${Math.round(noShowWindow() / MIN)} min.</p>`);
     }
     items.push('<div class="menu-sep" role="separator"></div>');
-    items.push(`<button type="button" class="menu-item" role="menuitem" data-action="open-slot" data-table="${table.no}" data-slot="${slot}">Ouvrir Table ${table.no} · ${slot}<small>±5 min, Libérer</small></button>`);
+    items.push(`<button type="button" class="menu-item" role="menuitem" data-action="open-slot" data-table="${table.no}" data-slot="${slot}">Ouvrir Table ${table.no} · ${slot}<small>±5 min, Terminer, Libérer</small></button>`);
     showRowMenu(btn, items.join(''), { matchId });
   }
 
@@ -1108,7 +1137,8 @@
           else closeSlotPop();
         })
         .catch(() => {});
-    } else if (btn.dataset.action === 'release') {
+    } else if (btn.dataset.action === 'release-goodies' || btn.dataset.action === 'release') {
+      const withGoodies = btn.dataset.action === 'release-goodies';
       const many = match.players.length >= 2;
       const fate = {
         paused: "Stand fermé : l'emplacement restera libre.",
@@ -1117,31 +1147,75 @@
         nobody: "L'emplacement sera libéré (aucun joueur prêt dans la file pour l'instant).",
       }[slotFate(table)];
       const noShowLeft = match.startedAt + noShowWindow() - now();
-      const noShowHint =
+      const noShowHint = (consequence) =>
         noShowLeft > 0 && match.players.length
           ? `<p class="confirm-alert">${many ? 'Joueurs pas venus' : 'Joueur pas venu'} ? Utilisez plutôt <strong>« Absent »</strong> à côté
               ${many ? 'de chaque nom' : 'du nom'} (encore ${plural(Math.max(1, Math.ceil(noShowLeft / MIN)), 'min', 'min')}) :
-              ${many ? 'ils pourront se réinscrire' : 'il/elle pourra se réinscrire'}. Avec « Libérer », ${many ? 'ils ne le pourront plus' : 'il/elle ne le pourra plus'}.</p>`
+              pas de goodies, et ${many ? 'ils pourront se réinscrire' : 'il/elle pourra se réinscrire'}. ${consequence}</p>`
           : '';
-      const ok = await confirmDialog({
-        title: `Libérer ${place} ?`,
-        html: `<p class="confirm-text"><strong>${esc(joinNames(matchNames(match)))}</strong> quittent la table avant la fin.</p>
-          <p class="confirm-note">Départ anticipé : pas de goodies, et ${many ? 'ces joueurs ne pourront plus se réinscrire' : 'ce joueur ne pourra plus se réinscrire'}
-            au salon (email et billet déjà utilisés). ${fate}</p>
-          ${noShowHint}`,
-        ok: 'Libérer (pas de goodies)',
-        tone: 'danger',
-        focus: 'cancel', // action irréversible : Entrée ne doit pas libérer par réflexe
-      });
+      let ok;
+      if (withGoodies) {
+        // L'hôtesse confirme la participation : partie terminée, goodies dus, emplacement réattribué.
+        const who = joinNames(match.players.map(fullName)) || 'Le joueur';
+        const started = `Partie commencée à ${clock(match.startedAt)} (il y a ${formatWait(now() - match.startedAt)}), fin prévue à ${clock(match.endsAt)}.`;
+        ok = await confirmDialog({
+          title: `Terminer la partie ${place} ?`,
+          html: `<p class="confirm-text"><strong>${esc(who)}</strong> ${many ? 'ont' : 'a'} bien joué : la partie est terminée et
+              <strong>${many ? 'ils ont' : 'il/elle a'} droit aux goodies</strong> (liste «&nbsp;03 Goodies à remettre&nbsp;»).</p>
+            <p class="confirm-note">${esc(fate)} ${esc(started)}</p>
+            ${noShowHint(`Avec «&nbsp;Terminer&nbsp;», ${many ? 'ils recevraient' : 'il/elle recevrait'} les goodies.`)}`,
+          ok: 'Terminer la partie (goodies)',
+          tone: 'success',
+        });
+      } else {
+        ok = await confirmDialog({
+          title: `Libérer ${place} sans goodies ?`,
+          html: `<p class="confirm-text"><strong>${esc(joinNames(matchNames(match)))}</strong> ${many ? 'quittent' : 'quitte'} la table avant la fin.</p>
+            <p class="confirm-note">Départ anticipé : pas de goodies, et ${many ? 'ces joueurs ne pourront plus se réinscrire' : 'ce joueur ne pourra plus se réinscrire'}
+              au salon (${idsUsed(match.players)}). ${fate}</p>
+            <p class="confirm-note">${many ? 'Ils ont' : 'Il/elle a'} bien joué ? Utilisez plutôt «&nbsp;Terminer la partie (goodies)&nbsp;».</p>
+            ${noShowHint(`Avec «&nbsp;Libérer sans goodies&nbsp;», ${many ? 'ils ne le pourront plus' : 'il/elle ne le pourra plus'}.`)}`,
+          ok: 'Libérer sans goodies',
+          tone: 'danger',
+          focus: 'cancel', // action irréversible : Entrée ne doit pas libérer par réflexe
+        });
+      }
       if (!ok) return;
-      run('releaseMatch', { matchId }, { success: `${place} libérée.` })
-        .then(() => {
-          if (popTarget && popTarget.matchId === matchId) closeSlotPop({ restoreFocus: true });
-        })
-        .catch(() => {});
+      await endMatchEarly(found, { withGoodies, button: btn });
     } else if (btn.dataset.action === 'noshow') {
       await declareNoShow(Number(btn.dataset.participant), found, btn);
     }
+  }
+
+  // Fin de partie avant le timer. withGoodies : l'hôtesse confirme la participation (partie terminée,
+  // goodies dus, listés dans 03) ; sinon départ anticipé, sans goodies. Le serveur répond
+  // { released, withGoodies } : goodies dus aussi si le timer venait de s'écouler.
+  async function endMatchEarly({ table, slot, match }, { withGoodies, button }) {
+    const matchId = match.matchId;
+    const place = `Table ${table.no} · ${slot}`;
+    const ids = match.players.map((p) => p.id);
+    for (const id of ids) quietGoodies.add(id); // notre notification remplace celle de « fin de partie »
+    let r;
+    try {
+      r = await run('releaseMatch', withGoodies ? { matchId, withGoodies: true } : { matchId }, { button });
+    } catch {
+      for (const id of ids) quietGoodies.delete(id);
+      return;
+    }
+    const names = joinNames(match.players.map(shortName)) || 'le joueur';
+    if (r && r.withGoodies) {
+      toast(
+        withGoodies
+          ? `${place} terminée : goodies à remettre à ${names} (liste 03).`
+          : `${place} : le temps était écoulé, partie terminée normalement. Goodies à remettre à ${names} (liste 03).`,
+        withGoodies ? 'success' : 'info',
+        6000,
+      );
+    } else {
+      for (const id of ids) quietGoodies.delete(id);
+      toast(`${place} libérée : départ anticipé, sans goodies.`);
+    }
+    if (popTarget && popTarget.matchId === matchId) closeSlotPop({ restoreFocus: true });
   }
 
   // Joueur placé qui ne s'est pas présenté (premières minutes de la partie) : retiré sans goodies,
@@ -1154,7 +1228,7 @@
     const partners = match.players.filter((x) => x.id !== participantId).map(fullName);
     const minutes = Math.round(noShowWindow() / MIN);
     if (now() - match.startedAt >= noShowWindow()) {
-      toast(`La partie a commencé il y a plus de ${minutes} min : utilisez « Libérer ».`, 'error');
+      toast(`La partie a commencé il y a plus de ${minutes} min : « Absent » n'est plus possible (personne à la table : « Libérer sans goodies »).`, 'error');
       return;
     }
     const placeNb = place.replace(/ /g, ' ');
@@ -1169,7 +1243,7 @@
         }[slotFate(table)];
     const ok = await confirmDialog({
       title: `${name} est absent(e) ?`,
-      html: `<p class="confirm-text"><strong>${esc(name)}</strong> ne s'est pas présenté(e) à ${placeNb} : il/elle est retiré(e), <strong>sans goodies</strong>, et pourra se réinscrire avec le même email et le même billet.</p>
+      html: `<p class="confirm-text"><strong>${esc(name)}</strong> ne s'est pas présenté(e) à ${placeNb} : il/elle est retiré(e), <strong>sans goodies</strong>, et pourra se réinscrire avec ${hasEmail(p) ? 'le même email et le même billet' : 'le même billet'}.</p>
         <p class="confirm-note">${consequence}</p>`,
       ok: "Confirmer l'absence",
       tone: 'danger',
@@ -1307,7 +1381,7 @@
           return `<li class="pop-player"><div class="pop-player-main">
               <span class="pop-seat">${seats[i] || 'Joueur'}</span>
               <span class="pop-player-name">${esc(fullName(p))}</span>
-              <span class="pop-player-meta">${esc(p.email || '')}${p.ticket ? ` · billet ${esc(p.ticket)}` : ''}</span>
+              <span class="pop-player-meta">${contactHtml(p)}</span>
             </div>${absent}</li>`;
         });
         if (m.vsAnimator) {
@@ -1327,7 +1401,7 @@
           notes.push(`<p class="pop-note" data-noshow-until="${noShowUntil}">Joueur pas venu&nbsp;? <b>«&nbsp;Absent&nbsp;»</b> à côté de son nom&nbsp;: il pourra se réinscrire
             (son partenaire jouera contre un animateur).</p>`);
         } else {
-          notes.push(`<p class="pop-note">Joueur absent après ${Math.round(noShowWindow() / MIN)}&nbsp;min&nbsp;: si son partenaire est là, <b>laissez jouer</b> contre un animateur&nbsp;; «&nbsp;Libérer&nbsp;» sort les deux joueurs.</p>`);
+          notes.push(`<p class="pop-note">Joueur absent après ${Math.round(noShowWindow() / MIN)}&nbsp;min&nbsp;: si son partenaire est là, <b>laissez jouer</b> contre un animateur&nbsp;; «&nbsp;Libérer sans goodies&nbsp;» sort les deux joueurs.</p>`);
         }
         if (!table.enabled) notes.push("<p class=\"pop-note\">Table hors service : l'emplacement restera libre après cette partie.</p>");
         return `${popHead(table, slot, `Démarrée à\u00a0${clock(m.startedAt)} · fin\u00a0prévue\u00a0à\u00a0${clock(m.endsAt)}`)}
@@ -1344,10 +1418,11 @@
               aria-label="Ajouter 5 minutes">+5 min</button>
           </div>
           ${notes.join('')}
-          <div class="pop-danger">
-            <button type="button" class="btn btn-danger-outline" data-action="release" data-match="${id}" data-focus="pop-release"
-              title="Départ anticipé : pas de goodies, pas de réinscription">Libérer l'emplacement…</button>
-            <small>Départ avant la fin : pas de goodies</small>
+          <div class="pop-end" role="group" aria-label="Fin de partie avant le temps">
+            <button type="button" class="btn btn-goodies" data-action="release-goodies" data-match="${id}" data-focus="pop-release-goodies"
+              title="Les joueurs ont bien joué : partie terminée, goodies dus (liste 03), emplacement réattribué">${ICON('gift')}<span class="btn-2l">Terminer la partie <small>(goodies)…</small></span></button>
+            <button type="button" class="btn btn-danger-quiet" data-action="release" data-match="${id}" data-focus="pop-release"
+              title="Départ anticipé : pas de goodies, pas de réinscription"><span class="btn-2l">Libérer sans goodies <small>(départ anticipé)…</small></span></button>
           </div>`;
       };
     } else {
@@ -1455,7 +1530,7 @@
   function queueEntryHtml(e, isNext) {
     const isSolo = e.kind === 'solo';
     const names = e.players
-      .map((p) => `<span class="q-name" title="${esc(`${p.email || ''} · billet ${p.ticket || ''}`)}">${esc(fullName(p))}</span>`)
+      .map((p) => `<span class="q-name" title="${esc(contactText(p))}">${esc(fullName(p))}</span>`)
       .join('<span class="q-amp">&amp;</span>');
     const tags = [];
     if (isNext) tags.push('<span class="tag tag-next">Prochain</span>');
@@ -1661,7 +1736,7 @@
     const ok = await confirmDialog({
       title: `Retirer ${fullName(p)} ?`,
       html: `<p class="confirm-text"><strong>${esc(fullName(p))}</strong> est retiré(e) de la file (absent(e) à l'appel).</p>
-        <p>Il/elle pourra se réinscrire plus tard avec le même email et le même billet.</p>
+        <p>Il/elle pourra se réinscrire plus tard avec ${hasEmail(p) ? 'le même email et le même billet' : 'le même billet'}.</p>
         ${partner ? `<p class="confirm-note">${esc(fullName(partner))} redevient joueur seul, à la même place dans la file.</p>` : ''}`,
       ok: 'Retirer de la file',
       tone: 'danger',
@@ -1820,8 +1895,12 @@
     const seq = ++checkSeq[i];
     let res = { email: null, ticket: null };
     if ((email || ticket) && client) {
+      // Email facultatif : il n'est vérifié que s'il est saisi.
+      const query = {};
+      if (email) query.email = email;
+      if (ticket) query.ticket = ticket;
       try {
-        res = await client.action('check', { email, ticket });
+        res = await client.action('check', query);
       } catch {
         return;
       }
@@ -1878,12 +1957,13 @@
     players.forEach((p, i) => {
       if (!cleanName(p.firstName)) errors.push([i, 'firstName', 'Le prénom est obligatoire.']);
       if (!cleanName(p.lastName)) errors.push([i, 'lastName', 'Le nom est obligatoire.']);
-      if (!p.email.trim()) errors.push([i, 'email', "L'email est obligatoire."]);
-      else if (!EMAIL_RE.test(normEmail(p.email))) errors.push([i, 'email', "L'email n'est pas valide."]);
+      // Email facultatif (le visiteur peut refuser) ; s'il est saisi, il doit être valide.
+      if (p.email.trim() && !EMAIL_RE.test(normEmail(p.email))) errors.push([i, 'email', 'Email non valide (ou laissez vide).']);
       if (!normTicket(p.ticket)) errors.push([i, 'ticket', 'Le numéro de billet est obligatoire.']);
     });
     if (players.length === 2 && !errors.length) {
-      if (normEmail(players[0].email) === normEmail(players[1].email)) errors.push([1, 'email', 'Les deux joueurs ont le même email.']);
+      const email0 = normEmail(players[0].email);
+      if (email0 && email0 === normEmail(players[1].email)) errors.push([1, 'email', 'Les deux joueurs ont le même email.']);
       if (normTicket(players[0].ticket) === normTicket(players[1].ticket)) {
         errors.push([1, 'ticket', 'Les deux joueurs ont le même numéro de billet.']);
       }
@@ -2178,7 +2258,7 @@
     if (btn && state) handleCommonAction(btn);
   });
 
-  // ================================================================ recherche (panneau Alt+R)
+  // ================================================================ recherche (panneau Ctrl+K, ⌘K, « / », Alt+R)
 
   const searchTrigger = $('#search-trigger');
   const searchPop = $('#search-pop');
@@ -2328,7 +2408,7 @@
         <span class="result-name">${esc(fullName(p))}</span>
         <span class="pill pill-${esc(status)}">${esc(label)}</span>
       </div>
-      <div class="result-meta">${esc(p.email)} · billet ${esc(p.ticket)} · jour ${p.dayNumber} · ${esc(created)}</div>
+      <div class="result-meta">${contactHtml(p)} · jour ${p.dayNumber} · ${esc(created)}</div>
       <div class="result-where">${resultWhereHtml(p)}</div>
       <div class="result-actions">${actions.join('')}</div>
     </article>`;
@@ -2415,14 +2495,18 @@
     if (editingId === null) return;
     const seq = ++editCheckSeq;
     let res = { email: null, ticket: null };
-    try {
-      res = await client.action('check', {
-        email: editInput('email').value.trim(),
-        ticket: editInput('ticket').value.trim(),
-        excludeParticipantId: editingId,
-      });
-    } catch {
-      return;
+    const email = editInput('email').value.trim();
+    const ticket = editInput('ticket').value.trim();
+    if (email || ticket) {
+      // Email facultatif : il n'est vérifié que s'il est saisi.
+      const query = { excludeParticipantId: editingId };
+      if (email) query.email = email;
+      if (ticket) query.ticket = ticket;
+      try {
+        res = await client.action('check', query);
+      } catch {
+        return;
+      }
     }
     if (seq !== editCheckSeq) return;
     editWarnings.email = res.email ? conflictText(res.email) : null;
@@ -2781,15 +2865,45 @@
       e.preventDefault();
       closeSearch();
       setMode(2);
-    } else if (e.code === 'KeyR') {
-      e.preventDefault();
-      openSearch();
     } else if (e.code === 'KeyN') {
       e.preventDefault();
       closeSearch();
       inputOf(0, 'firstName').focus();
     }
   });
+
+  // Recherche : Ctrl+K (⌘K sur Mac), « / » hors d'un champ de saisie, et Alt+R (que certains
+  // navigateurs ou systèmes interceptent : il reste en secours). Écouté en phase de capture sur la
+  // fenêtre, avant tout autre gestionnaire, pour que rien ne l'avale ; Ctrl+K marche aussi dans un champ.
+  const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'number', 'tel', 'url', 'password', 'date', 'time', 'datetime-local', 'month', 'week']);
+  function isTextEntry(el) {
+    if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+    return el.tagName === 'INPUT' && TEXT_INPUT_TYPES.has(String(el.type || 'text').toLowerCase());
+  }
+
+  function isSearchShortcut(e) {
+    if (e.isComposing || e.keyCode === 229) return false;
+    const key = String(e.key || '').toLowerCase();
+    // Ctrl+K / ⌘K (code physique ou caractère : claviers AZERTY, QWERTY, Dvorak…).
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'KeyK' || key === 'k')) return true;
+    // Alt+R (y compris AltGr+R, vu comme Ctrl+Alt sous Windows).
+    if (e.altKey && !e.metaKey && !e.shiftKey && e.code === 'KeyR') return true;
+    // « / » (Maj+: en AZERTY, pavé numérique) : seulement hors d'un champ de saisie.
+    if (key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) return !isTextEntry(e.target);
+    return false;
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (!isSearchShortcut(e)) return;
+    if (anyDialogOpen()) return; // une modale est ouverte : la recherche resterait inaccessible dessous
+    e.preventDefault();
+    openSearch();
+  }, true);
+
+  for (const el of $$('[data-kbd="search"]')) el.textContent = SEARCH_KBD;
+  searchTrigger.title = `Rechercher un participant (${SEARCH_SHORTCUT}, ou « / » hors d'un champ)`;
 
   // ================================================================ démarrage
 

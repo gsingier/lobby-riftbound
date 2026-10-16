@@ -186,11 +186,12 @@ button.stat:focus-visible,
 }
 .btn-cyan:hover { background: #d6f1f5; border-color: var(--rb-cyan-strong); }
 
-/* Validation « c'est fait » (Installés, Remis, Goodies remis) : vert profond, texte blanc 6,1:1. */
+/* Validation « c'est fait » (Installés, Remis, Goodies remis, Terminer la partie) : vert profond, texte blanc 6,1:1. */
 .call-actions .btn-dark,
 .goodie .btn-dark,
 .result-actions .btn-dark,
-.pop-actions [data-action="seated"] {
+.pop-actions [data-action="seated"],
+.btn-dark.btn-success {
   --btn-border: #0a6f55;
   background: var(--acc-green-grad);
   box-shadow: 0 8px 16px -10px rgba(14, 159, 122, 0.85);
@@ -199,7 +200,31 @@ button.stat:focus-visible,
 .call-actions .btn-dark:hover,
 .goodie .btn-dark:hover,
 .result-actions .btn-dark:hover,
-.pop-actions [data-action="seated"]:hover { background: linear-gradient(180deg, #0b6a52 0%, #075a45 100%); }
+.pop-actions [data-action="seated"]:hover,
+.btn-dark.btn-success:hover { background: linear-gradient(180deg, #0b6a52 0%, #075a45 100%); }
+
+/* « Terminer la partie (goodies) » : or des goodies (comme la liste 03), texte or foncé ≥ 4,9:1. */
+.btn-goodies {
+  --btn-bg: var(--rb-gold-tint);
+  --btn-fg: var(--rb-gold-ink);
+  --btn-border: var(--rb-gold);
+  min-height: 50px;
+  border-width: 1.5px;
+  font-weight: 750;
+  font-size: 1rem;
+  box-shadow: 0 8px 18px -12px rgba(201, 162, 74, 0.9);
+}
+.btn-goodies:hover { background: #f6e9c8; border-color: var(--rb-gold-ink); }
+
+/* Action irréversible secondaire (« Libérer sans goodies ») : discrète, texte rouge, sans aplat. */
+.btn-danger-quiet {
+  --btn-bg: transparent;
+  --btn-fg: var(--rb-red-ink);
+  --btn-border: var(--rb-red-line);
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+.btn-danger-quiet:hover { background: var(--rb-red-tint); border-color: var(--rb-red); }
 
 .btn-on-dark {
   --btn-bg: #fff;
@@ -962,6 +987,15 @@ body.is-offline .layout .tabs {
   font-size: 0.8rem;
   color: var(--rb-ink-2);
 }
+
+/* « (facultatif) » : l'email peut être refusé par le visiteur. */
+.label-opt {
+  font-weight: 500;
+  color: var(--rb-ink-3);
+}
+
+/* Email absent (refusé par le visiteur) : mention discrète à la place de l'adresse. */
+.no-email { font-style: italic; }
 
 .field input,
 .duration-row input,
@@ -1946,20 +1980,41 @@ body.is-dusk .lg-free::before { background: var(--rb-dusk); }
 
 .pop-note b { color: var(--rb-ink); }
 
-/* Libérer : isolé en bas du panneau, loin de « +5 min » (action irréversible). */
-.pop-danger {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin-top: 14px;
-  padding-top: 14px;
+/* Fin de partie avant le temps : isolée en bas du panneau, loin de « +5 min » (actions irréversibles).
+   « Terminer la partie (goodies) » est l'action principale ; « Libérer sans goodies » reste discrète.
+   Côte à côte, libellés sur deux lignes : le panneau garde la hauteur de l'ancienne rangée unique
+   « Libérer l'emplacement… » et tient sous la barre du haut en 1280 × 720. */
+.pop-end {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px dashed var(--rb-line-2);
 }
 
-.pop-danger small {
-  font-size: 0.8rem;
-  color: var(--rb-ink-3);
+.pop-end .btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 10px;
+  gap: 6px;
+  white-space: normal;
+  text-align: left;
+}
+
+.pop-end .btn-goodies { font-size: 0.92rem; }
+
+/* Libellé sur deux lignes : action, puis précision entre parenthèses. */
+.btn-2l {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.btn-2l small {
+  font-weight: 550;
+  font-size: 0.8em;
 }
 
 /* ------------------------------------------------------------------ 03 · goodies */
@@ -2226,7 +2281,7 @@ body.is-dusk .lg-free::before { background: var(--rb-dusk); }
 }
 
 .search-results:empty::before {
-  content: 'Tapez au moins 2 caractères : nom, prénom, email ou n° de billet.';
+  content: 'Tapez au moins 2 caractères : nom, prénom, n° de billet ou email.';
   display: block;
   padding: 14px 4px 4px;
   font-size: 0.86rem;

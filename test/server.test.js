@@ -566,7 +566,7 @@ test('parcours complet des actions de l’accueil via Socket.IO', async (t) => {
     given: false,
   });
   const soloMatch = ctx.lobby.whereIs(solo.participantIds[0]).matchId;
-  assert.deepEqual(await ok('releaseMatch', { matchId: soloMatch }), { released: soloMatch });
+  assert.deepEqual(await ok('releaseMatch', { matchId: soloMatch }), { released: soloMatch, withGoodies: false });
   // absent à l'appel, juste après le placement
   const late = await ok('register', { players: [player('Present'), player('Absent')] });
   const lateMatch = ctx.lobby.whereIs(late.participantIds[1]).matchId;

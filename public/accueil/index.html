@@ -51,10 +51,12 @@
         <div class="stat" title="Total des participants (tous les jours)"><span class="stat-num" id="stat-total">–</span><span class="stat-lbl">Total</span></div>
       </div>
 
-      <button type="button" class="search-trigger" id="search-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="search-pop" title="Rechercher un participant (Alt+R)">
+      <!-- Raccourcis : Ctrl+K (⌘K sur Mac), « / » hors d'un champ, Alt+R ; libellés ajustés au Mac par accueil.js. -->
+      <button type="button" class="search-trigger" id="search-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="search-pop"
+        aria-keyshortcuts="Control+K Meta+K / Alt+R" title="Rechercher un participant (Ctrl+K, ou « / » hors d'un champ)">
         <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
         <span class="search-trigger-label">Rechercher</span>
-        <kbd>Alt R</kbd>
+        <kbd data-kbd="search">Ctrl K</kbd>
       </button>
 
       <div class="conn" id="conn" data-state="connecting" role="status" aria-live="polite">
@@ -144,7 +146,7 @@
               <p class="field-msg" id="p0-lastName-msg" aria-live="polite"></p>
             </div>
             <div class="field field-email">
-              <label for="p0-email">Email</label>
+              <label for="p0-email">Email <span class="label-opt">(facultatif)</span></label>
               <input id="p0-email" data-index="0" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
               <p class="field-msg" id="p0-email-msg" aria-live="polite"></p>
             </div>
@@ -170,7 +172,7 @@
               <p class="field-msg" id="p1-lastName-msg" aria-live="polite"></p>
             </div>
             <div class="field field-email">
-              <label for="p1-email">Email</label>
+              <label for="p1-email">Email <span class="label-opt">(facultatif)</span></label>
               <input id="p1-email" data-index="1" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
               <p class="field-msg" id="p1-email-msg" aria-live="polite"></p>
             </div>
@@ -188,7 +190,7 @@
           <button type="submit" class="btn btn-primary btn-lg" id="register-submit">Inscrire les 2 joueurs</button>
           <button type="button" class="btn btn-ghost" id="register-clear" title="Vider le formulaire">Effacer</button>
         </div>
-        <p class="form-hint"><kbd>Entrée</kbd> inscrire · <kbd>Alt 1</kbd> / <kbd>Alt 2</kbd> nombre de joueurs · <kbd>Alt R</kbd> rechercher · <kbd>Échap</kbd> fermer</p>
+        <p class="form-hint"><kbd>Entrée</kbd> inscrire · <kbd>Alt 1</kbd> / <kbd>Alt 2</kbd> nombre de joueurs · <kbd data-kbd="search">Ctrl K</kbd> rechercher · <kbd>Échap</kbd> fermer</p>
       </form>
     </section>
 
@@ -226,7 +228,7 @@
           <li><i class="lg lg-busy"></i>En jeu</li>
           <li><i class="lg lg-warn"></i>5 dernières min</li>
           <li><i class="lg lg-call"></i>À appeler</li>
-          <li class="lg-hint">Cliquez sur un emplacement : ±5 min, Absent, Libérer</li>
+          <li class="lg-hint">Cliquez sur un emplacement : ±5 min, Absent, Terminer, Libérer</li>
         </ul>
       </section>
     </div>
@@ -253,11 +255,11 @@
     </div>
   </main>
 
-  <!-- Recherche (Alt+R) : panneau sous la barre du haut. -->
+  <!-- Recherche (Ctrl+K, ⌘K, « / », Alt+R) : panneau sous la barre du haut. -->
   <div class="search-pop" id="search-pop" role="dialog" aria-label="Rechercher un participant" hidden>
     <div class="search-box">
       <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
-      <input type="search" id="search-input" placeholder="Nom, email ou n° de billet" autocomplete="off" spellcheck="false" aria-label="Rechercher un participant">
+      <input type="search" id="search-input" placeholder="Nom, n° de billet ou email" autocomplete="off" spellcheck="false" aria-label="Rechercher un participant">
       <button type="button" class="btn btn-ghost btn-icon" id="search-close" aria-label="Fermer la recherche"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="search-results" id="search-results" aria-live="polite"></div>
@@ -336,7 +338,7 @@
             <p class="field-msg" id="edit-lastName-msg"></p>
           </div>
           <div class="field field-wide">
-            <label for="edit-email">Email</label>
+            <label for="edit-email">Email <span class="label-opt">(facultatif)</span></label>
             <input id="edit-email" data-field="email" type="email" inputmode="email" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false">
             <p class="field-msg" id="edit-email-msg"></p>
           </div>

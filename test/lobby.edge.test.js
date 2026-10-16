@@ -178,7 +178,7 @@ test('retirer : refusé pour un joueur qui joue, qui a fini, déjà retiré ou i
 test('libérer deux fois la même partie : la seconde est refusée', () => {
   const { lobby, player } = setup();
   const { matchId } = lobby.register([player(), player()]);
-  assert.deepEqual(lobby.releaseMatch(matchId), { released: matchId });
+  assert.deepEqual(lobby.releaseMatch(matchId), { released: matchId, withGoodies: false });
   assert.throws(() => lobby.releaseMatch(matchId), code('conflict'));
   assert.throws(() => lobby.releaseMatch(123456), code('not_found'));
 });
@@ -868,7 +868,9 @@ test('absent à la table : refusé après le délai, pour un joueur en file, qui
   assert.throws(() => lobby.noShow(reg.participantIds[0]), (err) => {
     code('conflict')(err);
     assert.match(err.message, /plus de 15 minutes/);
-    assert.match(err.message, /Libérer l'emplacement/);
+    assert.match(err.message, /« Libérer sans goodies »/);
+    assert.match(err.message, /contre un animateur/);
+    assert.doesNotMatch(err.message, /Libérer l'emplacement/, 'ce bouton n’existe plus');
     return true;
   });
   assert.equal(lobby.whereIs(reg.participantIds[0]).status, 'playing', 'rien n’a changé');
