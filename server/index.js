@@ -24,6 +24,12 @@ const FONT_PACKAGES = [
   '@fontsource-variable/plus-jakarta-sans',
 ];
 const TICK_MS = 1000;
+// Battement Socket.IO : un réseau qui ne transmet plus rien (Wi-Fi saturé, connexion encore
+// « ouverte ») est détecté en 10 à 20 s, au lieu de 25 à 45 s par défaut. Le client affiche alors
+// « Déconnecté » et le bandeau hors ligne. Pas plus court : en long-polling sur un Wi-Fi chargé,
+// une réponse lente provoquerait de fausses déconnexions.
+const PING_INTERVAL_MS = 10000;
+const PING_TIMEOUT_MS = 10000;
 // Proxys dont on croit X-Forwarded-For / X-Forwarded-Proto (IP du client, HTTPS) : par défaut les
 // adresses locales et privées, d'où le Traefik de Coolify joint le conteneur. Un client Internet
 // connecté directement n'est pas cru. TRUST_PROXY=false si le port est exposé sans proxy devant.
@@ -136,12 +142,18 @@ function createApp({
   app.post('/login', express.urlencoded({ extended: false, limit: '4kb' }), (req, res) => {
     const ip = req.ip || 'unknown';
     if (!sameOrigin(req)) return res.status(403).send('Origine refusée.');
-    // Deux compteurs : l'IP du client (req.ip, d'après le proxy) et l'adresse de la connexion TCP,
-    // qu'un X-Forwarded-For inventé ne peut pas faire varier.
-    if (!auth.allowAttempt(ip, req.socket.remoteAddress || 'unknown')) return res.redirect('/login?error=trop');
+    // Deux compteurs d'échecs : l'IP du client (req.ip, d'après le proxy) et l'adresse de la
+    // connexion TCP, qu'un X-Forwarded-For inventé ne peut pas faire varier.
+    const peer = req.socket.remoteAddress || 'unknown';
+    if (!auth.allowAttempt(ip, peer)) return res.redirect('/login?error=trop');
     const role = auth.roleForPassword(req.body?.password);
-    if (!role) return res.redirect('/login?error=1');
-    auth.resetAttempts(ip);
+    if (!role) {
+      auth.recordFailure(ip, peer);
+      return res.redirect('/login?error=1');
+    }
+    // Seule une connexion à l'accueil efface les échecs de l'IP : sinon le mot de passe boutique
+    // permettrait de relancer sans fin les essais sur celui de l'accueil.
+    if (role === 'admin') auth.resetAttempts(ip);
     res.set('Set-Cookie', auth.cookieHeader(auth.issueToken(role), { secure: req.secure }));
     return res.redirect(HOME_OF_ROLE[role]);
   });
@@ -169,6 +181,8 @@ function createApp({
   const server = http.createServer(app);
   const io = new Server(server, {
     serveClient: true,
+    pingInterval: PING_INTERVAL_MS,
+    pingTimeout: PING_TIMEOUT_MS,
     allowRequest: (req, callback) => callback(null, sameOrigin(req)),
   });
 
@@ -275,4 +289,4 @@ if (require.main === module) {
   process.on('SIGINT', shutdown);
 }
 
-module.exports = { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY };
+module.exports = { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY, PING_INTERVAL_MS, PING_TIMEOUT_MS };

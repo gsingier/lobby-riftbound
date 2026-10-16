@@ -8,8 +8,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { io: ioClient } = require('socket.io-client');
-const { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY } = require('../server/index');
-const { COOKIE_NAME, LOGIN_MAX_ATTEMPTS_PER_PEER } = require('../server/auth');
+const { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY, PING_INTERVAL_MS, PING_TIMEOUT_MS } = require('../server/index');
+const { COOKIE_NAME, LOGIN_MAX_ATTEMPTS, LOGIN_MAX_ATTEMPTS_PER_PEER } = require('../server/auth');
 const { formatDate } = require('../server/csv');
 
 const MIN = 60 * 1000;
@@ -214,6 +214,40 @@ test('X-Forwarded-For inventé : la limite par connexion TCP s’applique quand 
   assert.equal((await login(ctx.base, 'test', { 'x-forwarded-for': '10.200.0.1' })).headers.get('location'), '/accueil');
 });
 
+test('une connexion boutique ne relance pas les essais sur le mot de passe de l’accueil', async (t) => {
+  const ctx = await start({ boutiquePassword: 'shop' });
+  t.after(() => ctx.close());
+  // des connexions réussies répétées (tablettes du stand sur la même IP) ne consomment rien
+  for (let i = 0; i < 2 * LOGIN_MAX_ATTEMPTS; i++) {
+    assert.equal((await login(ctx.base, 'shop')).headers.get('location'), '/boutique', `connexion ${i + 1}`);
+  }
+  for (let i = 0; i < LOGIN_MAX_ATTEMPTS - 1; i++) await login(ctx.base, `faux${i}`);
+  // la connexion boutique réussit mais n'efface pas les 9 échecs
+  assert.equal((await login(ctx.base, 'shop')).headers.get('location'), '/boutique');
+  assert.equal((await login(ctx.base, 'faux9')).headers.get('location'), '/login?error=1', '10e échec');
+  const blocked = await login(ctx.base, 'test');
+  assert.equal(blocked.headers.get('location'), '/login?error=trop', '11e essai bloqué, même avec le bon mot de passe');
+  assert.deepEqual(setCookies(blocked), []);
+  assert.equal((await login(ctx.base, 'shop')).headers.get('location'), '/login?error=trop');
+  ctx.clock.t += 5 * MIN;
+  assert.equal((await login(ctx.base, 'test')).headers.get('location'), '/accueil');
+});
+
+test('derrière le proxy, une seule IP qui insiste ne bloque pas les connexions des autres', async (t) => {
+  const ctx = await start({ boutiquePassword: 'shop' });
+  t.after(() => ctx.close());
+  // 127.0.0.1 est un proxy de confiance : X-Forwarded-For donne l'IP du client
+  const from = (ip) => ({ 'x-forwarded-for': ip });
+  for (let i = 0; i < LOGIN_MAX_ATTEMPTS_PER_PEER + 10; i++) {
+    const res = await login(ctx.base, `faux${i}`, from('203.0.113.5'));
+    const expected = i < LOGIN_MAX_ATTEMPTS ? '/login?error=1' : '/login?error=trop';
+    assert.equal(res.headers.get('location'), expected, `essai ${i + 1}`);
+  }
+  assert.equal((await login(ctx.base, 'test', from('198.51.100.7'))).headers.get('location'), '/accueil');
+  assert.equal((await login(ctx.base, 'shop', from('198.51.100.8'))).headers.get('location'), '/boutique');
+  assert.equal((await login(ctx.base, 'test', from('203.0.113.5'))).headers.get('location'), '/login?error=trop');
+});
+
 test('TRUST_PROXY=false (port exposé sans proxy) : X-Forwarded-For et X-Forwarded-Proto ignorés', async (t) => {
   const ctx = await start({ trustProxy: parseTrustProxy('false') });
   t.after(() => ctx.close());
@@ -344,6 +378,20 @@ test('cookie falsifié, signé par un autre serveur ou expiré : refusé (HTTP e
 });
 
 // ---------------------------------------------------------------- Socket.IO
+
+test('battement Socket.IO : une connexion muette est détectée en 20 s au plus', async (t) => {
+  const ctx = await start();
+  t.after(() => ctx.close());
+  // Paquet d'ouverture engine.io (long-polling) : « 0{"sid":…,"pingInterval":…,"pingTimeout":…} »
+  const res = await get(ctx.base, '/socket.io/?EIO=4&transport=polling');
+  assert.equal(res.status, 200);
+  const open = JSON.parse((await res.text()).replace(/^0/, ''));
+  assert.equal(open.pingInterval, PING_INTERVAL_MS);
+  assert.equal(open.pingTimeout, PING_TIMEOUT_MS);
+  // le client tient la connexion pour perdue sans « ping » pendant pingInterval + pingTimeout
+  assert.ok(open.pingInterval + open.pingTimeout <= 20000, 'détection en 20 s au plus (45 s par défaut)');
+  assert.ok(open.pingTimeout >= 10000, 'marge pour un « pong » lent en long-polling sur un Wi-Fi chargé');
+});
 
 test('socket public : état public sans email ni billet, toutes les actions refusées', async (t) => {
   const ctx = await start();

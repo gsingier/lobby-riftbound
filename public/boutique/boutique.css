@@ -188,6 +188,9 @@ mark {
 .btn-undo.is-confirm .ic { color: var(--rb-red-ink); }
 .btn-undo.is-confirm:hover { background: #fbd9de; }
 
+/* Juste après le premier appui : pas encore confirmable (un double appui ne confirme pas). */
+.btn-undo.is-confirm.is-arming { opacity: 0.6; cursor: default; }
+
 /* ------------------------------------------------------------------ barre du haut */
 
 .appbar {
@@ -479,6 +482,12 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
   white-space: nowrap;
 }
 
+/* Titre de la liste jamais tronqué : c'est le sous-titre (requête, compteurs) qui s'efface
+   (sous 600 px, le sous-titre est masqué et le titre peut se tronquer). */
+@media (min-width: 601px) {
+  .panel-list .panel-head h2 { flex: none; }
+}
+
 .panel-sub {
   min-width: 0;
   margin-left: auto;
@@ -754,6 +763,16 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
 
 .fb-error .fb-text small { color: var(--rb-ink-2); }
 
+/* Remise sans réponse du serveur (réseau) : en attente de vérification, ni succès ni échec. */
+.fb-warn {
+  background: var(--rb-gold-tint);
+  border: 1.5px solid var(--rb-gold);
+  color: var(--rb-gold-ink);
+}
+
+.fb-warn .fb-text strong { color: var(--rb-ink); }
+.fb-warn .fb-text small { color: var(--rb-ink-2); }
+
 /* ------------------------------------------------------------------ onglets (portrait) */
 
 .view-tabs { display: none; }
@@ -862,6 +881,19 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
 
 .results-list > .empty { grid-column: 1 / -1; }
 
+/* Plus de 25 visiteurs correspondent : le serveur n'en renvoie que 25. */
+.results-more {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(243, 241, 248, 0.72);
+  border: 1px dashed var(--rb-line-2);
+  font-size: 0.92rem;
+  color: var(--rb-ink-2);
+}
+
+.results-more[hidden] { display: none; }
+
 .pcard {
   --accent: var(--rb-ink-4);
   position: relative;
@@ -956,6 +988,12 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
 
 .state-given strong { font-size: 1.14rem; }
 
+/* Remise à l'instant depuis ce poste : vert plein (blanc 6,1:1), distinct du vert « à remettre ». */
+.state-done { background: var(--bq-green-grad); color: #fff; }
+.state-done .state-text small { color: #fff; }
+
+.pcard.is-just-given { --accent: var(--rb-green); border-color: var(--bq-green-line); }
+
 /* Carte mise à jour en direct (fin de partie, remise par un autre poste) : bref liseré. */
 .pcard::after,
 .prow::after {
@@ -970,6 +1008,8 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
 
 .pcard.is-updated::after { animation: bq-flash 1.1s ease-out 2; }
 .pcard.is-given.is-updated::after { box-shadow: 0 0 0 4px rgba(209, 57, 76, 0.45); }
+.pcard.is-just-given.is-updated::after { box-shadow: 0 0 0 4px rgba(14, 159, 122, 0.45); }
+.prow.is-updated::after { animation: bq-flash 1.1s ease-out 2; }
 
 @keyframes bq-flash {
   0%, 100% { opacity: 0; }
@@ -1303,6 +1343,7 @@ body.is-offline .col-side .panel { filter: grayscale(0.8); }
 @media (prefers-reduced-motion: reduce) {
   .fb,
   .pcard.is-updated::after,
+  .prow.is-updated::after,
   .prow.is-new::after {
     animation: none;
   }

@@ -8,8 +8,9 @@ const crypto = require('crypto');
 const COOKIE_NAME = 'rb_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+// Mots de passe faux permis par IP client et par fenêtre.
 const LOGIN_MAX_ATTEMPTS = 10;
-// Par connexion TCP (le proxy, ou le client en accès direct) : borne aussi les essais d'un client
+// Par connexion TCP (le proxy, ou le client en accès direct) : borne aussi les échecs d'un client
 // qui ferait varier X-Forwarded-For. Derrière le proxy, c'est un plafond toutes IP confondues.
 const LOGIN_MAX_ATTEMPTS_PER_PEER = 50;
 // Nombre de compteurs suivis au plus : mémoire et temps de purge bornés.
@@ -93,30 +94,50 @@ function createAuth({ password, boutiquePassword = null, secret, now = () => Dat
     return roleOf(cookieHeader) === 'admin';
   }
 
-  function bump(key, t, max) {
-    let entry = attempts.get(key);
-    if (!entry) {
-      if (attempts.size >= LOGIN_MAX_TRACKED) return false;
-      entry = { count: 0, resetAt: t + LOGIN_WINDOW_MS };
-      attempts.set(key, entry);
-    }
-    entry.count += 1;
-    return entry.count <= max;
-  }
-
-  // Limite les essais de mot de passe par adresse IP du client et par connexion (`peer`).
-  function allowAttempt(ip, peer = ip) {
-    const t = now();
-    // Compteurs rangés par date de création : on s'arrête au premier encore valable.
+  // Compteurs rangés par date de création : on s'arrête au premier encore valable.
+  function purge(t) {
     for (const [k, v] of attempts) {
       if (v.resetAt > t) break;
       attempts.delete(k);
     }
-    const ipOk = bump(`ip:${ip}`, t, LOGIN_MAX_ATTEMPTS);
-    const peerOk = peer === ip || bump(`peer:${peer}`, t, LOGIN_MAX_ATTEMPTS_PER_PEER);
-    return ipOk && peerOk;
   }
 
+  function underLimit(key, max) {
+    const entry = attempts.get(key);
+    // Adresse inconnue alors que plus aucun compteur ne peut être suivi : refus jusqu'à la purge.
+    if (!entry) return attempts.size < LOGIN_MAX_TRACKED;
+    return entry.count < max;
+  }
+
+  function bump(key, t) {
+    let entry = attempts.get(key);
+    if (!entry) {
+      if (attempts.size >= LOGIN_MAX_TRACKED) return;
+      entry = { count: 0, resetAt: t + LOGIN_WINDOW_MS };
+      attempts.set(key, entry);
+    }
+    entry.count += 1;
+  }
+
+  // Essai de mot de passe permis ? Seuls les ÉCHECS comptent (recordFailure), par adresse IP du
+  // client et par connexion (`peer`) :
+  // - une connexion réussie ne consomme rien (les appareils du stand partagent souvent une IP) ;
+  // - une requête déjà refusée n'est pas comptée : une seule IP ne peut pas épuiser le plafond
+  //   de la connexion, commun à tous les visiteurs derrière le proxy.
+  function allowAttempt(ip, peer = ip) {
+    purge(now());
+    return underLimit(`ip:${ip}`, LOGIN_MAX_ATTEMPTS)
+      && (peer === ip || underLimit(`peer:${peer}`, LOGIN_MAX_ATTEMPTS_PER_PEER));
+  }
+
+  function recordFailure(ip, peer = ip) {
+    const t = now();
+    purge(t);
+    bump(`ip:${ip}`, t);
+    if (peer !== ip) bump(`peer:${peer}`, t);
+  }
+
+  // Efface les échecs de l'IP (pas ceux de la connexion), après une connexion à l'accueil.
   function resetAttempts(ip) {
     attempts.delete(`ip:${ip}`);
   }
@@ -149,6 +170,7 @@ function createAuth({ password, boutiquePassword = null, secret, now = () => Dat
     isAuthenticated,
     hasBoutiqueRole: Boolean(keys.boutique),
     allowAttempt,
+    recordFailure,
     resetAttempts,
     cookieHeader,
     clearCookieHeader,

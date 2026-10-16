@@ -62,6 +62,49 @@ function foldText(value) {
   return String(value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
+// Séparateurs à l'intérieur d'un nom : tirets (\p{Pd}), apostrophes droites ou typographiques
+// (un clavier de tablette remplace ' par ’), accents isolés, points (« J.-P. »).
+const NAME_SEPARATORS_RE = /[\p{Pd}'‘’ʼ`´′.·]/gu;
+
+// Deux formes d'un nom pour la recherche, après foldText :
+// - « espacée » : séparateurs → espace (« Jean-Éric » ≈ « jean eric », « O’Brien » ≈ « o brien ») ;
+// - « collée » : séparateurs supprimés (« O'Brien » ≈ « obrien », « Jean-Éric » ≈ « jeaneric »).
+function nameForms(value) {
+  const folded = foldText(value);
+  const tidy = (s) => s.replace(/\s+/g, ' ').trim();
+  return {
+    spaced: tidy(folded.replace(NAME_SEPARATORS_RE, ' ')),
+    joined: tidy(folded.replace(NAME_SEPARATORS_RE, '')),
+  };
+}
+
+// Termes de la recherche par nom, ou [null, null] s'il reste moins de 2 caractères hors séparateurs
+// (« -- » ou « '' » ne doivent pas renvoyer tout le monde).
+function nameQuery(q) {
+  const { spaced, joined } = nameForms(q);
+  return joined.replace(/ /g, '').length >= 2 ? [spaced, joined] : [null, null];
+}
+
+// Prénom + nom (dans les deux ordres) contient la requête, comparée forme espacée à forme espacée
+// et forme collée à forme collée.
+function nameMatches(firstName, lastName, spaced, joined) {
+  if (!spaced || !joined) return false;
+  const first = nameForms(firstName);
+  const last = nameForms(lastName);
+  const pair = (x, y) => (x && y ? `${x} ${y}` : x || y);
+  return (
+    pair(first.spaced, last.spaced).includes(spaced) ||
+    pair(last.spaced, first.spaced).includes(spaced) ||
+    pair(first.joined, last.joined).includes(joined) ||
+    pair(last.joined, first.joined).includes(joined)
+  );
+}
+
+// Texte littéral dans un motif LIKE … ESCAPE '\'.
+function escapeLike(value) {
+  return value.replace(/[%_\\]/g, (c) => `\\${c}`);
+}
+
 // Identifiant reçu de l'accueil (nombre, ou nombre en texte).
 function toId(value) {
   const n = typeof value === 'string' && /^\s*\d+\s*$/.test(value) ? Number(value) : value;
@@ -121,8 +164,11 @@ class Lobby {
   constructor(db, { now = () => Date.now() } = {}) {
     this.db = db;
     this.now = now;
-    // SQLite lower() ne gère que l'ASCII : la recherche passe par cette fonction.
+    // SQLite lower() ne gère que l'ASCII : la recherche passe par ces fonctions.
     db.function('rb_fold', { deterministic: true }, (value) => foldText(value));
+    db.function('rb_name_match', { deterministic: true }, (first, last, spaced, joined) =>
+      nameMatches(first, last, spaced, joined) ? 1 : 0,
+    );
     this.ensureDay();
   }
 
@@ -638,21 +684,22 @@ class Lobby {
     });
   }
 
+  // Recherche de l'accueil : nom (tirets et apostrophes ignorés), email ou n° de billet.
   search(query) {
     const q = cleanName(query);
     if (q.length < 2) return [];
-    const like = `%${foldText(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    const ticketLike = `%${normalizeTicket(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const [spaced, joined] = nameQuery(q);
+    const emailLike = `%${escapeLike(foldText(q))}%`;
+    const ticketLike = `%${escapeLike(normalizeTicket(q))}%`;
     const rows = this.db
       .prepare(
         `SELECT * FROM participants
-          WHERE rb_fold(first_name || ' ' || last_name) LIKE ? ESCAPE '\\'
-             OR rb_fold(last_name || ' ' || first_name) LIKE ? ESCAPE '\\'
+          WHERE rb_name_match(first_name, last_name, ?, ?)
              OR rb_fold(email_norm) LIKE ? ESCAPE '\\'
              OR (? <> '%%' AND ticket_norm LIKE ? ESCAPE '\\')
           ORDER BY id DESC LIMIT 25`,
       )
-      .all(like, like, like, ticketLike, ticketLike);
+      .all(spaced, joined, emailLike, ticketLike, ticketLike);
     return rows.map((r) => this.participantView(r, true));
   }
 
@@ -688,27 +735,26 @@ class Lobby {
     return view;
   }
 
-  // Recherche par nom ou n° de billet (email accepté mais jamais renvoyé) : billet exact d'abord,
-  // puis les cartes à remettre, puis les plus récents.
+  // Recherche par nom (tirets et apostrophes ignorés) ou n° de billet, JAMAIS par email : la
+  // boutique ne voit pas l'email et ne doit rien pouvoir en déduire (apparition ou non d'un
+  // résultat). Billet exact d'abord, puis les cartes à remettre, puis les plus récents.
   boutiqueSearch(query) {
     const q = cleanName(query);
     if (q.length < 2) return [];
-    const like = `%${foldText(q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const [spaced, joined] = nameQuery(q);
     const ticket = normalizeTicket(q);
-    const ticketLike = `%${ticket.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const ticketLike = `%${escapeLike(ticket)}%`;
     const rows = this.db
       .prepare(
         `SELECT * FROM participants
-          WHERE rb_fold(first_name || ' ' || last_name) LIKE ? ESCAPE '\\'
-             OR rb_fold(last_name || ' ' || first_name) LIKE ? ESCAPE '\\'
-             OR rb_fold(email_norm) LIKE ? ESCAPE '\\'
+          WHERE rb_name_match(first_name, last_name, ?, ?)
              OR (? <> '%%' AND ticket_norm LIKE ? ESCAPE '\\')
           ORDER BY (ticket_norm = ?) DESC,
                    (status = 'completed' AND goodies_given_at IS NULL) DESC,
                    id DESC
           LIMIT 25`,
       )
-      .all(like, like, like, ticketLike, ticketLike, ticket);
+      .all(spaced, joined, ticketLike, ticketLike, ticket);
     return rows.map((r) => this.boutiqueView(r));
   }
 

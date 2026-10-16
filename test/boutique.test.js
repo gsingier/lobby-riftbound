@@ -83,6 +83,45 @@ test('recherche boutique : billet exact en tête, statuts utiles, sans email', (
   assert.deepEqual(lobby.boutiqueSearch('m'), []);
 });
 
+test('recherche par nom (boutique et accueil) : tirets, apostrophes droites ou typographiques et points ignorés', () => {
+  const { lobby } = engine();
+  lobby.register([player('Jean-Éric', 'Göçmen'), player('Seán', "O'Brien")]);
+  lobby.register([player('Aïssa', 'N’Diaye'), player('Charles', "d'Artagnan")]);
+  lobby.register([player('Marie-Claire', 'Dupont'), player('Lucas', 'Martin')]);
+  const cases = [
+    [['jean eric', 'Jean Éric', 'jean–eric', 'jean-eric', 'jeaneric', 'JEAN ERIC GOCMEN', 'göçmen jean-éric'], 'Jean-Éric'],
+    [['obrien', 'o brien', "o'brien", 'O’Brien', 'Seán O’Brien', 'obrien sean'], 'Seán'],
+    [['ndiaye', 'n diaye', "n'diaye", 'N’Diaye', 'NʼDiaye'], 'Aïssa'],
+    [['dartagnan', 'd artagnan', 'd’artagnan', 'D`Artagnan', 'Charles D.'], 'Charles'],
+    [['marie claire', 'marieclaire', 'Marie Claire Dupont', 'dupont marie'], 'Marie-Claire'],
+    [['Lucas M.', 'martin lucas'], 'Lucas'],
+  ];
+  for (const [label, search] of [['boutique', (q) => lobby.boutiqueSearch(q)], ['accueil', (q) => lobby.search(q)]]) {
+    for (const [queries, firstName] of cases) {
+      for (const q of queries) assert.deepEqual(search(q).map((p) => p.firstName), [firstName], `${label} : « ${q} »`);
+    }
+    // une requête faite seulement de séparateurs ne renvoie pas tout le monde
+    for (const q of ['--', "''", '’’', '. .', '- ’']) assert.deepEqual(search(q), [], `${label} : « ${q} »`);
+  }
+});
+
+test('recherche boutique : jamais par email (rien à en déduire) ; l’accueil, lui, cherche aussi par email', () => {
+  const { lobby } = engine();
+  lobby.register([
+    { firstName: 'Noah', lastName: 'Martin', email: 'noah.martin.private@gmail.com', ticket: 'PGW-8801' },
+    { firstName: 'Hugo', lastName: 'Dubois', email: 'hugo.d@corp-example.fr', ticket: 'PGW-8802' },
+  ]);
+  const queries = [
+    'noah.martin.private@gmail.com', 'noah.martin.private', 'noah.martin.privatf', '@gmail', 'gmail',
+    'hugo.d@', 'hugo.d@corp-example.fr', 'corp-example', 'example.fr', 'ai', 'il',
+  ];
+  for (const q of queries) assert.deepEqual(lobby.boutiqueSearch(q), [], `« ${q} »`);
+  assert.deepEqual(lobby.boutiqueSearch('noah').map((p) => p.lastName), ['Martin']);
+  assert.deepEqual(lobby.boutiqueSearch('pgw 8802').map((p) => p.firstName), ['Hugo']);
+  assert.deepEqual(lobby.search('gmail').map((p) => p.firstName), ['Noah']);
+  assert.deepEqual(lobby.search('hugo.d@corp').map((p) => p.firstName), ['Hugo']);
+});
+
 // ---------------------------------------------------------------- serveur
 
 async function start(options = {}) {

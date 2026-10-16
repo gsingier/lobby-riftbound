@@ -40,7 +40,7 @@
       <div class="stat stat-pending" id="stat-pending-box" title="Joueurs ayant terminé leur partie qui n'ont pas encore reçu leur carte promo (tous les jours)">
         <span class="stat-num" id="stat-pending">–</span><span class="stat-lbl">À remettre</span>
       </div>
-      <div class="stat" title="Cartes promo remises depuis le début de la journée">
+      <div class="stat" id="stat-given-box" title="Cartes promo remises depuis le début de la journée">
         <span class="stat-num" id="stat-given">–</span><span class="stat-lbl"><span class="lbl-long">Remises aujourd'hui</span><span class="lbl-short" aria-hidden="true">Remises auj.</span></span>
       </div>
       <div class="stat" title="Joueurs actuellement à une table : leur carte promo sera à remettre à la fin de leur partie">
@@ -97,10 +97,11 @@
           <span class="count-badge" id="list-count">0</span>
           <span class="panel-sub" id="list-sub"></span>
         </div>
-        <p class="admin-note" id="admin-note" hidden>Connecté avec le mot de passe de l'accueil : cette liste ne montre que les parties du jour. La recherche couvre tous les jours.</p>
+        <p class="admin-note" id="admin-note" hidden>Connecté avec le mot de passe de l'accueil : « À remettre », « Dernières remises » et les compteurs ne montrent que les parties du jour. Les cartes des jours précédents se retrouvent par la recherche.</p>
         <div class="list-scroll" id="list-scroll">
           <ul class="pending-list" id="pending-list" aria-label="Cartes promo à remettre, plus récentes d'abord"><li class="empty">Chargement…</li></ul>
           <div class="results-list" id="results-list" hidden></div>
+          <p class="results-more" id="results-more" hidden>Seuls les 25 premiers résultats sont affichés. Précisez la recherche : nom complet ou n° de billet entier.</p>
         </div>
       </section>
     </div>
@@ -122,7 +123,7 @@
           <li><i class="dot dot-playing" aria-hidden="true"></i><span><b>Bleu</b> : partie en cours, le visiteur revient après la fin.</span></li>
           <li><i class="dot dot-none" aria-hidden="true"></i><span><b>Gris</b> : pas de carte (pas joué, ou parti avant la fin).</span></li>
         </ul>
-        <p class="help-keys"><kbd>Échap</kbd> vide la recherche · <kbd>Entrée</kbd> avec le n° de billet complet remet la carte</p>
+        <p class="help-keys"><kbd>Échap</kbd> vide la recherche · <kbd>Entrée</kbd> choisit la carte du billet exact, <kbd>Entrée</kbd> de nouveau la remet (douchette : remise directe)</p>
       </section>
     </aside>
   </main>

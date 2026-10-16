@@ -13,14 +13,28 @@
   const esc = LC.escapeHtml;
   const $ = (sel, root = document) => root.querySelector(sel);
 
+  const MIN = 60 * 1000;
   const SEARCH_DEBOUNCE_MS = 250;
   const UNDO_MS = 10000; // « Annuler » après une remise
   const MESSAGE_MS = 7000; // information ou erreur dans la zone de retour
   const NEW_HIGHLIGHT_MS = 12000; // nouvelle carte à remettre (fin de partie en direct)
   const CONFIRM_MS = 5000; // second appui pour annuler une remise depuis « Dernières remises »
+  const CONFIRM_ARM_MS = 700; // … mais pas trop tôt : un double appui ne vaut pas confirmation
   const MOVE_GUARD_MS = 500; // appui ignoré sur une carte qui vient de bouger (mise à jour en direct)
+  // Après une remise sur ce poste, la liste change sous le doigt (champ vidé, ligne retirée) : tout
+  // autre appui « Remettre » pendant ce délai est un double appui, ignoré.
+  const GIVE_GUARD_MS = 1200;
+  const ENTER_CONFIRM_MS = 600; // bouton choisi par Entrée : un second Entrée trop rapide est ignoré
+  const JUST_GIVEN_MS = 2 * MIN; // carte remise sur ce poste : « Remise ✓ » (vert) avant « Déjà remise » (rouge)
+  const VERIFY_RETRY_MS = 4000; // remise restée sans réponse (réseau) : nouvelle vérification
+  // Remise jugée « non enregistrée » : elle peut encore arriver par l'ancienne connexion (paquet
+  // retenu par le réseau) ; pendant ce délai, son arrivée est reconnue comme la remise de ce poste.
+  const LATE_MS = 60 * 1000;
+  const SEARCH_LIMIT = 25; // le serveur renvoie au plus 25 résultats
+  // Lecteur de code-barres (douchette) : caractères à moins de 40 ms d'intervalle, puis Entrée.
+  const SCAN_MAX_GAP_MS = 40;
+  const SCAN_ENTER_MS = 150;
   const REFRESH_MS = 700; // relance discrète de la recherche après un changement d'état
-  const MIN = 60 * 1000;
   const LOGIN_URL = '/login';
 
   // Statuts sans carte promo pour lesquels le visiteur n'a pas joué : il peut se réinscrire.
@@ -56,10 +70,22 @@
   let refreshTimer = 0;
 
   const busy = new Set(); // remises en cours d'envoi
+  // Remises envoyées restées sans réponse (réseau) : le serveur a pu les enregistrer ou non. Le
+  // bouton reste bloqué jusqu'à vérification (id → { person, sentAt }).
+  const unconfirmed = new Map();
+  const lateGives = new Map(); // id → { person, until } : remises vérifiées « non enregistrées »
+  let verifyTimer = 0;
+  let verifying = false;
+  const givenHere = new Map(); // id → heure (Date.now) d'une remise faite sur ce poste
+  let giveGuardUntil = 0; // performance.now() : fin de la garde contre le double appui
   let feedbackTimer = 0;
   let feedbackKind = 'hint';
   let armed = null; // bouton « Annuler » de « Dernières remises » en attente de confirmation
+  let armedAt = 0;
   let armedTimer = 0;
+  let armingTimer = 0;
+  // Frappe dans le champ : distingue une douchette (remise directe sur Entrée) d'une saisie à la main.
+  const keyLog = { times: [], manual: false, lastKeyAt: -1e9 };
 
   const isTouch = !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches;
 
@@ -187,6 +213,19 @@
 
   const placeOf = (p) => (p.tableNo ? `Table ${p.tableNo} · ${p.slot}` : '');
 
+  const isBusy = (id) => busy.has(id) || unconfirmed.has(id);
+
+  // Carte remise depuis ce poste il y a peu (ou remise en cours d'envoi déjà visible dans l'état reçu) :
+  // affichée « Remise ✓ » en vert, et non « Déjà remise » en rouge.
+  function isJustGiven(p) {
+    if (!p.goodiesGivenAt) return false;
+    if (isBusy(p.id)) return true;
+    const t = givenHere.get(p.id);
+    return !!t && Date.now() - t < JUST_GIVEN_MS;
+  }
+
+  const truncated = () => !!results && results.length >= SEARCH_LIMIT;
+
   function findPerson(id) {
     const lists = [results || [], view ? view.pending : [], view ? view.recentGiven : []];
     for (const list of lists) {
@@ -308,9 +347,14 @@
       setFeedback(`<div class="fb fb-hint">${icon('i-info')}<div class="fb-text"><strong>Tapez au moins 2 caractères.</strong><small>Nom, prénom ou n° de billet.</small></div></div>`, 'hint');
       return;
     }
+    // Le serveur s'arrête à 25 résultats : le visiteur cherché peut ne pas être affiché.
+    if (layout.dataset.mode === 'results' && truncated() && q === resultsQuery) {
+      setFeedback(`<div class="fb fb-hint">${icon('i-info')}<div class="fb-text"><strong>Seuls les ${SEARCH_LIMIT} premiers résultats sont affichés.</strong><small>Précisez la recherche : nom complet ou n° de billet entier.</small></div></div>`, 'hint');
+      return;
+    }
     const tip = isTouch
       ? 'Les résultats s’affichent dès 2 caractères.'
-      : 'Résultats dès 2 caractères · n° de billet complet + Entrée : remise directe · Échap : effacer.';
+      : 'Résultats dès 2 caractères · Entrée : choisit la carte, Entrée de nouveau : la remet · Échap : effacer.';
     setFeedback(`<div class="fb fb-hint">${icon('i-info')}<div class="fb-text"><strong>Demandez au visiteur son nom ou son n° de billet.</strong><small>${tip}</small></div></div>`, 'hint');
   }
 
@@ -323,16 +367,25 @@
     );
   }
 
-  function showReceipt(p) {
+  function showReceipt(p, note = '') {
     const name = fullName(p);
     setFeedback(
       `<div class="fb fb-done" style="--bq-undo-ms:${UNDO_MS}ms">${icon('i-check')}
-        <div class="fb-text"><strong>Carte promo remise à ${esc(name)}</strong><small>Billet ${esc(p.ticket)} · ${esc(clock(now()))}</small></div>
+        <div class="fb-text"><strong>Carte promo remise à ${esc(name)}</strong><small>${note ? `${esc(note)} · ` : ''}Billet ${esc(p.ticket)} · ${esc(clock(now()))}</small></div>
         <button type="button" class="btn btn-undo-now" data-action="undo-last" data-id="${p.id}" aria-label="Annuler la remise de la carte promo de ${esc(name)}">${icon('i-undo')}Annuler</button>
         <span class="fb-timer" aria-hidden="true"></span>
       </div>`,
       'done',
       UNDO_MS,
+    );
+  }
+
+  // Remise envoyée, réponse du serveur jamais arrivée : elle a pu être enregistrée (le message part
+  // dès le retour du réseau) ou perdue. Rien n'est affirmé avant vérification ; le message reste.
+  function showUnconfirmed(p) {
+    setFeedback(
+      `<div class="fb fb-warn">${icon('i-clock')}<div class="fb-text"><strong>Remise non confirmée (réseau) : ${esc(fullName(p))}</strong><small>N’appuyez pas de nouveau : vérification automatique au retour de la connexion.</small></div></div>`,
+      'error',
     );
   }
 
@@ -352,6 +405,17 @@
     const title = stats.pending > 0 ? `(${stats.pending}) Boutique – Cartes promo Riftbound` : 'Boutique – Cartes promo Riftbound';
     if (document.title !== title) document.title = title;
     $('#admin-note').hidden = !view.partial;
+    // Connecté avec le mot de passe de l'accueil : compteurs limités aux parties du jour.
+    setTitle($('#stat-pending-box'), view.partial
+      ? 'Joueurs des parties du jour qui n’ont pas encore reçu leur carte promo (connecté avec le mot de passe de l’accueil : les jours précédents ne sont pas comptés ; la recherche les trouve)'
+      : 'Joueurs ayant terminé leur partie qui n’ont pas encore reçu leur carte promo (tous les jours)');
+    setTitle($('#stat-given-box'), view.partial
+      ? 'Cartes promo des parties du jour remises depuis le début de la journée'
+      : 'Cartes promo remises depuis le début de la journée');
+  }
+
+  function setTitle(el, text) {
+    if (el && el.title !== text) el.title = text;
   }
 
   function updateListHead() {
@@ -365,16 +429,22 @@
         return;
       }
       const due = results.filter((p) => stateOf(p) === 'due').length;
-      setText(listCount, results.length);
+      const more = truncated();
+      setText(listCount, more ? `${results.length}+` : results.length);
       listCount.classList.toggle('is-pending', due > 0);
-      setText(listSub, `pour « ${resultsQuery} »${due ? ` · ${plural(due, 'carte à remettre', 'cartes à remettre')}` : ''}`);
+      setText(
+        listSub,
+        `pour « ${resultsQuery} »${due ? ` · ${plural(due, 'carte à remettre', 'cartes à remettre')}` : ''}${more ? ` · ${SEARCH_LIMIT} premiers` : ''}`,
+      );
     } else {
       setText(listTitle, 'Cartes promo à remettre');
       const n = view ? view.stats.pending : 0;
       setText(listCount, view ? n : '–');
       listCount.classList.toggle('is-pending', n > 0);
-      setText(listSub, n > 1 ? 'plus récentes d’abord' : '');
+      const partial = view && view.partial ? 'parties du jour' : '';
+      setText(listSub, [partial, n > 1 ? 'plus récentes d’abord' : ''].filter(Boolean).join(' · '));
     }
+    $('#results-more').hidden = !(layout.dataset.mode === 'results' && truncated());
   }
 
   // ================================================================ liste « À remettre »
@@ -397,7 +467,7 @@
         <span class="prow-meta"><span><span class="ticket-lbl">Billet</span> <span class="ticket-val">${esc(p.ticket)}</span></span>${where ? `<span>${esc(where)}</span>` : ''}</span>
       </div>
       ${isNew ? '<span class="chip chip-new">Nouveau</span>' : ''}${otherDay ? `<span class="chip chip-day">Jour ${esc(p.dayNumber)}</span>` : ''}
-      <button type="button" class="btn btn-give is-compact" data-action="give" data-id="${p.id}"${busy.has(p.id) ? ' disabled aria-busy="true"' : ''}
+      <button type="button" class="btn btn-give is-compact" data-action="give" data-id="${p.id}"${isBusy(p.id) ? ' disabled aria-busy="true"' : ''}
         aria-label="Remettre la carte promo à ${esc(name)}, billet ${esc(p.ticket)}">${icon('i-card')}Remettre</button>
     </li>`;
   }
@@ -406,17 +476,21 @@
     const items = view.pending;
     if (!items.length) {
       const playing = view.stats.playing;
+      const later = playing
+        ? `${esc(plural(playing, 'joueur est', 'joueurs sont'))} en jeu : leur carte sera à remettre à la fin de leur partie.`
+        : 'Les joueurs apparaissent ici dès la fin de leur partie.';
+      // Vue partielle (mot de passe de l'accueil) : des cartes des jours précédents peuvent rester dues.
       setEmpty(
         pendingList,
-        `<li class="empty"><strong>Aucune carte promo à remettre pour l’instant.</strong>${
-          playing ? `${esc(plural(playing, 'joueur est', 'joueurs sont'))} en jeu : leur carte sera à remettre à la fin de leur partie.` : 'Les joueurs apparaissent ici dès la fin de leur partie.'
-        }</li>`,
+        view.partial
+          ? `<li class="empty"><strong>Aucune carte promo à remettre pour les parties du jour.</strong>Cartes des jours précédents : recherchez le visiteur par nom ou n° de billet. ${later}</li>`
+          : `<li class="empty"><strong>Aucune carte promo à remettre pour l’instant.</strong>${later}</li>`,
       );
     } else {
       const day = view.day.number;
       reconcile(pendingList, items, {
         key: (p) => p.id,
-        sig: (p) => JSON.stringify([p.firstName, p.lastName, p.ticket, p.dayNumber, day, p.tableNo, p.slot, p.endedAt, isToday(p.endedAt || 0), newUntil.has(p.id), busy.has(p.id)]),
+        sig: (p) => JSON.stringify([p.firstName, p.lastName, p.ticket, p.dayNumber, day, p.tableNo, p.slot, p.endedAt, isToday(p.endedAt || 0), newUntil.has(p.id), isBusy(p.id)]),
         build: buildPending,
         live: true,
       });
@@ -453,7 +527,7 @@
   function renderRecent() {
     const items = view.recentGiven;
     if (!items.length) {
-      setEmpty(recentList, '<li class="empty">Aucune carte promo remise pour l’instant.</li>');
+      setEmpty(recentList, `<li class="empty">${view.partial ? 'Aucune carte promo remise pour les parties du jour.' : 'Aucune carte promo remise pour l’instant.'}</li>`);
       return;
     }
     reconcile(recentList, items, {
@@ -477,13 +551,17 @@
     const q = resultsQuery;
     const nameNeedles = fold(q).split(' ');
     const otherDay = view && p.dayNumber !== view.day.number;
+    const justGiven = st === 'given' && isJustGiven(p);
     let body = '';
     let action = '';
     if (st === 'due') {
       const detail = [p.endedAt ? `Partie terminée ${when(p.endedAt)}` : 'Partie terminée', placeOf(p)].filter(Boolean).join(' · ');
       body = stateBox('due', 'i-check', 'Carte promo à remettre', esc(detail));
-      action = `<button type="button" class="btn btn-give" data-action="give" data-id="${p.id}"${busy.has(p.id) ? ' disabled aria-busy="true"' : ''}
+      action = `<button type="button" class="btn btn-give" data-action="give" data-id="${p.id}"${isBusy(p.id) ? ' disabled aria-busy="true"' : ''}
         aria-label="Remettre la carte promo à ${esc(name)}, billet ${esc(p.ticket)}">${icon('i-card')}Remettre la carte promo</button>`;
+    } else if (st === 'given' && justGiven) {
+      // Remise à l'instant sur ce poste (paire trouvée par un nom commun : l'autre carte reste affichée).
+      body = stateBox('done', 'i-check', `Carte promo remise ${when(p.goodiesGivenAt)}`, 'Depuis ce poste. Une seule carte promo par joueur : n’en remettez pas une deuxième.');
     } else if (st === 'given') {
       body = stateBox('given', 'i-stop', `Déjà remise ${dateTime(p.goodiesGivenAt)}`, 'Une seule carte promo par joueur : n’en remettez pas une deuxième.');
     } else if (st === 'playing') {
@@ -500,7 +578,7 @@
       const extra = CAN_REREGISTER.has(p.status) ? ' N’a pas joué : peut se réinscrire à l’accueil.' : '';
       body = stateBox('none', 'i-ban', 'Pas de carte promo', `${esc(`Raison : ${reason}.`)}${esc(extra)}`);
     }
-    return `<article class="pcard is-${st}" data-state="${st}" aria-label="${esc(name)}">
+    return `<article class="pcard is-${st}${justGiven ? ' is-just-given' : ''}" data-state="${st}" aria-label="${esc(name)}">
       <div class="pcard-id">
         <h3 class="pcard-name">${highlight(name, nameNeedles, fold)}</h3>
         <div class="pcard-meta">
@@ -521,13 +599,14 @@
     } else if (!results.length) {
       setEmpty(
         resultsList,
-        `<p class="empty"><strong>Aucun visiteur trouvé pour « ${esc(resultsQuery)} ».</strong>Vérifiez l’orthographe ou demandez le n° de billet. Un visiteur introuvable ne s’est pas inscrit à l’accueil : pas de carte promo.</p>`,
+        // Introuvable ne veut pas dire « pas de carte » : faute de frappe à l'inscription, nom composé…
+        `<p class="empty"><strong>Aucun visiteur trouvé pour « ${esc(resultsQuery)} ».</strong>Essayez le n°&nbsp;de billet, ou seulement le prénom ou le nom. Toujours introuvable&nbsp;: envoyez le visiteur à l’accueil du stand (l’inscription contient peut-être une faute).</p>`,
       );
     } else {
       const day = view ? view.day.number : 0;
       const replaced = reconcile(resultsList, results, {
         key: (p) => p.id,
-        sig: (p) => JSON.stringify([resultsQuery, p.firstName, p.lastName, p.ticket, p.status, p.goodiesGivenAt, p.tableNo, p.slot, p.endsAt, p.endedAt, p.dayNumber, day, busy.has(p.id)]),
+        sig: (p) => JSON.stringify([resultsQuery, p.firstName, p.lastName, p.ticket, p.status, p.goodiesGivenAt, p.tableNo, p.slot, p.endsAt, p.endedAt, p.dayNumber, day, isBusy(p.id), isJustGiven(p)]),
         build: buildCard,
         live,
       });
@@ -537,6 +616,7 @@
       }
     }
     updateListHead();
+    if (feedbackKind === 'hint') showHint();
   }
 
   function announceResults() {
@@ -544,7 +624,7 @@
     const q = resultsQuery;
     const first = results[0];
     let text;
-    if (!results.length) text = `Aucun visiteur trouvé pour ${q}.`;
+    if (!results.length) text = `Aucun visiteur trouvé pour ${q}. Essayez le n° de billet, ou seulement le prénom ou le nom.`;
     else if (first && isExact(first, q)) {
       const st = stateOf(first);
       const what = {
@@ -557,7 +637,8 @@
       text = `Billet exact : ${fullName(first)}, ${what}.`;
     } else {
       const due = results.filter((p) => stateOf(p) === 'due').length;
-      text = `${plural(results.length, 'résultat', 'résultats')}. ${due ? plural(due, 'carte promo à remettre', 'cartes promo à remettre') : 'Aucune carte promo à remettre'}.`;
+      const count = truncated() ? `${SEARCH_LIMIT} premiers résultats seulement, précisez la recherche` : plural(results.length, 'résultat', 'résultats');
+      text = `${count}. ${due ? plural(due, 'carte promo à remettre', 'cartes promo à remettre') : 'Aucune carte promo à remettre'}.`;
     }
     srResults.textContent = text;
   }
@@ -580,7 +661,15 @@
     resultsList.hidden = mode !== 'results';
     listScroll.scrollTop = 0;
     if (mode === 'results') renderResults();
+    // La liste « À remettre » réapparaît à la place des résultats : un appui qui arrive juste
+    // après viserait une ligne que l'employé n'a pas encore vue (même garde qu'une ligne qui bouge).
+    else markMoved(pendingList);
     updateListHead();
+  }
+
+  function markMoved(container) {
+    const t = String(Math.round(performance.now()));
+    for (const el of container.children) if (el.dataset.key) el.dataset.movedAt = t;
   }
 
   function setView(v) {
@@ -611,7 +700,10 @@
     try {
       const res = await client.action('boutiqueSearch', { query: q });
       if (seq !== searchSeq) return null;
-      results = (Array.isArray(res) ? res : []).map(pick);
+      const fresh = (Array.isArray(res) ? res : []).map(pick);
+      // Relance discrète de la même recherche : les cartes déjà affichées gardent leur place (le
+      // serveur remonte les cartes dues : une carte ne glisse pas sous le doigt de l'employé).
+      results = silent && results && q === resultsQuery ? keepOrder(results, fresh) : fresh;
       resultsQuery = q;
       renderResults({ live: silent });
       if (!silent) announceResults();
@@ -631,6 +723,13 @@
         busyEl.hidden = true;
       }
     }
+  }
+
+  function keepOrder(previous, fresh) {
+    const byId = new Map(fresh.map((p) => [p.id, p]));
+    const kept = previous.filter((p) => byId.has(p.id)).map((p) => byId.get(p.id));
+    const known = new Set(kept.map((p) => p.id));
+    return kept.concat(fresh.filter((p) => !known.has(p.id)));
   }
 
   // Après un changement d'état : la recherche affichée est relancée discrètement (au plus une fois
@@ -675,6 +774,7 @@
 
   function clearSearch() {
     if (input.value) input.value = '';
+    resetKeyLog();
     clearBtn.hidden = true;
     cancelSearch();
     setMode('pending');
@@ -682,9 +782,42 @@
     input.focus({ preventScroll: true });
   }
 
-  // Entrée : recherche immédiate ; n° de billet complet → remise directe si la carte est due
-  // (lecteur de code-barres), sinon l'état est rappelé dans la zone de retour.
-  async function onEnter() {
+  // ---------------------------------------------------------------- douchette ou saisie à la main
+
+  function resetKeyLog() {
+    keyLog.times = [];
+    keyLog.manual = false;
+  }
+
+  // Chaque caractère du champ vient d'une touche, à moins de SCAN_MAX_GAP_MS de la précédente, et
+  // Entrée suit aussitôt : c'est un lecteur de code-barres (personne ne tape aussi vite). Un collage,
+  // une correction, la saisie prédictive d'un clavier tactile comptent comme saisie à la main.
+  function isScanned() {
+    const n = Array.from(input.value).length;
+    const ts = keyLog.times;
+    if (keyLog.manual || n < 4 || ts.length !== n) return false;
+    for (let i = 1; i < ts.length; i++) if (ts[i] - ts[i - 1] > SCAN_MAX_GAP_MS) return false;
+    return performance.now() - ts[ts.length - 1] <= SCAN_ENTER_MS;
+  }
+
+  // Met le focus sur le bouton « Remettre » d'une carte : Entrée une seconde fois remet la carte,
+  // après que l'employé a vu le nom (une faute d'un chiffre dans le billet viserait le voisin de paire).
+  function focusGive(p, exact) {
+    const btn = resultsList.querySelector(`[data-action="give"][data-id="${p.id}"]`);
+    if (!btn) return;
+    btn.focus();
+    btn.dataset.focusedAt = String(Math.round(performance.now()));
+    showMessage(
+      'info',
+      `${exact ? 'Billet exact' : 'Une carte à remettre'} : ${fullName(p)}, billet ${p.ticket}.`,
+      'Vérifiez le nom, puis Entrée (ou « Remettre la carte promo ») pour cocher la remise.',
+    );
+  }
+
+  // Entrée : recherche immédiate. Billet exact dont la carte est due : la carte est choisie (focus
+  // sur « Remettre », un second Entrée la remet) ; remise directe seulement avec une douchette.
+  // Autre état : rappelé dans la zone de retour.
+  async function onEnter(scanned) {
     const q = cleanQuery(input.value);
     if (q.length < 2) return;
     const fresh = q === resultsQuery && results && !debounceTimer && !userSearchPending;
@@ -694,7 +827,8 @@
     if (first && isExact(first, q)) {
       const st = stateOf(first);
       if (st === 'due') {
-        give(first.id, null);
+        if (scanned) give(first.id, null);
+        else focusGive(first, true);
       } else if (st === 'given') {
         showMessage('error', `Carte promo déjà remise ${dateTime(first.goodiesGivenAt)}.`, `${fullName(first)} · billet ${first.ticket} : n’en remettez pas une deuxième.`);
       } else if (st === 'playing') {
@@ -708,10 +842,7 @@
     }
     // Une seule carte due parmi les résultats : le focus va sur son bouton (Entrée pour remettre).
     const due = res.filter((p) => stateOf(p) === 'due');
-    if (due.length === 1) {
-      const btn = resultsList.querySelector(`[data-action="give"][data-id="${due[0].id}"]`);
-      if (btn) btn.focus();
-    }
+    if (due.length === 1) focusGive(due[0], false);
   }
 
   // ================================================================ remise et annulation
@@ -735,36 +866,65 @@
     el.classList.add('is-updated');
   }
 
+  const anonymous = (id) => ({ id, firstName: 'Joueur', lastName: '', ticket: '' });
+
   async function give(id, btn) {
     if (busy.has(id)) return;
+    if (unconfirmed.has(id)) {
+      // Une remise précédente attend encore sa confirmation : la renvoyer ferait croire, au retour du
+      // réseau, que la carte a été remise ailleurs (« déjà remise »).
+      showUnconfirmed(unconfirmed.get(id).person);
+      verifyUnconfirmed();
+      return;
+    }
+    const t = performance.now();
+    // Double appui : ignoré sans message, pour garder le reçu (et son « Annuler ») de la vraie remise.
+    if (btn && t < giveGuardUntil) return;
+    if (btn && t - Number(btn.dataset.focusedAt || -1e9) < ENTER_CONFIRM_MS) return;
     if (!online) {
       offlineMessage();
       return;
     }
     const row = btn && btn.closest('[data-key]');
-    if (row && performance.now() - Number(row.dataset.movedAt || -1e9) < MOVE_GUARD_MS) {
+    if (row && t - Number(row.dataset.movedAt || -1e9) < MOVE_GUARD_MS) {
       showMessage('info', 'La liste vient de changer.', 'Vérifiez le nom, puis appuyez de nouveau.');
       flash(row);
+      // Le délai repart : un double appui sur une ligne qui vient de bouger reste sans effet.
+      row.dataset.movedAt = String(Math.round(t));
       return;
     }
     const person = findPerson(id);
     busy.add(id);
     setBusy(id, true);
+    const guard = t + GIVE_GUARD_MS;
+    giveGuardUntil = Math.max(giveGuardUntil, guard);
     try {
       await client.action('giveGoodies', { participantId: id, given: true });
-      showReceipt(person || { id, firstName: 'Joueur', lastName: '', ticket: '' });
-      // Visiteur suivant : champ vidé, liste « À remettre », focus dans le champ.
-      if (input.value) {
-        input.value = '';
-        clearBtn.hidden = true;
-        cancelSearch();
-        setMode('pending');
-      }
-      setView('pending');
-      input.focus({ preventScroll: true });
+      giveGuardUntil = Math.max(giveGuardUntil, performance.now() + GIVE_GUARD_MS);
+      lateGives.delete(id);
+      givenHere.set(id, Date.now());
+      afterGiven(id, person || anonymous(id));
     } catch (err) {
+      if (giveGuardUntil === guard) giveGuardUntil = 0; // échec : on peut réessayer tout de suite
       const name = person ? fullName(person) : 'Ce joueur';
-      if (err.code === 'already_given') {
+      const late = lateGives.get(id);
+      if (err.code === 'timeout') {
+        // Sans réponse (réseau coupé, serveur lent) : le message est peut-être déjà parti et sera
+        // exécuté au retour du réseau. Ni succès ni échec affirmé : vérification automatique.
+        unconfirmed.set(id, { person: person || anonymous(id) });
+        const seen = view && view.recentGiven.find((p) => p.id === id);
+        if (seen) resolveUnconfirmed(id, seen); // l'état reçu entre-temps la montre déjà remise
+        else {
+          showUnconfirmed(person || anonymous(id));
+          scheduleVerify(0);
+        }
+      } else if (err.code === 'already_given' && late && Date.now() < late.until) {
+        // La remise « non enregistrée » de ce poste est finalement arrivée au serveur : c'est elle.
+        lateGives.delete(id);
+        giveGuardUntil = Math.max(giveGuardUntil, performance.now() + GIVE_GUARD_MS);
+        givenHere.set(id, Date.now());
+        afterGiven(id, person || late.person, 'Enregistrée au retour du réseau');
+      } else if (err.code === 'already_given') {
         // Deux postes en même temps : la carte a déjà été remise ailleurs.
         const givenAt = err.details && err.details.givenAt;
         if (results && givenAt) {
@@ -783,8 +943,104 @@
       input.focus({ preventScroll: true });
     } finally {
       busy.delete(id);
-      setBusy(id, false);
+      setBusy(id, isBusy(id));
     }
+  }
+
+  // Après une remise : visiteur suivant (champ vidé, liste « À remettre »), sauf si la recherche
+  // affichée contient d'autres cartes dues (paire ou famille trouvée par son nom) : elle reste, la
+  // carte remise passe à « Remise ✓ » sans que les autres bougent, le champ est sélectionné.
+  function afterGiven(id, person, note) {
+    showReceipt(person, note);
+    if (results) results = results.map((r) => (r.id === id && !r.goodiesGivenAt ? { ...r, goodiesGivenAt: now() } : r));
+    const othersDue = layout.dataset.mode === 'results' && results ? results.filter((r) => r.id !== id && stateOf(r) === 'due').length : 0;
+    if (othersDue) {
+      renderResults();
+      srResults.textContent = `Encore ${plural(othersDue, 'carte promo à remettre', 'cartes promo à remettre')} dans ces résultats.`;
+      input.focus({ preventScroll: true });
+      input.select();
+      return;
+    }
+    if (input.value) {
+      input.value = '';
+      resetKeyLog();
+      clearBtn.hidden = true;
+      cancelSearch();
+      setMode('pending');
+    }
+    setView('pending');
+    input.focus({ preventScroll: true });
+  }
+
+  // ---------------------------------------------------------------- remises non confirmées (réseau)
+
+  function scheduleVerify(delay) {
+    clearTimeout(verifyTimer);
+    verifyTimer = setTimeout(verifyUnconfirmed, delay);
+  }
+
+  // Une recherche envoyée APRÈS la remise sur la même connexion est traitée après elle par le serveur
+  // (ordre garanti) ; une connexion perdue entre-temps a perdu la remise avec elle. Sa réponse dit
+  // donc avec certitude si la carte a été enregistrée.
+  async function verifyUnconfirmed() {
+    clearTimeout(verifyTimer);
+    verifyTimer = 0;
+    if (verifying || !unconfirmed.size) return;
+    if (!online) return; // relancé au retour de la connexion (setConnection)
+    verifying = true;
+    let retry = false;
+    try {
+      for (const [id, { person: p }] of Array.from(unconfirmed)) {
+        const ticket = cleanQuery(p.ticket);
+        const q = ticket.length >= 2 ? ticket : cleanQuery(fullName(p));
+        let res;
+        try {
+          res = await client.action('boutiqueSearch', { query: q });
+        } catch (err) {
+          retry = true;
+          break;
+        }
+        if (!unconfirmed.has(id)) continue; // confirmé entre-temps par l'état reçu
+        const fresh = (Array.isArray(res) ? res : []).map(pick).find((x) => x.id === id);
+        resolveUnconfirmed(id, fresh || null);
+      }
+    } finally {
+      verifying = false;
+      if (unconfirmed.size) scheduleVerify(retry ? VERIFY_RETRY_MS : 0);
+    }
+  }
+
+  function resolveUnconfirmed(id, fresh) {
+    const u = unconfirmed.get(id);
+    if (!u) return;
+    const p = u.person;
+    unconfirmed.delete(id);
+    setBusy(id, isBusy(id));
+    const person = fresh ? { ...p, ...fresh } : p;
+    if (results && fresh) results = results.map((r) => (r.id === id ? { ...r, ...fresh } : r));
+    if (fresh && fresh.goodiesGivenAt) {
+      givenHere.set(id, Date.now());
+      showReceipt(person, 'Confirmée au retour du réseau');
+    } else if (fresh && stateOf(fresh) === 'due') {
+      lateGives.set(id, { person, until: Date.now() + LATE_MS });
+      showMessage('error', `Remise non enregistrée (réseau) : ${fullName(person)}.`, 'Sa carte promo est toujours à remettre : appuyez de nouveau sur « Remettre ».');
+    } else {
+      showMessage('error', `Remise non confirmée : ${fullName(person)}.`, 'Recherchez le visiteur pour vérifier son état.');
+    }
+    if (view) renderPending();
+    if (results) renderResults();
+    refreshNow();
+  }
+
+  // Remise jugée perdue, finalement enregistrée (paquet arrivé en retard par l'ancienne connexion).
+  function lateArrived(id, fresh) {
+    const late = lateGives.get(id);
+    lateGives.delete(id);
+    if (!late || Date.now() >= late.until) return;
+    givenHere.set(id, Date.now());
+    if (results) results = results.map((r) => (r.id === id ? { ...r, ...fresh } : r));
+    showReceipt({ ...late.person, ...fresh }, 'Enregistrée au retour du réseau');
+    if (results) renderResults();
   }
 
   async function undo(id, btn) {
@@ -797,10 +1053,16 @@
     if (btn) btn.disabled = true;
     try {
       await client.action('giveGoodies', { participantId: id, given: false });
+      givenHere.delete(id);
+      lateGives.delete(id);
       showMessage('info', `Remise annulée : ${name}.`, 'Sa carte promo est de nouveau à remettre.');
       refreshNow();
     } catch (err) {
-      showMessage('error', err.message || 'Annulation impossible.', 'La remise n’a pas été annulée.');
+      if (err.code === 'timeout') {
+        showMessage('error', 'Annulation non confirmée (réseau).', 'Vérifiez « Dernières remises » au retour de la connexion.');
+      } else {
+        showMessage('error', err.message || 'Annulation impossible.', 'La remise n’a pas été annulée.');
+      }
     } finally {
       if (btn && btn.isConnected) btn.disabled = false;
       input.focus({ preventScroll: true });
@@ -809,8 +1071,9 @@
 
   function disarm() {
     clearTimeout(armedTimer);
+    clearTimeout(armingTimer);
     if (armed && armed.isConnected) {
-      armed.classList.remove('is-confirm');
+      armed.classList.remove('is-confirm', 'is-arming');
       const label = armed.querySelector('.btn-undo-label');
       if (label) label.textContent = 'Annuler';
       if (armed.dataset.label) armed.setAttribute('aria-label', armed.dataset.label);
@@ -818,16 +1081,20 @@
     armed = null;
   }
 
-  // « Annuler » dans « Dernières remises » : un premier appui demande confirmation (5 s).
+  // « Annuler » dans « Dernières remises » : un premier appui demande confirmation (5 s). Le second
+  // appui n'est pris qu'après CONFIRM_ARM_MS : un double appui ou un double-clic ne confirme pas.
   function undoRecent(btn, id) {
     if (armed === btn) {
+      if (performance.now() - armedAt < CONFIRM_ARM_MS) return;
       disarm();
       undo(id, btn);
       return;
     }
     disarm();
     armed = btn;
-    btn.classList.add('is-confirm');
+    armedAt = performance.now();
+    btn.classList.add('is-confirm', 'is-arming');
+    armingTimer = setTimeout(() => btn.classList.remove('is-arming'), CONFIRM_ARM_MS);
     const label = btn.querySelector('.btn-undo-label');
     if (label) label.textContent = 'Confirmer l’annulation';
     btn.dataset.label = btn.getAttribute('aria-label') || '';
@@ -865,6 +1132,11 @@
       renderResults({ live: true });
       scheduleRefresh();
     }
+    // Remise restée sans réponse, désormais visible comme remise : elle a bien été enregistrée.
+    for (const p of next.recentGiven) {
+      if (unconfirmed.has(p.id)) resolveUnconfirmed(p.id, p);
+      else if (lateGives.has(p.id)) lateArrived(p.id, p);
+    }
   }
 
   function setConnection(isOnline) {
@@ -875,9 +1147,24 @@
     $('#offline-banner').hidden = isOnline;
     document.body.classList.toggle('is-offline', !isOnline);
     if (isOnline && results) refreshNow();
+    if (isOnline && unconfirmed.size) scheduleVerify(0);
   }
 
   // ================================================================ événements
+
+  // Heure de chaque touche caractère (y compris celle qui ramène le focus dans le champ).
+  document.addEventListener('keydown', (e) => {
+    if (e.key && e.key.length === 1) keyLog.lastKeyAt = performance.now();
+  }, true);
+
+  input.addEventListener('input', (e) => {
+    const t = performance.now();
+    if (Array.from(input.value).length <= 1) resetKeyLog();
+    if (!input.value) return;
+    const typed = e.inputType === 'insertText' && typeof e.data === 'string' && Array.from(e.data).length === 1;
+    if (typed && t - keyLog.lastKeyAt < 100) keyLog.times.push(t);
+    else keyLog.manual = true;
+  });
 
   input.addEventListener('input', onInput);
 
@@ -888,7 +1175,7 @@
       clearSearch();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      onEnter();
+      onEnter(isScanned());
     }
   });
 
@@ -924,9 +1211,13 @@
     if ((e.key.length === 1 && e.key !== ' ') || e.key === 'Backspace') input.focus({ preventScroll: true });
   });
 
-  // « dans N min » des parties en cours.
+  // « dans N min » des parties en cours ; « Remise ✓ » (vert) qui redevient « Déjà remise » (rouge).
   setInterval(() => {
     for (const el of resultsList.querySelectorAll('[data-ends]')) setText(el, untilText(Number(el.dataset.ends)));
+    const t = Date.now();
+    for (const [id, at] of givenHere) if (t - at >= JUST_GIVEN_MS) givenHere.delete(id);
+    for (const [id, late] of lateGives) if (t >= late.until) lateGives.delete(id);
+    if (results) renderResults();
   }, 20000);
 
   // ================================================================ démarrage
