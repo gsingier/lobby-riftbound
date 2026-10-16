@@ -1,4 +1,4 @@
-// Client temps réel partagé par l'écran TV et l'accueil.
+// Client temps réel partagé par l'écran TV, l'accueil et la boutique.
 // Nécessite /socket.io/socket.io.js chargé avant ce fichier.
 (function () {
   'use strict';
@@ -20,6 +20,18 @@
     socket.on('disconnect', () => onStatus && onStatus(false));
     socket.on('connect_error', () => onStatus && onStatus(false));
 
+    // Connexion probablement perdue (action restée sans réponse, navigateur hors ligne) : on la
+    // referme et on la rouvre aussitôt. « disconnect » affiche « Déconnecté » tout de suite, sans
+    // attendre le battement du serveur (10 à 20 s) ; si le serveur était seulement lent, la
+    // reconnexion est immédiate et l'état est renvoyé. Déjà en cours de reconnexion : rien à faire.
+    function reconnect() {
+      if (!socket.connected) return;
+      socket.disconnect();
+      socket.connect();
+    }
+    // engine.io-client coupe déjà la connexion sur « offline », sauf pour http://localhost.
+    window.addEventListener('offline', reconnect);
+
     return {
       socket,
       // Heure du serveur, pour des comptes à rebours identiques sur tous les écrans.
@@ -30,6 +42,7 @@
         return new Promise((resolve, reject) => {
           socket.timeout(10000).emit('action', { type, payload }, (err, res) => {
             if (err) {
+              reconnect();
               reject(Object.assign(new Error('Le serveur ne répond pas. Vérifiez la connexion.'), { code: 'timeout' }));
             } else if (!res || !res.ok) {
               reject(Object.assign(new Error((res && res.message) || 'Erreur inconnue.'), res || {}));

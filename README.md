@@ -6,7 +6,8 @@ Application de **file d'attente et de placement aux tables** pour le stand
 Les visiteurs s'inscrivent à l'accueil ; l'application les place
 automatiquement à une table dès qu'un emplacement se libère, lance un compte à
 rebours d'**1 heure** par partie et affiche le tout en temps réel sur une TV.
-Rester jusqu'au bout donne droit aux **goodies**.
+Rester jusqu'au bout donne droit aux **goodies** : une **carte promo**, que le
+joueur vient chercher à la **boutique** (page `/boutique`) ou à l'accueil.
 
 ## Fonctionnalités
 
@@ -35,7 +36,10 @@ Rester jusqu'au bout donne droit aux **goodies**.
   goodies » (qui sort les deux joueurs) s'il n'y a plus personne, sinon la
   partie continue.
 - File d'attente : **« Retirer »** un joueur absent (il pourra se réinscrire).
-- Liste **« Goodies à remettre »** avec bouton « Remis ».
+- Liste **« Goodies à remettre »** avec bouton « Remis ». Une carte promo
+  déjà remise à la boutique y passe toute seule en « Déjà remis » ; une
+  seconde remise est refusée (« Carte promo déjà remise le JJ/MM à HH:MM. »).
+  Le menu « ⋯ » propose **« Ouvrir la page boutique »**.
 - Recherche et correction d'un participant (raccourci **Ctrl + K**, **⌘ K** sur
   Mac, ou **/** hors d'un champ ; **Alt + R** reste accepté).
 - Réglages : durée des parties (1 h par défaut), tables hors service.
@@ -47,6 +51,25 @@ Rester jusqu'au bout donne droit aux **goodies**.
 - **« Nouvelle journée »** chaque matin (vide la file, rouvre le stand, garde
   tout l'historique).
 - **Export CSV** de tous les participants (compatible Excel).
+
+**Boutique (`/boutique`, protégée par mot de passe)**
+
+- Pour le personnel de la boutique, qui remet la **carte promo** aux joueurs
+  allés au bout de leur partie : le visiteur donne son **n° de billet** ou son
+  **nom**, la page dit s'il doit recevoir une carte.
+- Recherche par billet ou nom (2 caractères au moins, billet exact en tête) ;
+  pour chaque visiteur, son état : **carte à remettre**, **déjà remise** (date
+  et heure), **partie en cours** (table, heure de fin), **pas encore joué**,
+  **pas de carte** (parti avant la fin, absent…).
+- Remise cochée d'un appui, **une seule fois par joueur** : une seconde
+  remise, sur n'importe quel poste (boutique ou accueil), est refusée.
+  « Annuler » corrige une erreur (la carte redevient due).
+- Liste en direct des **cartes à remettre** (tous les jours du salon), des
+  20 dernières remises, et compteurs (à remettre, remises du jour, en jeu).
+- Mot de passe dédié **`BOUTIQUE_PASSWORD`** (facultatif) : ce rôle ne peut que
+  chercher et remettre des cartes (ni accueil, ni export CSV) et ne voit
+  **jamais l'email** des visiteurs. Le mot de passe de l'accueil ouvre aussi
+  cette page. Mode d'emploi : [guide de la boutique](docs/GUIDE-BOUTIQUE.md).
 
 **Écran TV (`/ecran`, public)**
 
@@ -107,8 +130,9 @@ l'hôtesse :
   Terminés, Goodies, Total), **Rechercher** (Ctrl + K, ⌘ K sur Mac, « / » hors
   d'un champ ; Alt + R en secours, car certains navigateurs l'interceptent),
   état de la connexion, **Réglages**, **Fermer le stand**, **Nouvelle
-  journée**, menu **« ⋯ »** (Exporter CSV, Déconnexion). Les notifications
-  s'affichent quelques secondes sur cette barre, sans couvrir les panneaux.
+  journée**, menu **« ⋯ »** (Ouvrir la page boutique, Exporter CSV,
+  Déconnexion). Les notifications s'affichent quelques secondes sur cette
+  barre, sans couvrir les panneaux.
 - **01 Inscrire** (colonne de gauche) : formulaire 1 ou 2 joueurs (joueur 1 =
   chaise du haut, joueur 2 = chaise du bas ; email « (facultatif) », billet
   obligatoire), vérification des doublons en direct, attente estimée (même
@@ -130,7 +154,8 @@ l'hôtesse :
   avec confirmation ; pour « Libérer », « Annuler » est sélectionné par
   défaut) ; pour un emplacement libre, mise hors service de la table.
 - **03 Goodies à remettre** et **File d'attente** (colonne de droite) : bouton
-  « Remis » / « Annuler » ; file avec rang, heure de passage estimée,
+  « Remis » / « Annuler » (rappel « Cartes promo aussi remises à la
+  boutique ») ; file avec rang, heure de passage estimée,
   « Placer quand même (vs animateur) » visible pour un joueur seul, et
   « Modifier » / « Retirer » dans le menu « ⋯ » de chaque ligne.
 - **Bandeaux** pleine largeur : « Stand fermé » (mauve, avec « Rouvrir le
@@ -139,6 +164,13 @@ l'hôtesse :
 - De 1280 à 1920 px de large : trois colonnes. En dessous (tablette 1024 × 768),
   deux colonnes, avec des onglets Plan / File / Goodies. Cibles tactiles d'au
   moins 44 px.
+
+**Boutique (`/boutique`)**, pensée pour une tablette au comptoir : barre du
+haut (logo, « Boutique · Cartes promo », jour du salon, compteurs, état de la
+connexion, Déconnexion), grand champ de recherche « Nom ou n° de billet »,
+liste « Cartes promo à remettre » et « Dernières remises » (onglets sur une
+tablette en portrait), rappel des états. Même thème Aurore que l'accueil ;
+bandeau rouge « Connexion au serveur perdue » en cas de coupure.
 
 **Écran TV (`/ecran`)** : en-tête (logo officiel dans une carte nacrée,
 « Paris Games Week · Stand Riftbound », horloge, « En direct » /
@@ -178,7 +210,10 @@ Puis ouvrez :
 - écran TV : <http://localhost:3000/ecran>
 - accueil : <http://localhost:3000/accueil> — mot de passe de développement :
   **`riftbound`** (utilisé seulement si `ACCUEIL_PASSWORD` n'est pas défini et
-  hors production ; un avertissement s'affiche alors dans le terminal).
+  hors production ; un avertissement s'affiche alors dans le terminal) ;
+- boutique : <http://localhost:3000/boutique> — avec le mot de passe de
+  l'accueil, ou un mot de passe dédié si `BOUTIQUE_PASSWORD` est défini
+  (`BOUTIQUE_PASSWORD=boutique npm start`).
 
 Les données sont enregistrées dans `data/lobby.db` (dossier ignoré par Git).
 Pour repartir de zéro, arrêtez l'application et supprimez le dossier `data/`.
@@ -217,8 +252,10 @@ dans le dossier `test/`.
 ### Avec Docker (facultatif)
 
 ```sh
-ACCUEIL_PASSWORD='un-mot-de-passe' docker compose up -d --build
+ACCUEIL_PASSWORD='un-mot-de-passe' BOUTIQUE_PASSWORD='un-autre-mot-de-passe' docker compose up -d --build
 ```
+
+(`BOUTIQUE_PASSWORD` est facultatif.)
 
 L'application est alors sur <http://localhost:3000>, avec ses données dans le
 volume Docker `lobby-data`. Voir [docker-compose.yml](docker-compose.yml) et le
@@ -230,17 +267,21 @@ directement) : si vous placez un proxy HTTPS devant, changez-la (voir
 
 | Variable | Rôle | Par défaut |
 |---|---|---|
-| `ACCUEIL_PASSWORD` | Mot de passe de l'accueil. **Obligatoire en production** : sans elle, l'application refuse de démarrer quand `NODE_ENV=production`. | `riftbound` en développement uniquement |
-| `SESSION_SECRET` | Clé de signature des sessions de l'accueil. Facultative. | générée au premier démarrage et conservée dans la base |
+| `ACCUEIL_PASSWORD` | Mot de passe de l'accueil (donne accès à tout, page boutique comprise). **Obligatoire en production** : sans elle, l'application refuse de démarrer quand `NODE_ENV=production`. | `riftbound` en développement uniquement |
+| `BOUTIQUE_PASSWORD` | Mot de passe de la boutique, **facultatif** : n'ouvre que `/boutique` (recherche et remise des cartes promo ; ni accueil, ni export CSV, jamais d'email affiché). Doit être **différent** de `ACCUEIL_PASSWORD` (identique, il ouvrirait l'accueil : un avertissement s'affiche au démarrage). | non défini : seul le mot de passe de l'accueil ouvre `/boutique` |
+| `SESSION_SECRET` | Clé de signature des sessions (accueil et boutique). Facultative. | générée au premier démarrage et conservée dans la base |
 | `DATA_DIR` | Dossier de la base `lobby.db`. | `./data` (local) · `/data` (image Docker) |
 | `PORT` | Port HTTP. | `3000` |
 | `NODE_ENV` | `production` active les contrôles de production. | non défini (local) · `production` (image Docker) |
 | `TZ` | Fuseau horaire du serveur (les heures affichées et exportées sont de toute façon à l'heure de Paris). | `Europe/Paris` dans l'image Docker |
 | `TRUST_PROXY` | Proxys dont l'application croit les en-têtes `X-Forwarded-For` / `X-Forwarded-Proto` (adresse IP du visiteur, HTTPS). Voir ci-dessous. | `loopback, linklocal, uniquelocal` · `false` dans `docker-compose.yml` |
 
-Changer `ACCUEIL_PASSWORD` ou `SESSION_SECRET` déconnecte toutes les sessions
-de l'accueil. Une session dure 7 jours. Après 10 mauvais mots de passe en
-5 minutes depuis une même adresse IP, la connexion est bloquée 5 minutes.
+Changer `ACCUEIL_PASSWORD` déconnecte toutes les sessions de l'accueil,
+changer `BOUTIQUE_PASSWORD` (ou la retirer) celles de la boutique, et changer
+`SESSION_SECRET` les deux. Ces variables ne servent qu'au démarrage : après un
+changement, redémarrez l'application. Une session dure 7 jours. Après 10
+mauvais mots de passe en 5 minutes depuis une même adresse IP (accueil et
+boutique confondus), la connexion est bloquée 5 minutes.
 
 **`TRUST_PROXY`.** Par défaut, l'application ne croit les en-têtes
 `X-Forwarded-*` que s'ils viennent d'une adresse locale ou privée (loopback,
@@ -276,23 +317,25 @@ Gardez donc ce domaine en HTTPS. En HTTP (essais, adresse `sslip.io`), ni
 |---|---|
 | `/` | redirige vers `/ecran` |
 | `/ecran` | écran TV public (options `?orientation=portrait`, `?rotation=90`) |
-| `/accueil` | interface de l'hôtesse (renvoie vers `/login` si non connecté) |
-| `/login` | connexion (mot de passe unique) |
-| `/api/export.csv` | export CSV de tous les participants (connecté) |
+| `/accueil` | interface de l'hôtesse (renvoie vers `/login` si non connecté, vers `/boutique` avec le mot de passe de la boutique) |
+| `/boutique` | remise des cartes promo (mot de passe de la boutique ou de l'accueil) |
+| `/login` | connexion : le mot de passe saisi ouvre l'accueil ou la boutique |
+| `/api/export.csv` | export CSV de tous les participants (accueil uniquement) |
 | `/healthz` | sonde de santé : `{"ok":true}` |
 
 ## Structure du projet
 
 ```
 ├── server/
-│   ├── index.js        serveur Express + Socket.IO, routes, actions de l'accueil
+│   ├── index.js        serveur Express + Socket.IO, routes, actions (accueil, boutique)
 │   ├── lobby.js        moteur métier : inscriptions, file, placement, timers
 │   ├── db.js           base SQLite (schéma)
-│   ├── auth.js         mot de passe de l'accueil, cookie de session signé
+│   ├── auth.js         mots de passe (accueil, boutique), cookie de session signé
 │   └── csv.js          export CSV (Excel, heure de Paris)
 ├── public/
 │   ├── ecran/          écran TV
 │   ├── accueil/        interface de l'hôtesse
+│   ├── boutique/       remise des cartes promo (boutique)
 │   ├── login.html      page de connexion
 │   ├── shared/         client temps réel commun (client.js) et thème (theme.css)
 │   └── assets/         logo officiel et visuels (voir public/assets/README.md)
@@ -315,6 +358,8 @@ fonctionne sans dépendre de Google Fonts ni d'un CDN.
   mise en ligne, nom de domaine et HTTPS, sauvegardes, mises à jour, dépannage.
 - [Guide de l'accueil](docs/GUIDE-ACCUEIL.md) : pour les hôtesses et
   animateurs du stand.
+- [Guide de la boutique](docs/GUIDE-BOUTIQUE.md) : pour le personnel qui
+  remet les cartes promo.
 - [Plan et règles métier](PLAN.md).
 - [Logos et visuels (en place, attendus)](public/assets/README.md).
 

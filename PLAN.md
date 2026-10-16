@@ -9,7 +9,10 @@ Riftbound (set **Radiance**) de la Paris Games Week.
 de billet et, s'ils acceptent de le donner, email). Ils sont mis en file
 d'attente puis placés automatiquement à une table dès qu'un emplacement se
 libère. Chaque partie dure **1 heure** : c'est le temps à rester à table pour
-gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente.
+gagner les goodies, une **carte promo** que le joueur vient chercher à la
+**boutique** à la fin de sa démo. Un écran TV diffuse le plan des tables et la
+file d'attente ; une page dédiée permet au personnel de la boutique de vérifier
+qu'un visiteur a droit à sa carte et de cocher sa remise.
 
 ## Organisation du stand
 
@@ -64,9 +67,10 @@ gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente
   changement de durée s'applique aux parties suivantes).
 
 ### Fin de partie
-- **Timer écoulé** → partie terminée, les joueurs ont droit aux goodies
-  (liste « Goodies à remettre » côté accueil, bouton « Remis »), l'emplacement
-  est libéré et la paire suivante est placée.
+- **Timer écoulé** → partie terminée, les joueurs ont droit aux goodies (la
+  carte promo, voir « Goodies : la carte promo » : page boutique, ou liste
+  « Goodies à remettre » côté accueil, bouton « Remis »), l'emplacement est
+  libéré et la paire suivante est placée.
 - Avant la fin du timer, deux façons de libérer l'emplacement (action
   `releaseMatch`, résultat `{ released, withGoodies }`) :
   - **« Terminer la partie (goodies) »** (`releaseMatch { matchId, withGoodies:
@@ -104,6 +108,54 @@ gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente
   la partie continuer (un animateur remplace l'absent, rien ne change dans
   l'application) ; l'absent figurera dans « Goodies à remettre » et ne doit pas
   les recevoir.
+
+### Goodies : la carte promo (remise en boutique)
+- Les goodies sont une **carte promo** : **une par joueur** (une paire = deux
+  cartes, chaque joueur a son billet et sa ligne).
+- **Droit à la carte** : participant « partie terminée » (`completed`) : timer
+  écoulé, « Terminer la partie (goodies) », « −5 min » au-delà du temps restant,
+  partie au timer écoulé terminée par « Nouvelle journée ». **Pas de carte**
+  pour les autres statuts (en file, en jeu, parti avant la fin, retiré / absent,
+  expiré, interrompu) : `giveGoodies` est refusé (code `conflict`).
+- **Remise en boutique** : après sa démo, le visiteur va à la boutique et donne
+  son **numéro de billet** ou son **nom** ; le personnel voit sur `/boutique`
+  s'il doit recevoir une carte, la lui donne et **coche la remise**
+  (`giveGoodies { participantId, given: true }`, résultat
+  `{ participantId, given }`). L'accueil peut aussi la remettre (« Remis » dans
+  « Goodies à remettre »).
+- **Une seule fois** : une seconde remise est **refusée**, quel que soit le
+  poste (boutique ou accueil, y compris deux postes au même instant : la
+  première l'emporte) : code `already_given`, message « Carte promo déjà remise
+  le JJ/MM à HH:MM. » (heure de Paris), `details.givenAt`.
+- **Annulable** : `giveGoodies { participantId, given: false }` efface la
+  remise (erreur de coche) ; la carte redevient due.
+- **Sans limite de jour** : une carte non remise reste due les jours suivants.
+  La liste de la boutique couvre tous les jours du salon ; celle de l'accueil
+  (« Goodies à remettre »), le jour en cours seulement ; les recherches, tous
+  les jours.
+- Cas de l'absent repéré après les 15 minutes (voir plus haut) : il figure
+  parmi les cartes dues, mais ne doit pas la recevoir.
+
+### Rôle boutique
+- Mot de passe **`BOUTIQUE_PASSWORD`**, **facultatif** et **différent** de
+  `ACCUEIL_PASSWORD`. Absent (ou identique à celui de l'accueil, avec un
+  avertissement au démarrage) : pas de rôle boutique, seul le mot de passe de
+  l'accueil ouvre `/boutique`.
+- Même page `/login` : le mot de passe saisi détermine le rôle (accueil →
+  `/accueil`, boutique → `/boutique`). Session de 7 jours ; chaque rôle a sa
+  propre clé de signature (changer un mot de passe ne déconnecte que son rôle).
+- Droits : la page `/boutique` et deux actions, **`boutiqueSearch`** et
+  **`giveGoodies`** (remise ou annulation). Toute autre action → code
+  `forbidden` ; `/accueil` et `/api/export.csv` refusés (renvoi vers `/login`,
+  qui ramène à `/boutique`).
+- Données : prénom, nom, billet, statut, jour d'inscription, table et heure de
+  fin, date de remise. **Jamais l'email** (accepté comme critère de recherche,
+  jamais renvoyé), ni le plan des tables ni la file.
+- Recherche `boutiqueSearch { query }` : 2 caractères au moins ; nom et prénom
+  (accents et majuscules ignorés) ou billet (normalisé comme à l'inscription) ;
+  billet exact en tête, puis cartes dues, puis inscriptions les plus récentes
+  (25 résultats au plus).
+- L'accueil a aussi accès à `/boutique` et à ces deux actions.
 
 ### Fermeture du stand (le soir)
 - Bouton **« Fermer le stand »** / **« Rouvrir le stand »** (réglage
@@ -153,7 +205,7 @@ gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente
 | Données | SQLite (`better-sqlite3`), fichier sur volume persistant |
 | Front | HTML/CSS/JS sans étape de build (servis par Express) |
 | Timers | Calculés côté serveur depuis `ends_at` enregistré : résistants aux rafraîchissements et redémarrages |
-| Auth accueil | Mot de passe unique (`ACCUEIL_PASSWORD`), cookie signé HMAC |
+| Auth | Deux rôles : accueil (`ACCUEIL_PASSWORD`, accès complet) et boutique (`BOUTIQUE_PASSWORD`, facultatif : cartes promo seulement) ; cookie signé HMAC, une clé par rôle |
 | Proxy / HTTPS | En-têtes `X-Forwarded-*` crus seulement depuis les proxys de confiance (`TRUST_PROXY`, par défaut adresses locales et privées) ; en HTTPS : cookie `Secure` et en-tête HSTS |
 | Déploiement | `Dockerfile` construit par Coolify depuis GitHub, sur VPS Hostinger KVM2 |
 | Tests | `node:test`, horloge injectable |
@@ -161,16 +213,18 @@ gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente
 ### Pages
 - `/ecran` : écran TV public (lecture seule), plan + file. Paysage (file à
   droite) ou portrait (file en dessous), Full HD.
-- `/accueil` : interface hôtesse (protégée).
-- `/login` : connexion.
-- `/api/export.csv` : export de tous les participants (protégé).
+- `/accueil` : interface hôtesse (protégée, accueil seulement).
+- `/boutique` : remise des cartes promo (protégée : boutique ou accueil).
+- `/login` : connexion (accueil ou boutique selon le mot de passe).
+- `/api/export.csv` : export de tous les participants (accueil seulement).
 - `/healthz` : sonde de santé.
 
 ### Données (SQLite)
 - `days` : une ligne par journée du salon.
 - `participants` : identité, email/billet normalisés (index uniques partiels),
   statut (`waiting`, `playing`, `completed`, `left_early`, `removed`, `expired`,
-  `interrupted`), remise des goodies.
+  `interrupted`), remise de la carte promo (`goodies_given_at`, une seule
+  fois, annulable).
 - `entries` : unités de file (1 ou 2 joueurs), position, statut, drapeau animateur.
 - `matches` : table, emplacement, début, fin prévue, fin réelle, raison.
 - `settings` : durée des parties, tables hors service, stand fermé
@@ -179,8 +233,15 @@ gagner les goodies. Un écran TV diffuse le plan des tables et la file d'attente
 ### Temps réel (Socket.IO)
 - Les clients publics reçoivent `state` (projection publique, noms abrégés).
 - Les clients authentifiés (salle `admin`) reçoivent l'état complet.
+- Les clients de la boutique (salle `boutique`) reçoivent l'état boutique :
+  `{ serverNow, day, pending, recentGiven, stats }` (cartes dues de tous les
+  jours, plus récentes d'abord ; 20 dernières remises ; compteurs `pending`,
+  `givenToday`, `givenTotal`, `playing`), sans email.
+- À la connexion, chaque client reçoit `session` `{ admin, role }`
+  (`role` : `'admin'`, `'boutique'` ou `null`).
 - Les actions de l'accueil passent par l'événement `action`
   `{ type, payload }` avec accusé de réception `{ ok, result | code, message }`.
+  La boutique n'a droit qu'à `boutiqueSearch` et `giveGoodies`.
 - Chaque état contient `serverNow` pour synchroniser les comptes à rebours, et
   `settings` (durée, tables hors service, `placementsPaused`, `noShowWindowMs`).
 - Transports Socket.IO par défaut : long-polling HTTP d'abord, puis passage au
@@ -216,3 +277,6 @@ attendu d'UVS (propriété de Riot Games / UVS Games, voir
    côté de « Libérer sans goodies », raccourci de recherche Ctrl+K (⌘K sur
    Mac) et « / » (Alt+R, intercepté par certains navigateurs, reste en
    secours), écran TV sans bandeau du bas ni « Radiance / Nouveau set ».
+9. Page boutique : les goodies sont une carte promo remise à la boutique ;
+   rôle boutique (mot de passe dédié, recherche et remise seulement, sans
+   email), remise unique et annulable, synchronisée avec l'accueil.

@@ -153,7 +153,7 @@ test('« libérer l’emplacement » : pas de goodies', () => {
   const { participantIds, matchId } = lobby.register([player(), player()]);
   lobby.releaseMatch(matchId);
   assert.equal(lobby.getAdminState().goodies.length, 0);
-  assert.throws(() => lobby.giveGoodies(participantIds[0]), /pas de goodies/);
+  assert.throws(() => lobby.giveGoodies(participantIds[0]), /pas de carte promo/);
 });
 
 test('un email ou un billet déjà utilisé est refusé, même un autre jour', () => {

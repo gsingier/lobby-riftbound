@@ -8,8 +8,9 @@ const crypto = require('crypto');
 const COOKIE_NAME = 'rb_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+// Mots de passe faux permis par IP client et par fenêtre.
 const LOGIN_MAX_ATTEMPTS = 10;
-// Par connexion TCP (le proxy, ou le client en accès direct) : borne aussi les essais d'un client
+// Par connexion TCP (le proxy, ou le client en accès direct) : borne aussi les échecs d'un client
 // qui ferait varier X-Forwarded-For. Derrière le proxy, c'est un plafond toutes IP confondues.
 const LOGIN_MAX_ATTEMPTS_PER_PEER = 50;
 // Nombre de compteurs suivis au plus : mémoire et temps de purge bornés.
@@ -35,61 +36,108 @@ function parseCookies(header) {
   return out;
 }
 
-function createAuth({ password, secret, now = () => Date.now() }) {
+// Deux rôles : « admin » (accueil, mot de passe ACCUEIL_PASSWORD, accès à tout) et « boutique »
+// (remise des cartes promo, mot de passe BOUTIQUE_PASSWORD facultatif). Chaque rôle a sa propre clé
+// de signature : changer un mot de passe ne déconnecte que les sessions de ce rôle.
+function createAuth({ password, boutiquePassword = null, secret, now = () => Date.now() }) {
   if (!password) throw new Error('Mot de passe de l’accueil manquant.');
-  const key = sha256(`${secret}:${password}`);
-  const sign = (payload) => crypto.createHmac('sha256', key).update(payload).digest('base64url');
+  const keys = { admin: sha256(`${secret}:${password}`) };
+  if (boutiquePassword && boutiquePassword !== password) {
+    keys.boutique = sha256(`${secret}:boutique:${boutiquePassword}`);
+  }
+  const sign = (role, payload) => crypto.createHmac('sha256', keys[role]).update(payload).digest('base64url');
   const attempts = new Map();
 
-  function issueToken() {
+  function issueToken(role = 'admin') {
+    if (!keys[role]) throw new Error(`Rôle inconnu : ${role}`);
     const expires = now() + SESSION_TTL_MS;
-    const payload = `admin.${expires}`;
-    return `${payload}.${sign(payload)}`;
+    const payload = `${role}.${expires}`;
+    return `${payload}.${sign(role, payload)}`;
+  }
+
+  // Rôle porté par un jeton valide (« admin » ou « boutique »), sinon null.
+  function roleOfToken(token) {
+    if (typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || !Object.prototype.hasOwnProperty.call(keys, parts[0])) return null;
+    const expires = Number(parts[1]);
+    if (!Number.isFinite(expires) || expires < now()) return null;
+    const expected = Buffer.from(sign(parts[0], `${parts[0]}.${parts[1]}`));
+    const given = Buffer.from(parts[2]);
+    return expected.length === given.length && crypto.timingSafeEqual(expected, given) ? parts[0] : null;
   }
 
   function verifyToken(token) {
-    if (typeof token !== 'string') return false;
-    const parts = token.split('.');
-    if (parts.length !== 3 || parts[0] !== 'admin') return false;
-    const expires = Number(parts[1]);
-    if (!Number.isFinite(expires) || expires < now()) return false;
-    const expected = Buffer.from(sign(`${parts[0]}.${parts[1]}`));
-    const given = Buffer.from(parts[2]);
-    return expected.length === given.length && crypto.timingSafeEqual(expected, given);
+    return roleOfToken(token) === 'admin';
   }
 
+  const matches = (candidate, secretValue) =>
+    crypto.timingSafeEqual(sha256(candidate ?? ''), sha256(secretValue));
+
   function checkPassword(candidate) {
-    return crypto.timingSafeEqual(sha256(candidate ?? ''), sha256(password));
+    return matches(candidate, password);
+  }
+
+  // Rôle donné par un mot de passe (les deux comparaisons sont toujours faites), sinon null.
+  function roleForPassword(candidate) {
+    const admin = matches(candidate, password);
+    const boutique = keys.boutique ? matches(candidate, boutiquePassword) : false;
+    if (admin) return 'admin';
+    return boutique ? 'boutique' : null;
+  }
+
+  function roleOf(cookieHeader) {
+    return roleOfToken(parseCookies(cookieHeader)[COOKIE_NAME]);
   }
 
   function isAuthenticated(cookieHeader) {
-    return verifyToken(parseCookies(cookieHeader)[COOKIE_NAME]);
+    return roleOf(cookieHeader) === 'admin';
   }
 
-  function bump(key, t, max) {
-    let entry = attempts.get(key);
-    if (!entry) {
-      if (attempts.size >= LOGIN_MAX_TRACKED) return false;
-      entry = { count: 0, resetAt: t + LOGIN_WINDOW_MS };
-      attempts.set(key, entry);
-    }
-    entry.count += 1;
-    return entry.count <= max;
-  }
-
-  // Limite les essais de mot de passe par adresse IP du client et par connexion (`peer`).
-  function allowAttempt(ip, peer = ip) {
-    const t = now();
-    // Compteurs rangés par date de création : on s'arrête au premier encore valable.
+  // Compteurs rangés par date de création : on s'arrête au premier encore valable.
+  function purge(t) {
     for (const [k, v] of attempts) {
       if (v.resetAt > t) break;
       attempts.delete(k);
     }
-    const ipOk = bump(`ip:${ip}`, t, LOGIN_MAX_ATTEMPTS);
-    const peerOk = peer === ip || bump(`peer:${peer}`, t, LOGIN_MAX_ATTEMPTS_PER_PEER);
-    return ipOk && peerOk;
   }
 
+  function underLimit(key, max) {
+    const entry = attempts.get(key);
+    // Adresse inconnue alors que plus aucun compteur ne peut être suivi : refus jusqu'à la purge.
+    if (!entry) return attempts.size < LOGIN_MAX_TRACKED;
+    return entry.count < max;
+  }
+
+  function bump(key, t) {
+    let entry = attempts.get(key);
+    if (!entry) {
+      if (attempts.size >= LOGIN_MAX_TRACKED) return;
+      entry = { count: 0, resetAt: t + LOGIN_WINDOW_MS };
+      attempts.set(key, entry);
+    }
+    entry.count += 1;
+  }
+
+  // Essai de mot de passe permis ? Seuls les ÉCHECS comptent (recordFailure), par adresse IP du
+  // client et par connexion (`peer`) :
+  // - une connexion réussie ne consomme rien (les appareils du stand partagent souvent une IP) ;
+  // - une requête déjà refusée n'est pas comptée : une seule IP ne peut pas épuiser le plafond
+  //   de la connexion, commun à tous les visiteurs derrière le proxy.
+  function allowAttempt(ip, peer = ip) {
+    purge(now());
+    return underLimit(`ip:${ip}`, LOGIN_MAX_ATTEMPTS)
+      && (peer === ip || underLimit(`peer:${peer}`, LOGIN_MAX_ATTEMPTS_PER_PEER));
+  }
+
+  function recordFailure(ip, peer = ip) {
+    const t = now();
+    purge(t);
+    bump(`ip:${ip}`, t);
+    if (peer !== ip) bump(`peer:${peer}`, t);
+  }
+
+  // Efface les échecs de l'IP (pas ceux de la connexion), après une connexion à l'accueil.
   function resetAttempts(ip) {
     attempts.delete(`ip:${ip}`);
   }
@@ -115,9 +163,14 @@ function createAuth({ password, secret, now = () => Date.now() }) {
   return {
     issueToken,
     verifyToken,
+    roleOfToken,
     checkPassword,
+    roleForPassword,
+    roleOf,
     isAuthenticated,
+    hasBoutiqueRole: Boolean(keys.boutique),
     allowAttempt,
+    recordFailure,
     resetAttempts,
     cookieHeader,
     clearCookieHeader,

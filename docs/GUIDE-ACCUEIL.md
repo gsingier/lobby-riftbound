@@ -9,9 +9,11 @@ résume tout.
 - Vous **inscrivez** les visiteurs (seuls ou à deux) : l'application les
   **place automatiquement** à une table dès qu'une place se libère, et l'écran
   TV indique où aller.
-- Une partie dure **1 heure**. Rester jusqu'au bout = **goodies**. Partir avant
-  = pas de goodies. Des joueurs qui ont bien joué mais s'arrêtent avant la fin
-  du temps : **« Terminer la partie (goodies) »**
+- Une partie dure **1 heure**. Rester jusqu'au bout = **goodies** : une
+  **carte promo**, que le joueur va chercher **à la boutique** (ou que vous lui
+  remettez, [partie 9](#9-remettre-les-goodies)). Partir avant = pas de
+  goodies. Des joueurs qui ont bien joué mais s'arrêtent avant la fin du
+  temps : **« Terminer la partie (goodies) »**
   ([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)).
 - Le **numéro de billet** est **obligatoire** et ne sert **qu'une fois sur tout
   le salon**. L'**email** est **facultatif** : un visiteur peut refuser de le
@@ -35,11 +37,11 @@ L'écran suit votre boucle de travail, numérotée **01 → 02 → 03** :
 
 | Zone | Où | Rôle |
 |---|---|---|
-| **Barre du haut** | tout en haut | Logo, « Accueil », **jour du salon**, compteurs (En attente, En jeu, Terminés, **Goodies**, Total), **Rechercher** (Ctrl + K), état de la connexion, **Réglages** (roue dentée), **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »** (Exporter CSV, Déconnexion) |
+| **Barre du haut** | tout en haut | Logo, « Accueil », **jour du salon**, compteurs (En attente, En jeu, Terminés, **Goodies**, Total), **Rechercher** (Ctrl + K), état de la connexion, **Réglages** (roue dentée), **Fermer le stand**, **Nouvelle journée**, menu **« ⋯ »** (Ouvrir la page boutique, Exporter CSV, Déconnexion) |
 | **01 Inscrire** | colonne de gauche | Formulaire d'inscription, attente estimée, cadre de résultat à annoncer |
 | **02 À appeler** | en haut au centre | Joueurs placés **automatiquement** à appeler, avec leur table ([partie 4](#4-appeler-les-joueurs-placés---à-appeler-)) |
 | **Plan des tables** | au centre | Les 9 tables et leurs comptes à rebours ; un clic sur un emplacement ouvre ses actions ([partie 8](#8-pendant-les-parties)) |
-| **03 Goodies à remettre** | colonne de droite, en haut | Joueurs allés au bout de leur partie ([partie 9](#9-remettre-les-goodies)) |
+| **03 Goodies à remettre** | colonne de droite, en haut | Joueurs allés au bout de leur partie, qui ont droit à leur carte promo ([partie 9](#9-remettre-les-goodies)) |
 | **File d'attente** | colonne de droite | Ordre de passage et heure estimée de chaque entrée |
 
 - **Les compteurs sont cliquables** : « En attente » mène à la file,
@@ -103,6 +105,19 @@ tournée (l'appareil relié à la TV ne sait pas pivoter l'affichage), ajoutez
 
 L'horloge de l'écran est à l'heure de Paris et les comptes à rebours sont
 calculés par le serveur : ils sont justes même si l'horloge de la TV est fausse.
+
+### La boutique (cartes promo)
+
+La boutique a sa propre page, **`…/boutique`**, avec son propre **mot de passe**
+(donné par le responsable) : elle n'y voit que la recherche et la remise des
+cartes promo (ni inscriptions, ni tables, ni emails). Son mode d'emploi est le
+[guide de la boutique](GUIDE-BOUTIQUE.md). Vous pouvez aussi ouvrir cette page
+depuis l'accueil : menu **« ⋯ »** → **« Ouvrir la page boutique »** (nouvel
+onglet ; ouverte avec le mot de passe de l'accueil, sa liste ne montre que les
+cartes des parties du jour, mais sa recherche couvre tous les jours). S'il n'y
+a pas de mot de passe boutique, seul celui de l'accueil ouvre la page : la
+tablette de la boutique aurait alors accès à tout l'accueil, voyez avec le
+responsable.
 
 Ce que montre la TV : le plan des 9 tables (places **libres** : pastille
 orange « Libre » ; parties en cours avec leur compte à rebours, entouré d'un
@@ -374,8 +389,9 @@ compris. Dans les deux cas, tous deux sont considérés comme ayant participé
 - **Son partenaire est là ?** Ne cliquez sur aucun des deux : laissez la
   partie continuer, **un animateur joue à la place de l'absent** (prévenez-en
   un). Sur le plan, le nom de l'absent reste affiché. En fin de partie, les
-  deux joueurs apparaissent dans « Goodies à remettre » : ne remettez les
-  goodies qu'au joueur présent (ne cliquez pas sur « Remis » pour l'absent).
+  deux joueurs apparaissent dans « Goodies à remettre » (et « à remettre » à
+  la boutique) : ne remettez les goodies qu'au joueur présent (ne cliquez pas
+  sur « Remis » pour l'absent).
 - **Plus personne à la table ?** Utilisez **« Libérer sans goodies »**
   ([partie 8](#terminer-ou-libérer-un-emplacement-avant-la-fin)) :
   l'emplacement est donné aux suivants de la file.
@@ -499,17 +515,37 @@ responsable.
 
 ## 9. Remettre les goodies
 
+Les goodies sont une **carte promo**, **une par joueur** (deux joueurs
+ensemble = deux cartes). En principe, à la fin de sa partie, le joueur va la
+chercher **à la boutique** : il y donne son billet ou son nom, et la boutique
+coche la remise sur sa page ([guide de la boutique](GUIDE-BOUTIQUE.md)). Vous
+pouvez aussi la remettre vous-même depuis l'accueil.
+
 Le panneau **« 03 Goodies à remettre »** (colonne de droite ; sur une tablette,
 onglet « Goodies ») liste les joueurs du jour qui sont **allés au bout** de leur
 partie, ou dont vous avez terminé la partie avec **« Terminer la partie
 (goodies) »**, avec la table et l'heure de fin. Le compteur **« Goodies »** de la barre
 du haut passe en or quand il y en a à remettre ; un clic dessus mène à la
-liste.
+liste. Le rappel **« Cartes promo aussi remises à la boutique »** est affiché
+au-dessus.
 
-1. Le joueur se présente : remettez-lui ses goodies.
+1. Le joueur se présente : remettez-lui sa carte promo.
 2. Cliquez sur **« Remis »** à côté de son nom. Il passe dans « Déjà remis »
    (repliée en bas de la liste).
 3. Erreur de clic : ouvrez **« Déjà remis »** et cliquez sur **« Annuler »**.
+
+**Remise faite à la boutique** : la ligne passe **toute seule** dans « Déjà
+remis », en direct, sans que vous ayez rien à faire. Une carte promo ne se
+remet **qu'une fois** : si vous cliquez sur « Remis » pour un joueur dont la
+boutique (ou une collègue) vient de remettre la carte, l'application refuse et
+affiche par exemple **« Lucas Martin : carte promo déjà remise le 16/10 à
+14:32. Ne pas en remettre une autre. »** Ne donnez pas de deuxième carte.
+« Annuler » fonctionne aussi pour une remise faite à la boutique (la carte
+redevient due, à l'accueil comme à la boutique).
+
+Cette liste ne montre que les parties **du jour**. Une carte non réclamée la
+veille reste due : la boutique la voit toujours, et la recherche
+([partie 10](#10-rechercher-ou-corriger-un-joueur)) la retrouve.
 
 Les joueurs partis avant la fin (« Libérer sans goodies ») ou déclarés
 « Absent » n'apparaissent pas dans cette liste. Exception : un absent repéré après les
@@ -658,6 +694,7 @@ continuer pendant une coupure du Wi-Fi.
 | Mauvais « Retirer » | Le joueur peut se réinscrire tout de suite (il repart en fin de file). |
 | Mauvais « Absent » | Ne s'annule pas : le joueur peut se réinscrire (il repart en fin de file) ; prévenez le responsable. |
 | Mauvais « Libérer sans goodies » ou « Terminer la partie (goodies) » | Ne s'annule pas : prévenez le responsable du stand. |
+| « Carte promo déjà remise le … » en cliquant « Remis » | La boutique (ou un autre poste) l'a déjà remise à ce joueur : ne donnez pas de deuxième carte. |
 | Le raccourci de recherche ne fait rien | Utilisez **Ctrl + K** (**⌘ K** sur Mac) ou cliquez sur « Rechercher » : **Alt + R** est intercepté par certains navigateurs ou ordinateurs. |
 | Stand fermé par erreur | **« Rouvrir le stand »** dans le bandeau : les placements reprennent aussitôt ; vérifiez que les joueurs placés sont bien là (sinon « Absent »). |
 | Besoin d'une pause en journée | Tables **hors service** (« Réglages »), pas « Fermer le stand » (la TV annoncerait la fin de la journée). |
@@ -682,7 +719,8 @@ continuer pendant une coupure du Wi-Fi.
 | Les joueurs ont bien joué mais s'arrêtent avant la fin du temps | Clic sur l'emplacement → **« Terminer la partie (goodies)… »** → **« Remis »** dans « 03 Goodies à remettre » |
 | Des joueurs partent avant la fin | Clic sur l'emplacement → **« Libérer sans goodies (départ anticipé)… »** |
 | Retard au démarrage, incident | Clic sur l'emplacement → **« +5 min »** / **« −5 min »** |
-| Fin du temps | Automatique → **« Remis »** dans « 03 Goodies à remettre » quand les goodies sont donnés |
+| Fin du temps | Automatique → le joueur va chercher sa carte promo à la boutique (ou **« Remis »** dans « 03 Goodies à remettre » si vous la donnez vous-même) |
+| La boutique a remis la carte | Rien à faire : la ligne passe seule dans « Déjà remis » |
 | Table inutilisable | « Réglages » → Tables en service (ou clic sur un emplacement libre → « Mettre la table hors service ») |
 | Le soir | **« Fermer le stand »**, laisser finir (ou terminer / libérer) les parties, puis « ⋯ » → **« Exporter CSV »** |
 | Coupure d'internet | Noter sur papier ; tout se resynchronise au retour |

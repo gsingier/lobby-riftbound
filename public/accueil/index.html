@@ -19,6 +19,7 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 5.5 19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-gift" viewBox="0 0 24 24"><path d="M3.5 9.5h17v4h-17zM5 13.5h14v7H5zM12 9.5v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5C10.6 6.4 6.6 5.6 6.2 7.7 5.9 9.4 9.3 9.5 12 9.5zm0 0c1.4-3.1 5.4-3.9 5.8-1.8.3 1.7-3.1 1.8-5.8 1.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shop" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12.5h-11zM9 10.5V7a3 3 0 0 1 6 0v3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" fill="currentColor"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -81,6 +82,7 @@
           </button>
           <div class="menu" id="more-menu" role="menu" hidden>
             <button type="button" class="menu-item menu-only-narrow" role="menuitem" data-open-newday><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg>Nouvelle journée…<small>le matin</small></button>
+            <a class="menu-item" role="menuitem" href="/boutique" target="_blank" rel="noopener" title="Page de la boutique : remise des cartes promo (s'ouvre dans un nouvel onglet)"><svg class="ic" aria-hidden="true"><use href="#i-shop"/></svg>Ouvrir la page boutique<small>nouvel onglet</small></a>
             <a class="menu-item" role="menuitem" href="/api/export.csv" download><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Exporter CSV<small>tous les participants</small></a>
             <form method="post" action="/logout" class="logout-form">
               <button type="submit" class="menu-item" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>Déconnexion</button>
@@ -240,6 +242,7 @@
           <h2 id="goodies-title"><span class="step">03</span>Goodies à remettre</h2>
           <span class="count-badge" id="goodies-count">0</span>
         </div>
+        <p class="goodies-note" title="Une carte promo cochée sur la page boutique passe ici en « Déjà remis » (mise à jour en direct)."><svg class="ic" aria-hidden="true"><use href="#i-shop"/></svg><span>Cartes promo aussi remises <strong>à la boutique</strong></span></p>
         <ul class="goodies-list" id="goodies-list"></ul>
       </section>
 

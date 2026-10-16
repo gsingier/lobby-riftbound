@@ -8,7 +8,9 @@ de savoir se connecter à Coolify et, pour les sauvegardes, à un terminal SSH.
 À la fin, vous aurez par exemple :
 
 - `https://lobby.votre-domaine.fr/ecran` : l'écran TV (public, sans mot de passe) ;
-- `https://lobby.votre-domaine.fr/accueil` : l'interface de l'hôtesse (protégée).
+- `https://lobby.votre-domaine.fr/accueil` : l'interface de l'hôtesse (protégée) ;
+- `https://lobby.votre-domaine.fr/boutique` : la page de la boutique, pour remettre
+  les cartes promo (protégée).
 
 > **Libellés de Coolify.** L'interface de Coolify est en anglais et ses libellés
 > changent un peu d'une version à l'autre. Ils sont cités ici entre « » ; si
@@ -51,6 +53,9 @@ Il vous faut :
 - **Un mot de passe fort pour l'accueil** : au moins 16 caractères, par exemple
   4 ou 5 mots au hasard (`lanterne-cobalt-mardi-pivoine`). Il sera partagé avec
   les hôtesses : n'utilisez pas celui de Coolify.
+- *(Facultatif, recommandé)* **un second mot de passe pour la boutique**,
+  **différent** de celui de l'accueil : il n'ouvre que la page `/boutique`
+  (voir § 4.2).
 - *(Recommandé)* **un nom de domaine** dont vous gérez la zone DNS, pour avoir
   une adresse en HTTPS (voir [étape 6](#6-nom-de-domaine-et-https)).
 
@@ -68,6 +73,7 @@ déploiement. Ce qu'il faut savoir :
 | Dossier des données (base `lobby.db`) | `/data` (doit être un **stockage persistant**) |
 | Sonde de santé | `GET /healthz` → `{"ok":true}` |
 | Variable obligatoire | `ACCUEIL_PASSWORD` |
+| Variable facultative | `BOUTIQUE_PASSWORD` (mot de passe de la page boutique) |
 | Fuseau horaire | `Europe/Paris` (déjà réglé dans l'image) |
 | Utilisateur | l'application tourne sous un compte non root (`node`) |
 | Proxy de confiance (`TRUST_PROXY`) | par défaut, adresses locales et privées : celles du proxy de Coolify, rien à régler (voir [§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)) |
@@ -143,19 +149,40 @@ Ajoutez :
 | Nom | Valeur | Obligatoire |
 |---|---|---|
 | `ACCUEIL_PASSWORD` | le mot de passe fort de l'accueil | **oui** : sans elle, l'application refuse de démarrer |
+| `BOUTIQUE_PASSWORD` | le mot de passe de la boutique, **différent** de `ACCUEIL_PASSWORD` | non : sans elle, seul le mot de passe de l'accueil ouvre `/boutique` |
 | `SESSION_SECRET` | une longue chaîne aléatoire (ex. résultat de `openssl rand -hex 32`) | non : sinon un secret est généré et gardé dans la base |
 
 - Ces variables ne servent qu'**au démarrage** de l'application. Si Coolify
   propose une case du type « Build Variable » / « Available at Buildtime »,
-  laissez-la **décochée** (inutile que le mot de passe passe dans la
-  construction de l'image).
+  laissez-la **décochée** (inutile que les mots de passe, celui de la
+  boutique compris, passent dans la construction de l'image).
 - Ne définissez **pas** `PORT`, `DATA_DIR`, `NODE_ENV` ni `TZ` : l'image les
   règle déjà (`3000`, `/data`, `production`, `Europe/Paris`).
 - Ne définissez pas non plus `TRUST_PROXY` : sa valeur par défaut convient au
   proxy de Coolify (voir [§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)).
-- Changer le mot de passe plus tard : modifiez la variable puis
-  **« Restart »** (ou **« Redeploy »**). Toutes les sessions de l'accueil sont
-  alors déconnectées ; on se reconnecte avec le nouveau mot de passe.
+- Changer un mot de passe plus tard : modifiez la variable puis
+  **« Restart »** (ou **« Redeploy »**) ; la nouvelle valeur n'est prise en
+  compte qu'au redémarrage. Changer `ACCUEIL_PASSWORD` déconnecte toutes les
+  sessions de l'accueil, changer `BOUTIQUE_PASSWORD` (ou la supprimer) celles
+  de la boutique seulement ; on se reconnecte avec le nouveau mot de passe.
+
+**`BOUTIQUE_PASSWORD` (page boutique).** Les goodies du stand sont une carte
+promo, remise à la boutique : son personnel ouvre `…/boutique` et s'y connecte
+(même page de connexion que l'accueil ; le mot de passe saisi décide de la page
+ouverte). Avec le mot de passe de la boutique, on peut **seulement** chercher
+un visiteur (billet ou nom) et cocher ou annuler la remise de sa carte : **pas
+d'accès à l'accueil** (inscriptions, tables, file, réglages), **pas d'export
+CSV**, et **jamais d'email affiché**. Le mot de passe de l'accueil, lui, ouvre
+aussi la page boutique.
+
+- Choisissez-le **différent** de `ACCUEIL_PASSWORD`. S'il est identique, il
+  n'y a pas de rôle boutique (ce mot de passe ouvre l'accueil) et les logs
+  affichent au démarrage : `⚠ BOUTIQUE_PASSWORD est identique à
+  ACCUEIL_PASSWORD : la boutique aurait accès à l’accueil. Choisissez un mot de
+  passe différent.`
+- Sans cette variable, la page `/boutique` existe quand même, mais seul le mot
+  de passe de l'accueil l'ouvre : la tablette de la boutique aurait alors accès
+  à tout l'accueil.
 
 ### 4.3 Stockage persistant (« Persistent Storage ») – INDISPENSABLE
 
@@ -221,7 +248,11 @@ savoir si la nouvelle version fonctionne avant de lui envoyer le trafic.
    - `…/healthz` affiche `{"ok":true}` ;
    - `…/ecran` affiche le plan des 9 tables, avec « En direct » en haut à droite ;
    - `…/accueil` renvoie vers la page de connexion ; le mot de passe
-     `ACCUEIL_PASSWORD` ouvre l'interface, avec « Connecté » en haut.
+     `ACCUEIL_PASSWORD` ouvre l'interface, avec « Connecté » en haut ;
+   - si `BOUTIQUE_PASSWORD` est défini : dans une fenêtre de navigation
+     privée, `…/boutique` renvoie vers la connexion, et ce mot de passe ouvre
+     la page de la boutique (« Connecté » en haut). Dans cette fenêtre,
+     `…/accueil` ramène sur la boutique : l'accueil lui est bien fermé.
 4. Faites une inscription d'essai, vérifiez qu'elle apparaît sur `/ecran`, puis
    **redéployez** (« Redeploy ») : l'inscription doit toujours être là. C'est la
    preuve que le stockage persistant fonctionne.
@@ -363,7 +394,10 @@ Mais alors :
 - [ ] La TV affiche `/ecran` en plein écran, « En direct », veille désactivée.
 - [ ] Les hôtesses ont l'adresse `/accueil`, le mot de passe et le
       [guide de l'accueil](GUIDE-ACCUEIL.md), notamment la procédure du soir
-      (« Fermer le stand », partie 10) et « Nouvelle journée » le matin.
+      (« Fermer le stand », partie 11) et « Nouvelle journée » le matin.
+- [ ] La boutique a l'adresse `/boutique`, son mot de passe
+      (`BOUTIQUE_PASSWORD`) et le [guide de la boutique](GUIDE-BOUTIQUE.md) ;
+      sa tablette affiche « Connecté ».
 - [ ] Une première sauvegarde a été testée (§ 8).
 - [ ] « Auto Deploy » désactivé ou consigne de ne pas pousser pendant les
       heures d'ouverture.
@@ -378,7 +412,8 @@ SQLite). Deux niveaux de sauvegarde, complémentaires.
 ### 8.1 Simple : l'export CSV de chaque soir
 
 Dans l'accueil, bouton **« Exporter CSV »** (ou l'adresse `/api/export.csv`,
-une fois connecté), après avoir fermé le stand (« Fermer le stand ») et laissé
+une fois connecté avec le mot de passe de l'accueil : la boutique n'y a pas
+accès), après avoir fermé le stand (« Fermer le stand ») et laissé
 finir ou libéré les parties. Le fichier contient **tous les participants de tous les
 jours** (identité, statut, table, horaires, goodies) et s'ouvre dans Excel.
 Conservez-le sur un support sûr : il contient des **données personnelles**
@@ -628,10 +663,19 @@ publique), tous les visiteurs ont la même adresse aux yeux de l'application et
 10 mauvais essais suffisent à bloquer tout le monde : voyez `TRUST_PROXY`
 ([§ 6](#https-hsts-et-proxy-de-confiance-trust_proxy)).
 
-### L'accueil demande à nouveau le mot de passe
+### L'accueil ou la boutique demande à nouveau le mot de passe
 
-Normal après 7 jours, après un changement de `ACCUEIL_PASSWORD` ou de
-`SESSION_SECRET`, ou si les cookies du navigateur ont été effacés.
+Normal après 7 jours, après un changement de `ACCUEIL_PASSWORD` (accueil) ou de
+`BOUTIQUE_PASSWORD` (boutique), de `SESSION_SECRET` (les deux), ou si les
+cookies du navigateur ont été effacés.
+
+### La boutique ne peut pas se connecter
+
+| Ce qui se passe | Cause | Solution |
+|---|---|---|
+| « Mot de passe incorrect » avec le mot de passe de la boutique | `BOUTIQUE_PASSWORD` non définie, mal recopiée, ou modifiée sans redémarrage | Vérifier la variable (§ 4.2), puis **« Restart »** |
+| Le mot de passe de la boutique ouvre l'**accueil** | `BOUTIQUE_PASSWORD` identique à `ACCUEIL_PASSWORD` (avertissement `⚠ BOUTIQUE_PASSWORD est identique…` dans les logs) | Choisir un mot de passe différent, puis **« Restart »** |
+| `…/accueil` ou l'export CSV ramènent sur la page boutique | Appareil connecté avec le mot de passe de la boutique : c'est voulu | Pour l'accueil : « Déconnexion », puis mot de passe de l'accueil |
 
 ---
 
@@ -644,15 +688,16 @@ Normal après 7 jours, après un changement de `ACCUEIL_PASSWORD` ou de
 | Build Pack | `Dockerfile` |
 | Ports Exposes | `3000` |
 | Variable obligatoire | `ACCUEIL_PASSWORD` = mot de passe fort |
-| Variable facultative | `SESSION_SECRET` |
+| Variables facultatives | `BOUTIQUE_PASSWORD` (différent de l'accueil), `SESSION_SECRET` |
 | À ne pas définir | `PORT`, `DATA_DIR`, `NODE_ENV`, `TZ`, `TRUST_PROXY` (valeurs par défaut adaptées) |
 | Persistent Storage | Volume Mount → Destination Path `/data` |
 | Healthcheck | intégré au Dockerfile (`/healthz`) ; sinon `GET http://localhost:3000/healthz` |
 | Domains | `https://lobby.votre-domaine.fr` |
 | Instances | **une seule** |
 
-Adresses utiles : `/ecran` (TV), `/accueil` (hôtesses), `/login`,
-`/api/export.csv` (export, connecté), `/healthz` (sonde).
+Adresses utiles : `/ecran` (TV), `/accueil` (hôtesses), `/boutique` (cartes
+promo), `/login`, `/api/export.csv` (export, accueil seulement), `/healthz`
+(sonde).
 
 Voir aussi : [README](../README.md) · [Guide de l'accueil](GUIDE-ACCUEIL.md) ·
-[Plan et règles métier](../PLAN.md).
+[Guide de la boutique](GUIDE-BOUTIQUE.md) · [Plan et règles métier](../PLAN.md).

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#faf8ef">
-  <title>Connexion – Accueil Riftbound</title>
+  <title>Connexion – Accueil ou Boutique · Riftbound</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/shared/theme.css">
   <style>
@@ -84,6 +84,52 @@
       text-align: center;
       font-size: 0.95rem;
       color: var(--rb-ink-3);
+    }
+
+    .sub strong {
+      font-weight: 650;
+      color: var(--rb-ink-2);
+    }
+
+    /* Aide : quel mot de passe ouvre quelle page. */
+    .roles {
+      margin: 12px 0 0;
+      font-size: 0.86rem;
+      line-height: 1.35;
+      color: var(--rb-ink-3);
+    }
+
+    .roles p {
+      margin: 0 0 7px;
+    }
+
+    .roles ul {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .roles li {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .role-tag {
+      flex: none;
+      min-width: 88px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: var(--rb-lilac);
+      box-shadow: inset 0 0 0 1px var(--rb-line);
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.74rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--rb-ink-2);
     }
 
     label {
@@ -278,8 +324,8 @@
         </div>
         <p class="set rb-metal"><span class="sr-only">Set </span>Radiance</p>
       </div>
-      <h1>Accueil du stand</h1>
-      <p class="sub">Paris Games Week · connectez-vous pour inscrire les joueurs et gérer les tables.</p>
+      <h1>Connexion</h1>
+      <p class="sub">Paris Games Week · <strong>Accueil</strong> ou <strong>Boutique</strong></p>
 
       <p class="error" id="error-wrong" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6.2M12 16.6v.2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>Mot de passe incorrect.</p>
       <p class="error" id="error-limit" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5.5l3.5 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Trop de tentatives, réessayez dans quelques minutes.</p>
@@ -287,8 +333,16 @@
       <form method="post" action="/login" autocomplete="off">
         <label for="password">Mot de passe</label>
         <div class="password-row">
-          <input type="password" id="password" name="password" required autofocus autocomplete="current-password" spellcheck="false">
+          <input type="password" id="password" name="password" required autofocus autocomplete="current-password" spellcheck="false" aria-describedby="password-help">
           <button type="button" class="toggle-visibility" id="toggle-visibility" aria-controls="password" aria-pressed="false">Afficher</button>
+        </div>
+        <!-- Le mot de passe saisi détermine la page ouverte (le serveur redirige selon le rôle). -->
+        <div class="roles" id="password-help">
+          <p>Le mot de passe de l'accueil ouvre l'accueil, celui de la boutique ouvre la boutique :</p>
+          <ul>
+            <li><span class="role-tag">Accueil</span>inscriptions et tables</li>
+            <li><span class="role-tag">Boutique</span>remise des cartes promo</li>
+          </ul>
         </div>
         <button type="submit" class="submit">
           Se connecter
@@ -312,7 +366,7 @@
       if (shown) {
         shown.hidden = false;
         input.setAttribute('aria-invalid', 'true');
-        input.setAttribute('aria-describedby', shown.id);
+        input.setAttribute('aria-describedby', shown.id + ' password-help');
       }
       // Nouvelle saisie : le champ quitte l'état d'erreur (le message reste affiché).
       input.addEventListener('input', function () {

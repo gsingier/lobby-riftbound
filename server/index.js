@@ -24,15 +24,23 @@ const FONT_PACKAGES = [
   '@fontsource-variable/plus-jakarta-sans',
 ];
 const TICK_MS = 1000;
+// Battement Socket.IO : un réseau qui ne transmet plus rien (Wi-Fi saturé, connexion encore
+// « ouverte ») est détecté en 10 à 20 s, au lieu de 25 à 45 s par défaut. Le client affiche alors
+// « Déconnecté » et le bandeau hors ligne. Pas plus court : en long-polling sur un Wi-Fi chargé,
+// une réponse lente provoquerait de fausses déconnexions.
+const PING_INTERVAL_MS = 10000;
+const PING_TIMEOUT_MS = 10000;
 // Proxys dont on croit X-Forwarded-For / X-Forwarded-Proto (IP du client, HTTPS) : par défaut les
 // adresses locales et privées, d'où le Traefik de Coolify joint le conteneur. Un client Internet
 // connecté directement n'est pas cru. TRUST_PROXY=false si le port est exposé sans proxy devant.
 const DEFAULT_TRUST_PROXY = 'loopback, linklocal, uniquelocal';
 const HSTS_MAX_AGE_S = 365 * 24 * 60 * 60;
 
-// Actions de l'accueil reçues via Socket.IO : `action` { type, payload } → ack.
+// Actions reçues via Socket.IO : `action` { type, payload } → ack.
 // `mutates: false` = lecture seule, pas de diffusion d'un nouvel état.
+// `roles` = rôles autorisés (par défaut l'accueil seul) ; la boutique ne peut que chercher et remettre.
 const ACTIONS = {
+  boutiqueSearch: { run: (l, p) => l.boutiqueSearch(p.query), mutates: false, roles: ['admin', 'boutique'] },
   register: { run: (l, p) => l.register(p.players) },
   check: { run: (l, p) => l.check(p), mutates: false },
   search: { run: (l, p) => l.search(p.query), mutates: false },
@@ -43,7 +51,7 @@ const ACTIONS = {
   cancelPlaceAnyway: { run: (l, p) => l.cancelPlaceAnyway(p.entryId) },
   releaseMatch: { run: (l, p) => l.releaseMatch(p.matchId, { withGoodies: p.withGoodies === true }) },
   adjustMatch: { run: (l, p) => l.adjustMatch(p.matchId, p.deltaMs) },
-  giveGoodies: { run: (l, p) => l.giveGoodies(p.participantId, p.given !== false) },
+  giveGoodies: { run: (l, p) => l.giveGoodies(p.participantId, p.given !== false), roles: ['admin', 'boutique'] },
   setDuration: { run: (l, p) => l.setDuration(p.durationMs) },
   setTableEnabled: { run: (l, p) => l.setTableEnabled(p.tableNo, p.enabled) },
   setPlacementsPaused: { run: (l, p) => l.setPlacementsPaused(p.paused) },
@@ -74,6 +82,7 @@ function sameOrigin(req) {
 function createApp({
   dbFile = ':memory:',
   password,
+  boutiquePassword = null,
   sessionSecret,
   now = () => Date.now(),
   tickMs = TICK_MS,
@@ -90,7 +99,7 @@ function createApp({
       lobby.setSetting('session_secret', secret);
     }
   }
-  const auth = createAuth({ password, secret, now });
+  const auth = createAuth({ password, boutiquePassword, secret, now });
 
   const app = express();
   app.disable('x-powered-by');
@@ -107,11 +116,13 @@ function createApp({
     next();
   });
 
-  const requireAuth = (req, res, next) => {
-    if (auth.isAuthenticated(req.headers.cookie)) return next();
+  const HOME_OF_ROLE = { admin: '/accueil', boutique: '/boutique' };
+  const requireRole = (...roles) => (req, res, next) => {
+    if (roles.includes(auth.roleOf(req.headers.cookie))) return next();
     if (req.accepts('html')) return res.redirect('/login');
     return res.status(401).json({ ok: false, message: 'Non authentifié.' });
   };
+  const requireAuth = requireRole('admin');
   const sendPage = (file) => (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(PUBLIC_DIR, file));
@@ -121,21 +132,30 @@ function createApp({
   app.get('/healthz', (req, res) => res.json({ ok: true }));
   app.get('/ecran', sendPage('ecran/index.html'));
   app.get('/accueil', requireAuth, sendPage('accueil/index.html'));
+  app.get('/boutique', requireRole('admin', 'boutique'), sendPage('boutique/index.html'));
 
   app.get('/login', (req, res, next) => {
-    if (auth.isAuthenticated(req.headers.cookie)) return res.redirect('/accueil');
+    const role = auth.roleOf(req.headers.cookie);
+    if (role) return res.redirect(HOME_OF_ROLE[role]);
     return sendPage('login.html')(req, res, next);
   });
   app.post('/login', express.urlencoded({ extended: false, limit: '4kb' }), (req, res) => {
     const ip = req.ip || 'unknown';
     if (!sameOrigin(req)) return res.status(403).send('Origine refusée.');
-    // Deux compteurs : l'IP du client (req.ip, d'après le proxy) et l'adresse de la connexion TCP,
-    // qu'un X-Forwarded-For inventé ne peut pas faire varier.
-    if (!auth.allowAttempt(ip, req.socket.remoteAddress || 'unknown')) return res.redirect('/login?error=trop');
-    if (!auth.checkPassword(req.body?.password)) return res.redirect('/login?error=1');
-    auth.resetAttempts(ip);
-    res.set('Set-Cookie', auth.cookieHeader(auth.issueToken(), { secure: req.secure }));
-    return res.redirect('/accueil');
+    // Deux compteurs d'échecs : l'IP du client (req.ip, d'après le proxy) et l'adresse de la
+    // connexion TCP, qu'un X-Forwarded-For inventé ne peut pas faire varier.
+    const peer = req.socket.remoteAddress || 'unknown';
+    if (!auth.allowAttempt(ip, peer)) return res.redirect('/login?error=trop');
+    const role = auth.roleForPassword(req.body?.password);
+    if (!role) {
+      auth.recordFailure(ip, peer);
+      return res.redirect('/login?error=1');
+    }
+    // Seule une connexion à l'accueil efface les échecs de l'IP : sinon le mot de passe boutique
+    // permettrait de relancer sans fin les essais sur celui de l'accueil.
+    if (role === 'admin') auth.resetAttempts(ip);
+    res.set('Set-Cookie', auth.cookieHeader(auth.issueToken(role), { secure: req.secure }));
+    return res.redirect(HOME_OF_ROLE[role]);
   });
   app.post('/logout', (req, res) => {
     if (!sameOrigin(req)) return res.status(403).send('Origine refusée.');
@@ -161,26 +181,40 @@ function createApp({
   const server = http.createServer(app);
   const io = new Server(server, {
     serveClient: true,
+    pingInterval: PING_INTERVAL_MS,
+    pingTimeout: PING_TIMEOUT_MS,
     allowRequest: (req, callback) => callback(null, sameOrigin(req)),
   });
 
+  // Chaque salle reçoit sa projection : complète (accueil), boutique (sans email), publique (TV).
+  const STATE_OF_ROOM = {
+    admin: () => lobby.getAdminState(),
+    boutique: () => lobby.getBoutiqueState(),
+    public: () => lobby.getPublicState(),
+  };
+
   function broadcast() {
-    io.to('admin').emit('state', lobby.getAdminState());
-    io.to('public').emit('state', lobby.getPublicState());
+    for (const [room, build] of Object.entries(STATE_OF_ROOM)) {
+      if (io.sockets.adapter.rooms.get(room)?.size) io.to(room).emit('state', build());
+    }
   }
 
   io.on('connection', (socket) => {
-    const isAdmin = auth.isAuthenticated(socket.handshake.headers.cookie);
-    socket.join(isAdmin ? 'admin' : 'public');
-    socket.emit('session', { admin: isAdmin });
-    socket.emit('state', isAdmin ? lobby.getAdminState() : lobby.getPublicState());
+    const role = auth.roleOf(socket.handshake.headers.cookie);
+    const room = role || 'public';
+    socket.join(room);
+    socket.emit('session', { admin: role === 'admin', role });
+    socket.emit('state', STATE_OF_ROOM[room]());
 
     socket.on('action', (message, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
-      if (!isAdmin) return reply({ ok: false, code: 'unauthorized', message: 'Connexion requise.' });
+      if (!role) return reply({ ok: false, code: 'unauthorized', message: 'Connexion requise.' });
       const { type, payload } = message || {};
       const action = Object.prototype.hasOwnProperty.call(ACTIONS, type) ? ACTIONS[type] : null;
       if (!action) return reply({ ok: false, code: 'unknown_action', message: 'Action inconnue.' });
+      if (!(action.roles || ['admin']).includes(role)) {
+        return reply({ ok: false, code: 'forbidden', message: 'Action réservée à l’accueil.' });
+      }
       try {
         const result = action.run(lobby, payload && typeof payload === 'object' ? payload : {});
         reply({ ok: true, result });
@@ -233,14 +267,18 @@ if (require.main === module) {
     password = 'riftbound';
     console.warn('⚠ ACCUEIL_PASSWORD non défini : mot de passe de développement « riftbound ».');
   }
+  if (process.env.BOUTIQUE_PASSWORD && process.env.BOUTIQUE_PASSWORD === password) {
+    console.warn('⚠ BOUTIQUE_PASSWORD est identique à ACCUEIL_PASSWORD : la boutique aurait accès à l’accueil. Choisissez un mot de passe différent.');
+  }
   const instance = createApp({
     dbFile: path.join(dataDir, 'lobby.db'),
     password,
+    boutiquePassword: process.env.BOUTIQUE_PASSWORD || null,
     sessionSecret: process.env.SESSION_SECRET,
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   });
   instance.server.listen(port, () => {
-    console.log(`Lobby Riftbound prêt sur http://localhost:${port}  (écran : /ecran, accueil : /accueil)`);
+    console.log(`Lobby Riftbound prêt sur http://localhost:${port}  (écran : /ecran, accueil : /accueil, boutique : /boutique)`);
   });
   const shutdown = () => {
     console.log('Arrêt…');
@@ -251,4 +289,4 @@ if (require.main === module) {
   process.on('SIGINT', shutdown);
 }
 
-module.exports = { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY };
+module.exports = { createApp, ACTIONS, parseTrustProxy, DEFAULT_TRUST_PROXY, PING_INTERVAL_MS, PING_TIMEOUT_MS };
