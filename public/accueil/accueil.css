@@ -511,6 +511,18 @@ button.stat .stat-lbl { text-decoration: underline; text-decoration-color: rgba(
   box-shadow: var(--rb-shadow-pop);
 }
 
+/* Menu « ⋯ » de la barre : largeur du libellé le plus long (rien ne passe à la ligne). */
+#more-menu {
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
+}
+
+/* La mention légale prend la largeur du menu sans l'élargir. */
+#more-menu .menu-legal {
+  max-width: none;
+  contain: inline-size;
+}
+
 .row-menu {
   position: fixed;
   top: 0;
@@ -2027,6 +2039,21 @@ body.is-dusk .lg-free::before { background: var(--rb-dusk); }
 
 .goodies-list > li + li,
 .goodies-given li + li { margin-top: 6px; }
+
+/* Mention discrète : la carte promo se retire aussi à la boutique (/boutique), liste partagée. */
+.goodies-note {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: -6px 0 10px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--rb-ink-3);
+}
+
+.goodies-note .ic { width: 15px; height: 15px; margin-top: 1px; }
+.goodies-note strong { font-weight: 650; color: var(--rb-ink-2); }
 
 .goodie {
   display: flex;

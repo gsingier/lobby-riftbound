@@ -1720,8 +1720,18 @@
       const name = p ? fullName(p) : 'Joueur';
       run('giveGoodies', { participantId, given }, {
         button: btn,
+        quiet: true,
         success: given ? `Goodies remis à ${name}.` : `Remise des goodies annulée pour ${name}.`,
-      }).catch(() => {});
+      }).catch((err) => {
+        // Carte promo déjà remise (à la boutique ou sur un autre poste) : le serveur refuse une
+        // seconde remise ; l'état diffusé fait passer la ligne dans « Déjà remis ».
+        if (err.code === 'already_given') {
+          const msg = String(err.message || 'Carte promo déjà remise.');
+          toast(`${name} : ${msg.charAt(0).toLowerCase()}${msg.slice(1)} Ne pas en remettre une autre.`, 'info', 8000);
+        } else {
+          toast(err.message || 'Erreur inconnue.', 'error');
+        }
+      });
     }
   }
 
