@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#faf8ef">
+  <title>Connexion – Accueil Riftbound</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/shared/theme.css">
+  <style>
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: 28px 16px 20px;
+      overflow-x: hidden;
+    }
+
+    .wrap {
+      display: grid;
+      place-items: center;
+    }
+
+    /* Carte de verre clair (blanc semi-opaque, sans backdrop-filter), liseré irisé en tête. */
+    .card {
+      position: relative;
+      width: min(440px, 100%);
+      padding: 30px 30px 24px;
+      border-radius: var(--rb-r-xl);
+      background: var(--rb-glass-grad);
+      border: 1px solid var(--rb-glass-edge);
+      box-shadow: 0 40px 80px -36px rgba(52, 62, 104, 0.45), 0 0 0 1px rgba(30, 36, 51, 0.04), var(--rb-glass-inset);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      top: -1px;
+      height: 4px;
+      border-radius: 0 0 4px 4px;
+      background: var(--rb-iris);
+    }
+
+    .brand {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    /* Logo officiel sur sa carte nacrée (jamais à nu sur le halo). */
+    .brand .rb-logo-card {
+      padding: 14px 22px;
+    }
+
+    .logo {
+      width: 200px;
+    }
+
+    .set {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: 0.26em;
+      /* l'espacement final des lettres décentre le mot : on le compense */
+      margin-right: -0.26em;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--rb-font-display);
+      font-weight: 700;
+      font-size: 1.75rem;
+      line-height: 1.1;
+      letter-spacing: -0.015em;
+      text-align: center;
+    }
+
+    .sub {
+      margin: 6px 0 22px;
+      text-align: center;
+      font-size: 0.95rem;
+      color: var(--rb-ink-3);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 650;
+      font-size: 0.88rem;
+      color: var(--rb-ink-2);
+    }
+
+    /* Bouton Afficher / Masquer logé dans le champ (cible de 44 px). */
+    .password-row {
+      position: relative;
+    }
+
+    input[type='password'],
+    input[type='text'] {
+      display: block;
+      width: 100%;
+      height: 56px;
+      padding: 0 112px 0 16px;
+      border: 1.5px solid var(--rb-field-line);
+      border-radius: var(--rb-r);
+      background: var(--rb-paper);
+      color: var(--rb-ink);
+      font: inherit;
+      font-weight: 500;
+      font-size: 1.15rem;
+      letter-spacing: 0.02em;
+    }
+
+    input:hover {
+      border-color: var(--rb-ink-3);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--rb-cyan-ink);
+      box-shadow: var(--rb-focus);
+    }
+
+    input[aria-invalid='true'] {
+      border-color: var(--rb-red);
+      background: #fff8f9;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .toggle-visibility {
+      position: absolute;
+      right: 6px;
+      top: 6px;
+      bottom: 6px;
+      min-width: 92px;
+      padding: 0 12px;
+      border: 1px solid var(--rb-line-2);
+      border-radius: var(--rb-r-sm);
+      background: var(--rb-lilac);
+      color: var(--rb-ink);
+      font-weight: 650;
+      font-size: 0.92rem;
+    }
+
+    .toggle-visibility:hover {
+      background: var(--rb-paper);
+      border-color: var(--rb-ink-4);
+    }
+
+    /* Bouton principal : orange Riftbound, texte encre (6,4:1), jamais blanc. */
+    .submit {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 16px;
+      border: 1px solid #e46a00;
+      border-radius: var(--rb-r);
+      background: var(--rb-orange-grad);
+      color: var(--rb-on-orange);
+      font-family: var(--rb-font-display);
+      font-weight: 700;
+      font-size: 1.18rem;
+      letter-spacing: 0.005em;
+      box-shadow: var(--rb-shadow-orange);
+    }
+
+    .submit:hover {
+      background: var(--rb-orange-hover);
+    }
+
+    .submit:active {
+      transform: translateY(1px);
+    }
+
+    .submit svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0 0 16px;
+      padding: 11px 14px;
+      border-radius: var(--rb-r-sm);
+      background: var(--rb-red-tint);
+      border: 1px solid var(--rb-red-line);
+      color: var(--rb-red-ink);
+      font-weight: 650;
+      font-size: 0.95rem;
+    }
+
+    .error svg {
+      flex: none;
+      width: 20px;
+      height: 20px;
+      margin-top: 1px;
+    }
+
+    .foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px 12px;
+      margin: 22px 0 0;
+      padding-top: 16px;
+      border-top: 1px solid var(--rb-line);
+      font-size: 0.88rem;
+      color: var(--rb-ink-3);
+    }
+
+    /* Zone cliquable agrandie (≥ 33 px de haut) sans décaler la mise en page. */
+    .foot a {
+      display: inline-block;
+      padding: 8px 0;
+      margin: -8px 0;
+      color: var(--rb-cyan-ink);
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    .foot a:hover {
+      text-decoration: underline;
+    }
+
+    /* Posée directement sur l'aura : encre 2 (≥ 6:1 sur tout le halo). */
+    .legal {
+      margin: 18px auto 0;
+      max-width: 440px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--rb-ink-2);
+    }
+
+    @media (max-width: 420px) {
+      body {
+        padding-top: 16px;
+      }
+
+      .card {
+        padding: 24px 18px 20px;
+        border-radius: var(--rb-r-lg);
+      }
+
+      .card::before {
+        left: 18px;
+        right: 18px;
+      }
+
+      .logo {
+        width: 176px;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body class="rb-aura">
+  <div class="wrap">
+    <main class="card">
+      <div class="brand">
+        <div class="rb-logo-card">
+          <img class="logo" src="/assets/riftbound-logo.webp" alt="Riftbound – League of Legends Trading Card Game" width="542" height="238">
+        </div>
+        <p class="set rb-metal"><span class="sr-only">Set </span>Radiance</p>
+      </div>
+      <h1>Accueil du stand</h1>
+      <p class="sub">Paris Games Week · connectez-vous pour inscrire les joueurs et gérer les tables.</p>
+
+      <p class="error" id="error-wrong" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6.2M12 16.6v.2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>Mot de passe incorrect.</p>
+      <p class="error" id="error-limit" role="alert" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5.5l3.5 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Trop de tentatives, réessayez dans quelques minutes.</p>
+
+      <form method="post" action="/login" autocomplete="off">
+        <label for="password">Mot de passe</label>
+        <div class="password-row">
+          <input type="password" id="password" name="password" required autofocus autocomplete="current-password" spellcheck="false">
+          <button type="button" class="toggle-visibility" id="toggle-visibility" aria-controls="password" aria-pressed="false">Afficher</button>
+        </div>
+        <button type="submit" class="submit">
+          Se connecter
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5.5 19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+
+      <p class="foot"><span>Écran public des tables</span><a href="/ecran">Ouvrir l'écran TV (/ecran)</a></p>
+    </main>
+  </div>
+  <p class="legal">Riftbound, Radiance et les visuels associés sont la propriété de Riot Games et UVS Games.</p>
+
+  <script>
+    (function () {
+      'use strict';
+      var error = new URLSearchParams(window.location.search).get('error');
+      var input = document.getElementById('password');
+      var shown = null;
+      if (error === 'trop') shown = document.getElementById('error-limit');
+      else if (error) shown = document.getElementById('error-wrong');
+      if (shown) {
+        shown.hidden = false;
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', shown.id);
+      }
+      // Nouvelle saisie : le champ quitte l'état d'erreur (le message reste affiché).
+      input.addEventListener('input', function () {
+        if (input.getAttribute('aria-invalid') === 'true') input.removeAttribute('aria-invalid');
+      });
+      var toggle = document.getElementById('toggle-visibility');
+      toggle.addEventListener('click', function () {
+        var reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        toggle.textContent = reveal ? 'Masquer' : 'Afficher';
+        toggle.setAttribute('aria-pressed', String(reveal));
+        input.focus();
+      });
+      input.focus();
+    })();
+  </script>
+</body>
+</html>

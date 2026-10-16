@@ -1,0 +1,618 @@
+/* Thème « Riftbound · Radiance » — direction AURORE HOLOGRAPHIQUE, partagée par l'écran TV
+   (/ecran), l'accueil (/accueil) et la connexion (/login).
+
+   Le look d'Aurore (fond nacré perle, halos irisés cyan → lavande → rose, cercles concentriques
+   du key art, verre clair aux ombres douces, wordmark RADIANCE bleu-argent, médaillons et anneaux
+   irisés, Outfit, accents orange Riftbound, crépuscule mauve stand fermé), corrigé :
+
+   PERFORMANCE (mini-PC du stand, mesuré : Aurore d'origine ≈ 7 images/s sur la TV)
+   - Halo PRÉ-CALCULÉ : dégradés radiaux STATIQUES sur un seul pseudo-élément (.rb-aura).
+     Jamais de `filter: blur()` plein écran, jamais de halos géants animés.
+   - Au plus UNE animation lente (transform/opacity, un calque) : .rb-aura.is-live, en option,
+     coupée en prefers-reduced-motion.
+   - Verre = fond blanc semi-opaque SANS backdrop-filter (réservé à de petites surfaces fixes,
+     jamais au-dessus d'un élément animé).
+   - Animer uniquement transform / opacity (jamais box-shadow, background, filter, width…).
+
+   CONTRASTE (WCAG 2.1 AA, calculés)
+   - Jamais de texte blanc sur l'orange #F07000 (2,99:1). Sur l'orange : --rb-on-orange #1B0C00
+     (6,4:1) ou l'encre #1E2433 (5,2:1). Orange en texte : --rb-orange-ink #A84300 (≥ 5,0:1 sur
+     tous les fonds clairs, 6,1:1 sur blanc).
+   - Gris le plus pâle autorisé pour du texte : --rb-ink-3 #555E78 (≥ 5,3:1 sur tous les fonds
+     clairs du thème). --rb-ink-4 est réservé au décor / aux contours (≥ 3:1, jamais de texte utile).
+   - Texte posé DIRECTEMENT sur l'aura (hors carte) : --rb-ink (≥ 9,7:1) ou --rb-ink-2 (≥ 6,2:1)
+     uniquement — pixel le plus sombre mesuré, crépuscule compris. Sur .rb-glass : tout le reste.
+   - Focus clavier : contour plein --rb-cyan-ink #1D6F8A, 3 px, décalé de 2 px (≥ 3,5:1 partout).
+
+   Logo officiel (/assets/riftbound-logo.webp, dessiné pour un fond clair) : toujours sur la carte
+   nacrée .rb-logo-card (ou sur blanc), jamais à nu sur le halo, jamais recoloré ni déformé.
+
+   Préfixe unique --rb-*. Les noms utilisés par les pages actuelles sont conservés ; les alias
+   --au-* (code d'Aurore reconstitué) pointent vers les valeurs corrigées pour faciliter le portage. */
+
+/* Inter Variable (axe de taille optique) : texte courant, formulaires. Outfit Variable : titres,
+   noms et chiffres (TV, horloge, timers, KPI). Polices auto-hébergées, chargées à la demande. */
+@import url('/fonts/inter/opsz.css');
+@import url('/fonts/outfit/index.css');
+
+:root {
+  /* ---------------------------------------------------------------- surfaces (nacre) */
+  --rb-pearl: #faf8ef;           /* nacre du key art : haut du fond */
+  --rb-pearl-2: #edf2e9;         /* nacre menthe : bas du fond */
+  --rb-lilac: #f3f1f8;           /* brume lavande : pastilles neutres, fonds secondaires */
+  --rb-bg: #f4f3f8;              /* fond de page / creux dans une carte (perle lavande) */
+  --rb-paper: #ffffff;           /* cartes opaques, champs, menus, modales */
+  --rb-sunken: #e9ecf4;          /* « sol du stand », pistes de jauge, segments inactifs */
+  --rb-hover: #f7f7fb;
+  --rb-hatch: #e1e4ee;           /* hachures fermé / hors service (avec --rb-paper) */
+
+  /* Verre clair : blanc semi-opaque + liseré blanc + ombre douce (pas de backdrop-filter). */
+  --rb-glass: rgba(255, 255, 255, 0.74);
+  --rb-glass-strong: rgba(255, 255, 255, 0.9);
+  --rb-glass-edge: rgba(255, 255, 255, 0.95);
+  --rb-glass-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.76) 100%);
+
+  /* Nacre irisée (tuiles « libres », carte du logo) : reflets cyan / rose sur blanc perle. */
+  --rb-nacre:
+    radial-gradient(120% 140% at 0% 0%, rgba(139, 216, 225, 0.26), rgba(139, 216, 225, 0) 55%),
+    radial-gradient(120% 140% at 100% 100%, rgba(229, 139, 201, 0.18), rgba(229, 139, 201, 0) 55%),
+    linear-gradient(160deg, #ffffff 0%, #faf8ef 55%, #f3f6f1 100%);
+
+  /* ---------------------------------------------------------------- encre (ardoise) */
+  --rb-ink: #1e2433;             /* texte principal (15,5:1 blanc · 12,9:1 sur le plus sombre) */
+  --rb-ink-2: #3a4258;           /* texte secondaire (10:1 blanc · ≥ 8,3:1 partout) */
+  --rb-ink-3: #555e78;           /* légendes, aides, métadonnées (6,4:1 blanc · ≥ 5,3:1 partout) */
+  --rb-ink-4: #7c849b;           /* DÉCOR uniquement : icônes, contours, chaises vides (≥ 3,1:1) */
+  --rb-line: rgba(30, 36, 51, 0.1);    /* filets */
+  --rb-line-2: rgba(30, 36, 51, 0.18); /* filets appuyés, bordures de cartes */
+  --rb-field-line: #858ca1;            /* contour de champ de saisie (3,35:1 sur blanc, SC 1.4.11) */
+
+  /* ---------------------------------------------------------------- marque : orange Riftbound */
+  --rb-orange: #f07000;          /* aplats d'action / attention, TOUJOURS avec --rb-on-orange */
+  --rb-orange-hover: #ff8a1f;
+  --rb-orange-grad: linear-gradient(180deg, #ff9a3c 0%, #f67c12 48%, #f07000 100%);
+  --rb-on-orange: #1b0c00;       /* texte sur orange (6,4:1 sur #F07000, 8,1:1 sur le survol) */
+  --rb-orange-ink: #a84300;      /* orange en TEXTE sur clair (6,1:1 blanc · ≥ 5,0:1 partout) ;
+                                    aussi fond sombre pour texte blanc (6,1:1) */
+  --rb-orange-tint: #fff0e1;
+  --rb-orange-line: #ffc896;
+
+  /* ---------------------------------------------------------------- irisé Radiance */
+  --rb-cyan: #8bd8e1;            /* cyan du halo ; aplat avec texte encre (9,6:1) */
+  --rb-aqua: #70b3ca;
+  --rb-lavender: #a7b7cf;
+  --rb-rose: #e58bc9;            /* rose Seraphine du halo */
+  --rb-peach: #f6c9a4;
+  --rb-cyan-strong: #3aafc6;     /* jauges, filets actifs (décor, doublé d'un texte) */
+  --rb-cyan-ink: #1d6f8a;        /* cyan en texte, liens, focus (5,7:1 blanc · ≥ 4,7:1 partout) */
+  --rb-cyan-tint: #e8f7fa;
+  --rb-cyan-line: #b5e6ee;
+
+  --rb-gold: #c9a24a;            /* cartouches goodies */
+  --rb-gold-ink: #7e5f17;        /* or en texte (5,9:1 blanc · ≥ 4,9:1 partout) */
+  --rb-gold-tint: #faf3e2;
+
+  --rb-mauve: #714b69;           /* joueur seul / animateur (7,2:1 blanc) */
+  --rb-dusk: #5d4f7c;            /* crépuscule, stand fermé : texte 7,3:1 blanc, 6,1:1 sur sa teinte */
+  --rb-dusk-tint: #ece8f4;
+  --rb-dusk-line: #d5cde6;
+
+  /* ---------------------------------------------------------------- états */
+  --rb-green: #0e9f7a;           /* terminé / remis / connecté (icônes, bordures) */
+  --rb-green-ink: #0a6f55;       /* texte (6,1:1 blanc · ≥ 5,1:1) ; fond pour texte blanc */
+  --rb-green-tint: #dff5ed;
+  --rb-warn: #d23e8a;            /* FIN PROCHE (5 dernières min) : bordure épaisse, anneau (4,4:1) */
+  --rb-warn-ink: #a8286a;        /* timer / texte « fin proche » (6,6:1 blanc · 5,6:1 sur sa teinte) */
+  --rb-warn-tint: #fde7f2;
+  --rb-warn-line: #f4b5d6;
+  --rb-red: #d1394c;             /* irréversible / panne : icônes, bordures */
+  --rb-red-ink: #ae2638;         /* texte rouge ; fond pour texte blanc (6,7:1) */
+  --rb-red-tint: #fde9ec;
+  --rb-red-line: #f5c2ca;
+
+  /* ---------------------------------------------------------------- dégradés signature */
+  --rb-iris: linear-gradient(115deg, #8bd8e1 0%, #a7b7cf 48%, #e58bc9 100%);
+  --rb-iris-soft: linear-gradient(115deg, rgba(139, 216, 225, 0.35), rgba(167, 183, 207, 0.25) 50%, rgba(229, 139, 201, 0.3));
+  --rb-iris-conic: conic-gradient(from 210deg, #79c7d8, #9aaad6, #da8cc4, #f6c9a4, #79c7d8);
+  --rb-iris-dusk: linear-gradient(115deg, #a7b7cf 0%, #9c86b8 50%, #714b69 100%);
+  /* --rb-metal : bleu-argent LISIBLE pour des CHIFFRES ou du texte utile (compteur de la file TV) :
+     bande la plus claire #5872AF = 4,4:1 sur la perle, ≥ 4,2:1 sur le verre clair (grand texte
+     uniquement) ; à nu sur l'aura, 2,9:1 seulement : toujours sur une carte. Ne pas éclaircir. */
+  --rb-metal: linear-gradient(180deg, #5872af 0%, #3a5596 26%, #1b2b57 50%, #2f4a8a 63%, #5670ad 82%, #2a447f 100%);
+  /* --rb-chrome : chrome bleu-argent du LOGOTYPE RADIANCE (classe .rb-metal), le repère de marque
+     d'Aurore : deux reflets argent presque blancs, ligne d'horizon bleu nuit au milieu. Réservé au
+     nom de marque (WCAG 1.4.3 exempte le texte d'un logo ou d'un nom de marque) : le contour et
+     la bande sombre le gardent lisible de loin (validé sur la TV réduite à 560 px). */
+  --rb-chrome: linear-gradient(180deg, #a3b8e4 0%, #eef3ff 14%, #7f98cf 30%, #22366b 47%, #16244d 53%, #3a5596 65%, #d0dcf4 82%, #526daa 100%);
+
+  /* ---------------------------------------------------------------- typographie */
+  --rb-font-display: 'Outfit Variable', 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --rb-font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --rb-font: var(--rb-font-ui);  /* police du corps (accueil, connexion) */
+  --rb-font-tv: var(--rb-font-display);
+
+  /* ---------------------------------------------------------------- formes et profondeur */
+  --rb-r-xs: 6px;
+  --rb-r-sm: 10px;
+  --rb-r: 14px;
+  --rb-r-lg: 20px;
+  --rb-r-xl: 28px;
+  --rb-r-pill: 999px;
+
+  --rb-shadow-1: 0 1px 2px rgba(30, 36, 51, 0.05), 0 6px 16px -6px rgba(52, 62, 104, 0.14);
+  --rb-shadow-2: 0 2px 6px rgba(30, 36, 51, 0.05), 0 24px 48px -18px rgba(52, 62, 104, 0.26);
+  --rb-shadow-card: 0 1px 2px rgba(30, 36, 51, 0.05), 0 12px 30px -16px rgba(52, 62, 104, 0.26);
+  --rb-shadow-pop: 0 2px 6px rgba(30, 36, 51, 0.07), 0 24px 48px -14px rgba(52, 62, 104, 0.34);
+  --rb-shadow-orange: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 12px 24px -12px rgba(240, 112, 0, 0.7);
+  --rb-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* ---------------------------------------------------------------- focus clavier
+     Contour PLEIN cyan foncé de 3 px, détaché par un liseré blanc de 2 px (SC 1.4.11 : 5,7:1 sur
+     blanc, ≥ 3,5:1 sur le pixel le plus sombre de l'aura). --rb-focus sert aux composants qui
+     portent leur focus en ombre ; en forced-colors, un `outline` système prend le relais
+     (fin de fichier). */
+  --rb-focus-color: var(--rb-cyan-ink);
+  --rb-focus: 0 0 0 2px var(--rb-paper), 0 0 0 5px var(--rb-focus-color);
+
+  /* ---------------------------------------------------------------- alias de portage (Aurore)
+     Pour copier un composant du code d'Aurore reconstitué sans le réécrire : chaque --au-* pointe
+     vers la valeur CORRIGÉE. Préférer --rb-* dans le code nouveau. */
+  --au-white: var(--rb-paper);
+  --au-pearl: var(--rb-pearl);
+  --au-pearl-mint: var(--rb-pearl-2);
+  --au-pearl-lilac: var(--rb-lilac);
+  --au-floor: var(--rb-sunken);
+  --au-ink: var(--rb-ink);
+  --au-ink-2: var(--rb-ink-2);
+  --au-ink-3: var(--rb-ink-3);
+  --au-ink-4: var(--rb-ink-3);   /* #8A92A8 d'origine refusé (2,85:1) : remonté au gris texte */
+  --au-line: var(--rb-line);
+  --au-line-2: var(--rb-line-2);
+  --au-cyan: var(--rb-cyan);
+  --au-aqua: var(--rb-aqua);
+  --au-lavender: var(--rb-lavender);
+  --au-rose: var(--rb-rose);
+  --au-mauve: var(--rb-mauve);
+  --au-peach: var(--rb-peach);
+  --au-aqua-ink: var(--rb-cyan-ink);
+  --au-mauve-soft: var(--rb-dusk-tint);
+  --au-orange: var(--rb-orange);
+  --au-orange-hi: var(--rb-orange-hover);
+  --au-orange-deep: var(--rb-orange-ink);
+  --au-orange-ink: var(--rb-orange-ink);
+  --au-orange-soft: var(--rb-orange-tint);
+  --au-gold: var(--rb-gold);
+  --au-gold-ink: var(--rb-gold-ink);
+  --au-warn: var(--rb-warn);
+  --au-warn-ink: var(--rb-warn-ink);
+  --au-warn-soft: var(--rb-warn-tint);
+  --au-done: var(--rb-green);
+  --au-done-ink: var(--rb-green-ink);
+  --au-done-soft: var(--rb-green-tint);
+  --au-danger: var(--rb-red);
+  --au-danger-ink: var(--rb-red-ink);
+  --au-danger-soft: var(--rb-red-tint);
+  --au-dusk: var(--rb-dusk);
+  --au-dusk-soft: var(--rb-dusk-tint);
+  --au-iris: var(--rb-iris);
+  --au-iris-soft: var(--rb-iris-soft);
+  --au-metal: var(--rb-chrome);
+  --au-orange-grad: var(--rb-orange-grad);
+  --au-font-display: var(--rb-font-display);
+  --au-font-tv: var(--rb-font-tv);
+  --au-font-ui: var(--rb-font-ui);
+  --au-r-xl: var(--rb-r-xl);
+  --au-r-lg: var(--rb-r-lg);
+  --au-r-md: var(--rb-r);
+  --au-r-sm: var(--rb-r-sm);
+  --au-glass: var(--rb-glass);
+  --au-glass-strong: var(--rb-glass-strong);
+  --au-glass-edge: var(--rb-glass-edge);
+  --au-shadow-1: var(--rb-shadow-1);
+  --au-shadow-2: var(--rb-shadow-2);
+  --au-shadow-orange: var(--rb-shadow-orange);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--rb-bg);
+  color: var(--rb-ink);
+  font-family: var(--rb-font);
+  font-optical-sizing: auto;
+  font-feature-settings: 'cv11', 'ss01'; /* Inter : « a » simple, chiffres ouverts (sans effet sur Outfit) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Focus clavier par défaut : contour plein cyan foncé (l'anneau natif est trop pâle sur la
+   perle). Spécificité nulle : toute règle de page l'emporte. */
+:where(:focus-visible) {
+  outline: 3px solid var(--rb-focus-color);
+  outline-offset: 2px;
+}
+
+/* Contraste élevé (Windows, forced-colors) : les ombres disparaissent, donc un focus porté par
+   --rb-focus aussi. Un contour couleur système le remplace partout. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Interrupteur dont la vraie case est transparente : le contour passe sur son libellé. */
+  label:has(> input[type='checkbox']:focus-visible) {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================================================ .rb-aura
+   Fond nacré + halos irisés + cercles concentriques du key art, PRÉ-CALCULÉS : un seul
+   pseudo-élément ::before fixe, en dégradés radiaux statiques (aucun filtre, aucune image,
+   aucune animation). À poser sur <body> ou sur le conteneur plein écran (.screen de la TV).
+   - Même géométrie que les halos d'Aurore (cercles en vmax, centres DANS l'écran : cyan en haut à
+     gauche, rose en haut à droite, lavande en bas à droite, pêche en bas à gauche), même intensité ;
+     le key art flouté d'Aurore (calque filtré, retiré) est remplacé par ses teintes dominantes en
+     dégradés : nuage rose-mauve de Seraphine, voile cyan à gauche, lavande à droite, menthe en bas.
+   - Contraste vérifié sur le pixel le plus sombre (1920 × 1080, 1080 × 1920, 1440 × 900,
+     390 × 844, crépuscule compris) : voir l'en-tête du fichier. Ne pas foncer davantage.
+   - .rb-aura occupe ::before (halo) et ::after (calque vivant optionnel) : ne pas réutiliser
+     ces pseudo-éléments sur le même élément.
+   - --rb-aura-rings-at : centre des cercles (défaut : coin haut droit).
+   - .is-dusk, ou :root[data-stand="ferme"] : crépuscule mauve (stand fermé).
+   - .is-live : UNE dérive très lente (transform + opacity, 1 calque), coupée en
+     prefers-reduced-motion. Désactivée par défaut ; à valider sur le mini-PC avant de l'activer.
+   .rb-halo = ancien nom, même rendu. */
+.rb-aura,
+.rb-halo {
+  isolation: isolate;
+  background-color: var(--rb-pearl);
+}
+
+.rb-aura::before,
+.rb-halo::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    /* cercles concentriques (traits blancs fins, de plus en plus pâles) */
+    radial-gradient(circle at var(--rb-aura-rings-at, 96% 4%),
+      rgba(255, 255, 255, 0) 7.11vmax, rgba(255, 255, 255, 0.78) 7.2vmax, rgba(255, 255, 255, 0) 7.29vmax,
+      rgba(255, 255, 255, 0) 10.71vmax, rgba(255, 255, 255, 0.71) 10.8vmax, rgba(255, 255, 255, 0) 10.89vmax,
+      rgba(255, 255, 255, 0) 14.31vmax, rgba(255, 255, 255, 0.64) 14.4vmax, rgba(255, 255, 255, 0) 14.49vmax,
+      rgba(255, 255, 255, 0) 17.91vmax, rgba(255, 255, 255, 0.57) 18vmax, rgba(255, 255, 255, 0) 18.09vmax,
+      rgba(255, 255, 255, 0) 21.51vmax, rgba(255, 255, 255, 0.5) 21.6vmax, rgba(255, 255, 255, 0) 21.69vmax,
+      rgba(255, 255, 255, 0) 25.11vmax, rgba(255, 255, 255, 0.44) 25.2vmax, rgba(255, 255, 255, 0) 25.29vmax,
+      rgba(255, 255, 255, 0) 28.71vmax, rgba(255, 255, 255, 0.38) 28.8vmax, rgba(255, 255, 255, 0) 28.89vmax,
+      rgba(255, 255, 255, 0) 32.31vmax, rgba(255, 255, 255, 0.32) 32.4vmax, rgba(255, 255, 255, 0) 32.49vmax,
+      rgba(255, 255, 255, 0) 35.91vmax, rgba(255, 255, 255, 0.26) 36vmax, rgba(255, 255, 255, 0) 36.09vmax,
+      rgba(255, 255, 255, 0) 39.51vmax, rgba(255, 255, 255, 0.2) 39.6vmax, rgba(255, 255, 255, 0) 39.69vmax,
+      rgba(255, 255, 255, 0) 43.11vmax, rgba(255, 255, 255, 0.15) 43.2vmax, rgba(255, 255, 255, 0) 43.29vmax,
+      rgba(255, 255, 255, 0) 46.71vmax, rgba(255, 255, 255, 0.11) 46.8vmax, rgba(255, 255, 255, 0) 46.89vmax,
+      rgba(255, 255, 255, 0) 50.31vmax, rgba(255, 255, 255, 0.06) 50.4vmax, rgba(255, 255, 255, 0) 50.49vmax),
+    /* halos irisés d'Aurore : mêmes centres, rayons et opacités (rose à peine adouci, 0,38 au lieu
+       de 0,42, pour le contraste), sans flou ni dérive */
+    radial-gradient(circle 35vmax at 11vmax 5vmax, rgba(139, 216, 225, 0.62), rgba(139, 216, 225, 0.22) 55%, rgba(139, 216, 225, 0) 100%),
+    radial-gradient(circle 32vmax at calc(100% - 10vmax) 14vmax, rgba(229, 139, 201, 0.38), rgba(229, 139, 201, 0.13) 55%, rgba(229, 139, 201, 0) 100%),
+    radial-gradient(circle 38vmax at calc(100% - 8vmax) calc(100% + 2vmax), rgba(167, 183, 207, 0.55), rgba(167, 183, 207, 0.16) 58%, rgba(167, 183, 207, 0) 100%),
+    radial-gradient(circle 28vmax at 12vmax calc(100% + 2vmax), rgba(246, 201, 164, 0.36), rgba(246, 201, 164, 0.1) 58%, rgba(246, 201, 164, 0) 100%),
+    radial-gradient(circle 20vmax at calc(34% + 20vmax) calc(30% + 20vmax), rgba(112, 179, 202, 0.2), rgba(112, 179, 202, 0) 100%),
+    /* teintes du key art (au lieu de l'image floutée en direct) */
+    radial-gradient(30vmax 22vmax at 70% 32%, rgba(222, 146, 210, 0.34), rgba(222, 146, 210, 0.12) 55%, rgba(222, 146, 210, 0) 100%),
+    radial-gradient(22vmax 40vmax at 0% 52%, rgba(139, 216, 225, 0.42), rgba(139, 216, 225, 0.14) 55%, rgba(139, 216, 225, 0) 100%),
+    radial-gradient(20vmax 38vmax at 100% 50%, rgba(180, 176, 224, 0.4), rgba(180, 176, 224, 0.14) 55%, rgba(180, 176, 224, 0) 100%),
+    radial-gradient(26vmax 16vmax at 68% 92%, rgba(178, 222, 202, 0.3), rgba(178, 222, 202, 0) 100%),
+    radial-gradient(22vmax 14vmax at 30% 70%, rgba(246, 205, 172, 0.24), rgba(246, 205, 172, 0) 100%),
+    /* lumière blanche au zénith (sous les halos, comme chez Aurore) */
+    radial-gradient(120% 80% at 50% -10%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+    /* nacre */
+    linear-gradient(165deg, #fbfaf3 0%, #f5f3f6 46%, #eef3ea 100%);
+}
+
+/* Stand fermé : crépuscule (mauve, lavande), mêmes halos plus calmes, cercles plus discrets. */
+.rb-aura.is-dusk::before,
+.rb-halo.is-dusk::before,
+:root[data-stand='ferme'] .rb-aura::before,
+:root[data-stand='ferme'] .rb-halo::before {
+  background:
+    radial-gradient(circle at var(--rb-aura-rings-at, 96% 4%),
+      rgba(255, 255, 255, 0) 7.11vmax, rgba(255, 255, 255, 0.5) 7.2vmax, rgba(255, 255, 255, 0) 7.29vmax,
+      rgba(255, 255, 255, 0) 10.71vmax, rgba(255, 255, 255, 0.45) 10.8vmax, rgba(255, 255, 255, 0) 10.89vmax,
+      rgba(255, 255, 255, 0) 14.31vmax, rgba(255, 255, 255, 0.4) 14.4vmax, rgba(255, 255, 255, 0) 14.49vmax,
+      rgba(255, 255, 255, 0) 17.91vmax, rgba(255, 255, 255, 0.34) 18vmax, rgba(255, 255, 255, 0) 18.09vmax,
+      rgba(255, 255, 255, 0) 21.51vmax, rgba(255, 255, 255, 0.28) 21.6vmax, rgba(255, 255, 255, 0) 21.69vmax,
+      rgba(255, 255, 255, 0) 25.11vmax, rgba(255, 255, 255, 0.22) 25.2vmax, rgba(255, 255, 255, 0) 25.29vmax,
+      rgba(255, 255, 255, 0) 28.71vmax, rgba(255, 255, 255, 0.16) 28.8vmax, rgba(255, 255, 255, 0) 28.89vmax,
+      rgba(255, 255, 255, 0) 32.31vmax, rgba(255, 255, 255, 0.1) 32.4vmax, rgba(255, 255, 255, 0) 32.49vmax),
+    radial-gradient(circle 35vmax at 11vmax 5vmax, rgba(167, 183, 207, 0.55), rgba(167, 183, 207, 0.15) 55%, rgba(167, 183, 207, 0) 100%),
+    radial-gradient(circle 32vmax at calc(100% - 10vmax) 14vmax, rgba(113, 75, 105, 0.12), rgba(113, 75, 105, 0.04) 55%, rgba(113, 75, 105, 0) 100%),
+    radial-gradient(circle 38vmax at calc(100% - 8vmax) calc(100% + 2vmax), rgba(113, 75, 105, 0.12), rgba(113, 75, 105, 0.04) 58%, rgba(113, 75, 105, 0) 100%),
+    radial-gradient(circle 28vmax at 12vmax calc(100% + 2vmax), rgba(167, 140, 190, 0.3), rgba(167, 140, 190, 0.08) 58%, rgba(167, 140, 190, 0) 100%),
+    radial-gradient(30vmax 22vmax at 70% 32%, rgba(156, 134, 184, 0.13), rgba(156, 134, 184, 0) 100%),
+    radial-gradient(22vmax 40vmax at 0% 52%, rgba(167, 183, 207, 0.3), rgba(167, 183, 207, 0) 100%),
+    radial-gradient(20vmax 38vmax at 100% 50%, rgba(156, 134, 184, 0.18), rgba(156, 134, 184, 0) 100%),
+    radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 62%),
+    linear-gradient(165deg, #f4f2f7 0%, #eeebf3 50%, #e9e5f0 100%);
+}
+
+/* Calque vivant OPTIONNEL : un voile irisé qui dérive très lentement (90 s), transform/opacity
+   seulement, sur un calque composité dédié. Rien d'autre ne doit boucler en arrière-plan. */
+.rb-aura.is-live::after,
+.rb-halo.is-live::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  left: -10vmax;
+  top: -12vmax;
+  width: 64vmax;
+  height: 64vmax;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(139, 216, 225, 0.32), rgba(167, 183, 207, 0.16) 52%, rgba(229, 139, 201, 0) 100%);
+  will-change: transform, opacity;
+  animation: rb-aura-drift 90s ease-in-out infinite alternate;
+}
+
+.rb-aura.is-live.is-dusk::after,
+:root[data-stand='ferme'] .rb-aura.is-live::after {
+  background: radial-gradient(closest-side, rgba(156, 134, 184, 0.28), rgba(113, 75, 105, 0.1) 52%, rgba(113, 75, 105, 0) 100%);
+}
+
+@keyframes rb-aura-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(14vmax, 9vmax, 0);
+    opacity: 1;
+  }
+}
+
+/* ============================================================================ verre clair
+   Carte translucide sans backdrop-filter. .rb-glass : panneaux sur l'aura (texte ≥ --rb-ink-3
+   validé) ; .rb-glass-strong : panneaux denses en texte, modales, menus. */
+.rb-glass,
+.rb-glass-strong {
+  border: 1px solid var(--rb-glass-edge);
+  border-radius: var(--rb-r-lg);
+  box-shadow: var(--rb-shadow-2), var(--rb-glass-inset);
+}
+
+.rb-glass {
+  background: var(--rb-glass-grad);
+}
+
+.rb-glass-strong {
+  background: var(--rb-glass-strong);
+}
+
+/* ============================================================================ .rb-holo-border
+   Liseré irisé SANS pseudo-élément ni masque (double fond padding-box / border-box).
+   Réglages : --rb-holo-w (épaisseur, défaut 2px), --rb-holo (dégradé, défaut --rb-iris ;
+   --rb-iris-conic pour un rond), --rb-holo-fill (fond intérieur OPAQUE, défaut blanc).
+   Ne pas redéfinir `background` sur l'élément : passer par --rb-holo-fill. */
+.rb-holo-border {
+  border: var(--rb-holo-w, 2px) solid transparent;
+  background:
+    var(--rb-holo-fill, linear-gradient(var(--rb-paper), var(--rb-paper))) padding-box,
+    var(--rb-holo, var(--rb-iris)) border-box;
+}
+
+/* ============================================================================ .rb-logo-card
+   Carte nacrée à liseré irisé pour le logo officiel (le gris « League of Legends » reste net
+   quel que soit le halo). La page règle le padding et la hauteur du logo. */
+.rb-logo-card {
+  display: inline-grid;
+  place-items: center;
+  padding: 12px 18px;
+  border: var(--rb-holo-w, 2px) solid transparent;
+  border-radius: var(--rb-r-lg);
+  background:
+    var(--rb-nacre) padding-box,
+    var(--rb-holo, var(--rb-iris)) border-box;
+  box-shadow: var(--rb-shadow-card);
+}
+
+/* Spécificité d'une simple classe (:where) : la règle .logo de la page (largeur OU hauteur)
+   l'emporte ; l'autre dimension suit les proportions du logo. */
+.rb-logo-card :where(img) {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================================================ .rb-metal
+   Wordmark RADIANCE en chrome bleu-argent (--rb-chrome), comme chez Aurore, en plus lisible :
+   - réservé au NOM DE MARQUE (logotype, exempté du SC 1.4.3 ; le mot reste du vrai texte, lu
+     par les lecteurs d'écran). Jamais pour une donnée : chiffres → --rb-metal ;
+   - taille ≥ 24 px, graisse 800 ;
+   - pas de -webkit-text-stroke (Outfit a des contours qui se chevauchent : traits parasites
+     dans R, A, D) ; la netteté vient de trois ombres portées : contour bleu nuit de 0,6 px,
+     reflet blanc d'1 px dessous, halo bleuté doux. Élément statique et petit, coût
+     négligeable ; ne jamais l'animer ni le poser au-dessus d'un élément animé.
+   .rb-radiance = ancien nom. */
+.rb-metal,
+.rb-radiance {
+  font-family: var(--rb-font-display);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #2a447f; /* repli sans background-clip:text (8,8:1 sur la perle) */
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .rb-metal,
+  .rb-radiance {
+    background: var(--rb-chrome);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter:
+      drop-shadow(0 0 0.6px rgba(27, 43, 87, 0.55))
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.95))
+      drop-shadow(0 0.06em 0.14em rgba(52, 72, 128, 0.25));
+  }
+}
+
+/* ============================================================================ .rb-medal
+   Médaillon rond à liseré irisé (numéro de table, rang, étape). Taille = font-size de l'élément
+   (le chiffre fait ≈ 1em, le rond 1.9em). Encre sur blanc 15,5:1. --rb-medal-ring : épaisseur
+   du liseré (défaut 0.12em). .is-ink : plaque foncée (chiffre blanc 15,5:1), la plus lisible
+   de loin. */
+.rb-medal {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  border: var(--rb-medal-ring, 0.12em) solid transparent;
+  background:
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris-conic) border-box;
+  box-shadow: 0 0.12em 0.4em rgba(52, 62, 104, 0.22);
+  color: var(--rb-ink);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-medal.is-ink {
+  background:
+    linear-gradient(var(--rb-ink), var(--rb-ink)) padding-box,
+    var(--rb-iris-conic) border-box;
+  color: #fff;
+}
+
+/* ============================================================================ .rb-ring
+   Anneau de progression irisé autour d'un contenu (« VS », minuteur…). --p = part restante
+   (0 → 1), mise à jour par le script (style.setProperty('--p', x)) ; anneau dessiné sur
+   ::before (masque radial sur un petit élément). Réglages : --rb-ring-w (épaisseur en % du rayon,
+   défaut 16 % ; viser ≥ 6 px sur la TV), --rb-ring-track, --rb-ring-fill (une image : dégradé).
+   États : .is-warn (fin proche), .is-done (terminé), .is-off. Contenu centré (grille). */
+.rb-ring {
+  --p: 1;
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.rb-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  background:
+    conic-gradient(rgba(0, 0, 0, 0) 0 calc(var(--p) * 1turn), var(--rb-ring-track, #dde3ee) 0),
+    var(--rb-ring-fill, var(--rb-iris-conic));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--rb-ring-w, 16%) - 0.5px), #000 calc(100% - var(--rb-ring-w, 16%)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--rb-ring-w, 16%) - 0.5px), #000 calc(100% - var(--rb-ring-w, 16%)));
+}
+
+.rb-ring.is-warn {
+  --rb-ring-fill: linear-gradient(var(--rb-warn), var(--rb-warn));
+  --rb-ring-track: var(--rb-warn-line);
+}
+
+.rb-ring.is-done {
+  --rb-ring-fill: linear-gradient(var(--rb-green), var(--rb-green));
+}
+
+/* Terminé : anneau plein vert, quel que soit --p. */
+.rb-ring.is-done::before {
+  background: var(--rb-ring-fill);
+}
+
+.rb-ring.is-off {
+  --rb-ring-fill: linear-gradient(var(--rb-ink-4), var(--rb-ink-4));
+}
+
+/* ============================================================================ .rb-num
+   Chiffres (horloge, minuteurs, attente, KPI) : Outfit à chasse fixe (tnum vérifié), le texte
+   ne « danse » pas quand les secondes défilent. */
+.rb-num {
+  font-family: var(--rb-font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================================ pastille irisée */
+.rb-iris-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.32em 0.85em;
+  border-radius: var(--rb-r-pill);
+  background: var(--rb-iris);
+  color: var(--rb-ink); /* ≥ 6,5:1 sur tout le dégradé */
+  font-weight: 750;
+  font-size: 0.78em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ============================================================================ animations partagées
+   transform / opacity uniquement. Les pages les coupent en prefers-reduced-motion.
+   - rb-breathe : respiration d'un voile (fin proche) — sur un pseudo-élément, jamais sur
+     box-shadow ni background.
+   - rb-sheen : reflet irisé qui traverse une fois un emplacement (joueurs installés). */
+@keyframes rb-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes rb-sheen {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-aura.is-live::after,
+  .rb-halo.is-live::after {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

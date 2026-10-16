@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr" data-layout="paysage">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Riftbound – Zone de jeu</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/shared/theme.css">
+  <link rel="stylesheet" href="/ecran/ecran.css">
+</head>
+<body>
+  <!-- Fond : halo nacré irisé STATIQUE du thème (.rb-aura, dégradés pré-calculés, crépuscule
+       mauve quand le stand est fermé). Aucun filtre ni halo animé. -->
+  <div class="screen rb-aura" id="screen">
+
+    <header class="masthead">
+      <div class="brand rb-logo-card">
+        <img class="logo" src="/assets/riftbound-logo.webp" alt="Riftbound – League of Legends Trading Card Game" width="542" height="238">
+      </div>
+      <div class="set">
+        <p class="kicker"><span class="rb-iris-pill">Nouveau set</span></p>
+        <p class="rb-metal wordmark">Radiance</p>
+        <p class="set-sub">Paris Games Week <span class="dot" aria-hidden="true"></span> Stand Riftbound</p>
+      </div>
+      <div class="meta">
+        <div class="clock" id="clock" aria-label="Heure actuelle">--:--</div>
+        <div class="conn" id="conn" data-state="pending"><i aria-hidden="true"></i><span>Connexion…</span></div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel plan-panel" aria-labelledby="plan-title">
+        <div class="plan-head">
+          <h1 id="plan-title">Zone de jeu</h1>
+          <ul class="legend" aria-label="Légende">
+            <li class="lg-open"><i class="lg-free"></i>Libre</li>
+            <li class="lg-closed"><i class="lg-shut"></i>Fermé</li>
+            <li><i class="lg-busy"></i>En jeu</li>
+            <li><i class="lg-warn"></i>5 dernières min</li>
+          </ul>
+          <div class="free-count" id="freeCount"></div>
+        </div>
+        <div class="enclosure" id="enclosure">
+          <span class="wall w-top" aria-hidden="true"></span>
+          <span class="wall w-left" aria-hidden="true"></span>
+          <span class="wall w-right" aria-hidden="true"></span>
+          <span class="wall w-bl" aria-hidden="true"></span>
+          <span class="wall w-br" aria-hidden="true"></span>
+          <div class="tables" id="tables">
+            <p class="loading">Connexion au plan des tables…</p>
+          </div>
+          <div class="entrance" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 20V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Entrée</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side" id="side" aria-label="Attente et file d’attente">
+        <!-- Attente estimée pour une nouvelle inscription (masquée stand fermé). En paysage, ecran.js
+             la place dans l'en-tête (à côté de l'horloge) pour laisser la colonne à la file. -->
+        <section class="wait" id="wait" hidden>
+          <span class="wait-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><circle cx="24" cy="26" r="16" fill="none" stroke="currentColor" stroke-width="3.4"/><path d="M24 17v10l6 4" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 5h10" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>
+          </span>
+          <p class="wait-eyebrow" id="waitEyebrow">Attente estimée</p>
+          <p class="wait-value" id="waitValue"></p>
+          <p class="wait-sub" id="waitSub"></p>
+        </section>
+
+        <!-- Joueurs placés depuis moins de 3 minutes : « où vais-je jouer ? ». -->
+        <section class="panel placed" id="placed" aria-labelledby="placed-title" hidden>
+          <h2 class="placed-title" id="placed-title"><span class="placed-spark" aria-hidden="true"></span>À vos tables&nbsp;!</h2>
+          <ol class="placed-list" id="placedList"></ol>
+        </section>
+
+        <section class="panel queue-panel" id="queuePanel" aria-labelledby="queue-title">
+          <div class="queue-head">
+            <h2 id="queue-title">File d’attente</h2>
+            <div class="queue-count"><b id="queueCount">0</b><span id="queueCountLabel">joueur en attente</span></div>
+            <div class="queue-shut">Fermée</div>
+          </div>
+          <div class="queue-body" id="queueBody">
+            <ol class="queue-list" id="queueList"></ol>
+            <div class="queue-empty" id="queueEmpty" hidden>
+              <span class="qe-halo" aria-hidden="true"></span>
+              <p class="qe-title">Aucune attente</p>
+              <p class="qe-text">Présentez-vous à l’accueil&nbsp;!</p>
+              <p class="qe-sub" id="queueEmptySub"></p>
+            </div>
+            <!-- Stand fermé (le soir) : message de fin de journée à la place de la file. -->
+            <div class="queue-closed" id="queueClosed" hidden>
+              <span class="qc-mark" aria-hidden="true"></span>
+              <p class="qc-title">Le stand ferme ses portes</p>
+              <p class="qc-text">Merci pour cette journée&nbsp;!</p>
+              <p class="qc-sub">Inscriptions closes pour aujourd’hui</p>
+              <p class="qc-note" id="queueClosedNote" hidden></p>
+            </div>
+            <!-- Mode d'emploi pour le public : grand si la file est courte, masqué si elle a besoin de la place. -->
+            <ol class="howto" id="howto" aria-label="Comment jouer">
+              <li><b>1</b><span><span class="nb">Inscrivez-vous</span> à l’accueil</span></li>
+              <li><b>2</b><span>Suivez votre nom à l’écran</span></li>
+              <li><b>3</b><span><span class="nb">Installez-vous</span> à votre table</span></li>
+            </ol>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="cta" id="cta">
+      <div class="cta-main cta-open">
+        <span class="cta-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>Inscrivez-vous à l’accueil pour jouer&nbsp;!</span>
+      </div>
+      <div class="cta-main cta-closed">
+        <span class="cta-moon" aria-hidden="true"></span>
+        <span>Le stand est fermé · Merci de votre visite&nbsp;!</span>
+      </div>
+      <div class="cta-goodies" id="ctaGoodies">
+        <svg class="gift" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 9.5h17v4h-17zM5 13.5h14v7H5zM12 9.5v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M12 9.5C10.6 6.4 6.6 5.6 6.2 7.7 5.9 9.4 9.3 9.5 12 9.5zm0 0c1.4-3.1 5.4-3.9 5.8-1.8.3 1.7-3.1 1.8-5.8 1.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span id="goodiesText"><b>1 heure de jeu</b> = goodies offerts</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/shared/client.js"></script>
+  <script src="/ecran/ecran.js"></script>
+</body>
+</html>

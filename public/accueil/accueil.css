@@ -1,0 +1,2802 @@
+/* Interface d'accueil (hôtesse), /accueil — direction « Aurore holographique ».
+   Organisée autour de la boucle de travail : 01 Inscrire · 02 Appeler · 03 Remettre les goodies.
+   Look Aurore : fond nacré à halos irisés STATIQUE (.rb-aura, pré-calculé dans theme.css), barre du
+   haut nacrée, cartes en verre clair aux ombres douces, pastilles d'étape et médaillons de table à
+   liseré irisé, anneaux de progression sur les emplacements, chaises irisées comme sur l'écran TV,
+   Outfit pour les titres, noms du plan et chiffres, Inter pour le reste.
+   Couleurs = signification : orange = à faire / place libre (texte encre sur orange, jamais blanc),
+   rose = 5 dernières minutes, vert = installé / remis / terminé, mauve = joueur seul / animateur,
+   crépuscule = stand fermé, rouge = irréversible.
+   Performance (mini-PC, portable) : aucun backdrop-filter, aucun filtre sur de grandes surfaces,
+   aucune animation infinie ; animations ponctuelles en transform / opacity seulement.
+   Cibles tactiles ≥ 44 px partout (portable ou tablette). */
+
+:root {
+  --acc-gap: 14px;
+  --acc-pad: 18px;
+  --acc-topbar-h: 64px;
+  --acc-col-reg: clamp(318px, 23.5vw, 400px);
+  --acc-col-side: clamp(318px, 23.5vw, 420px);
+  --acc-focus-ring: var(--rb-cyan-ink);
+  --acc-radius: 20px;
+  /* Verre clair des panneaux (sans backdrop-filter) : texte ≥ --rb-ink-3 validé dessus. */
+  --acc-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.84) 100%);
+  --acc-glass-shadow: 0 1px 2px rgba(30, 36, 51, 0.05), 0 14px 32px -18px rgba(52, 62, 104, 0.32), 0 0 0 1px rgba(30, 36, 51, 0.04);
+  --acc-chair: var(--rb-iris);
+  --acc-mauve-tint: #f3ecf3;
+  --acc-green-grad: linear-gradient(180deg, #0f7f62 0%, #0a6f55 100%);
+  --acc-ink-grad: linear-gradient(180deg, #2c344b 0%, #1e2433 100%);
+  --acc-red-grad: linear-gradient(180deg, #c93446 0%, #ae2638 100%);
+  /* Étincelle Aurore (place libre), dessinée en masque : aucune ressource externe. */
+  --acc-spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c.6 5.6 4.9 9.9 10.5 10.5-5.6.6-9.9 4.9-10.5 10.5C11.4 16.9 7.1 12.6 1.5 12 7.1 11.4 11.4 7.1 12 1.5z'/%3E%3C/svg%3E");
+}
+
+html {
+  font-size: 15px;
+}
+
+body.accueil {
+  min-height: 100vh;
+  line-height: 1.4;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ic {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--rb-line-2);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--rb-ink-2);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ boutons */
+
+.btn {
+  --btn-bg: rgba(255, 255, 255, 0.82);
+  --btn-fg: var(--rb-ink);
+  --btn-border: var(--rb-line-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--btn-border);
+  border-radius: 12px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-family: inherit;
+  font-weight: 650;
+  font-size: 0.97rem;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s, transform 0.06s;
+}
+
+.btn:hover { background: var(--rb-paper); border-color: rgba(30, 36, 51, 0.3); }
+.btn:active { transform: translateY(1px); }
+
+/* Focus clavier : contour plein cyan foncé (≥ 3,7:1 partout), porté par `outline` et non par une
+   ombre, pour ne jamais entrer en conflit avec les ombres d'état (« 5 dernières min », « À appeler »,
+   onglet actif, goodies en attente), qui restent visibles. */
+.btn:focus-visible,
+.menu-item:focus-visible,
+.slot:focus-visible,
+.tab:focus-visible,
+button.stat:focus-visible,
+.search-trigger:focus-visible,
+.call-place:focus-visible {
+  outline: 3px solid var(--acc-focus-ring);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+  transform: none;
+}
+
+.btn-sm { min-height: 44px; padding: 0 12px; font-size: 0.92rem; border-radius: 11px; }
+.btn-lg { min-height: 54px; padding: 0 22px; font-size: 1.08rem; font-weight: 750; border-radius: 14px; }
+.btn-icon { flex: none; padding: 0; width: 44px; min-width: 44px; }
+
+/* Bouton principal : dégradé orange Riftbound, texte encre (6,4:1 sur #F07000, 9:1 en haut). */
+.btn-primary {
+  --btn-fg: var(--rb-on-orange);
+  --btn-border: #e66b00;
+  background: var(--rb-orange-grad);
+  box-shadow: var(--rb-shadow-orange);
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.btn-primary:hover { background: linear-gradient(180deg, #ffa752 0%, #ff8a1f 55%, #f47a0c 100%); border-color: #f07000; }
+
+/* Validation neutre (Enregistrer, Confirmer) : ardoise, texte blanc 15:1. */
+.btn-dark {
+  --btn-fg: #fff;
+  --btn-border: #1e2433;
+  background: var(--acc-ink-grad);
+  font-weight: 700;
+}
+.btn-dark:hover { background: linear-gradient(180deg, #384160 0%, #262d40 100%); border-color: #262d40; }
+
+.btn-outline { --btn-bg: rgba(255, 255, 255, 0.82); }
+.btn-ghost { --btn-bg: transparent; --btn-border: transparent; }
+.btn-ghost:hover { background: var(--rb-lilac); border-color: transparent; }
+
+.btn-danger {
+  --btn-fg: #fff;
+  --btn-border: #ae2638;
+  background: var(--acc-red-grad);
+  font-weight: 700;
+}
+.btn-danger:hover { background: linear-gradient(180deg, #b92c3e 0%, #9c2131 100%); }
+
+.btn-danger-outline {
+  --btn-bg: var(--rb-red-tint);
+  --btn-fg: var(--rb-red-ink);
+  --btn-border: rgba(209, 57, 76, 0.32);
+}
+.btn-danger-outline:hover { background: #fbd9de; border-color: var(--rb-red); }
+
+.btn-warn {
+  --btn-fg: var(--rb-orange-ink);
+  --btn-border: var(--rb-orange-line);
+  --btn-bg: var(--rb-orange-tint);
+}
+.btn-warn:hover { background: #ffe4c7; border-color: var(--rb-orange); }
+
+.btn-cyan {
+  --btn-fg: var(--rb-cyan-ink);
+  --btn-border: var(--rb-cyan-line);
+  --btn-bg: var(--rb-cyan-tint);
+}
+.btn-cyan:hover { background: #d6f1f5; border-color: var(--rb-cyan-strong); }
+
+/* Validation « c'est fait » (Installés, Remis, Goodies remis) : vert profond, texte blanc 6,1:1. */
+.call-actions .btn-dark,
+.goodie .btn-dark,
+.result-actions .btn-dark,
+.pop-actions [data-action="seated"] {
+  --btn-border: #0a6f55;
+  background: var(--acc-green-grad);
+  box-shadow: 0 8px 16px -10px rgba(14, 159, 122, 0.85);
+}
+
+.call-actions .btn-dark:hover,
+.goodie .btn-dark:hover,
+.result-actions .btn-dark:hover,
+.pop-actions [data-action="seated"]:hover { background: linear-gradient(180deg, #0b6a52 0%, #075a45 100%); }
+
+.btn-on-dark {
+  --btn-bg: #fff;
+  --btn-fg: var(--rb-ink);
+  --btn-border: #fff;
+  font-weight: 700;
+}
+.btn-on-dark:hover { background: #f1eef7; border-color: #f1eef7; }
+
+.btn-ghost-on-dark {
+  --btn-bg: transparent;
+  --btn-fg: #fff;
+  --btn-border: rgba(255, 255, 255, 0.7);
+  font-weight: 650;
+}
+.btn-ghost-on-dark:hover { background: rgba(255, 255, 255, 0.14); border-color: #fff; }
+
+/* ------------------------------------------------------------------ barre du haut */
+
+.top-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+/* Barre nacrée : blanc perle presque opaque + reflets irisés fixes (aucun backdrop-filter). */
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 64px;
+  padding: 8px 20px;
+  background:
+    radial-gradient(40% 160% at 32% 0%, rgba(139, 216, 225, 0.16), rgba(139, 216, 225, 0) 70%),
+    radial-gradient(36% 160% at 88% 100%, rgba(229, 139, 201, 0.12), rgba(229, 139, 201, 0) 70%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.96) 0%, rgba(251, 250, 244, 0.94) 50%, rgba(250, 248, 252, 0.95) 100%);
+  border-bottom: 1px solid rgba(30, 36, 51, 0.06);
+  box-shadow: 0 8px 26px -20px rgba(52, 62, 104, 0.55);
+  position: relative;
+}
+
+/* Liseré irisé Radiance (crépuscule quand le stand est fermé). */
+.appbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--rb-iris);
+}
+
+body.is-dusk .appbar::after { background: var(--rb-iris-dusk); }
+
+.brand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Logo officiel sur sa carte nacrée à liseré irisé (jamais à nu sur un halo). */
+.brand-card {
+  padding: 2px 8px;
+  border-width: 1.5px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(30, 36, 51, 0.06), 0 6px 14px -10px rgba(52, 62, 104, 0.4);
+}
+
+.brand-logo {
+  display: block;
+  height: 38px;
+  width: auto;
+}
+
+.brand-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rb-line-2);
+}
+
+.brand-title {
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.015em;
+}
+
+/* Journée : pastille mauve (5,9:1). */
+.day-badge {
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--rb-dusk-tint);
+  box-shadow: inset 0 0 0 1px var(--rb-dusk-line);
+  color: var(--rb-mauve);
+  font-weight: 750;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Statistiques : capsule lilas, chiffres en Outfit. */
+.stats {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border-radius: 14px;
+  background: rgba(243, 241, 248, 0.85);
+  border: 1px solid var(--rb-line);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 62px;
+  min-height: 46px;
+  padding: 3px 10px;
+  border-radius: 11px;
+  line-height: 1.05;
+}
+
+.stat-num {
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-lbl {
+  margin-top: 1px;
+  font-weight: 650;
+  font-size: 0.75rem; /* 11,25 px : jamais moins, même sur tablette */
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rb-ink-3);
+  white-space: nowrap;
+}
+
+.lbl-abbr { display: none; }
+
+button.stat {
+  border: 0;
+  background: none;
+  font: inherit;
+  line-height: 1.05;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.stat:hover { background: rgba(255, 255, 255, 0.95); box-shadow: 0 1px 2px rgba(30, 36, 51, 0.08); }
+button.stat .stat-lbl { text-decoration: underline; text-decoration-color: rgba(30, 36, 51, 0.28); text-underline-offset: 3px; }
+
+.stat-goodies.is-pending {
+  background: var(--rb-gold-tint);
+  box-shadow: inset 0 0 0 1.5px var(--rb-gold);
+}
+
+.stat-goodies.is-pending .stat-num { color: var(--rb-gold-ink); }
+.stat-goodies.is-pending .stat-lbl { color: var(--rb-gold-ink); }
+
+.search-trigger {
+  flex: 1 1 auto;
+  max-width: 340px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0 10px 0 13px;
+  border: 1px solid var(--rb-line-2);
+  border-radius: 12px;
+  background: rgba(243, 241, 248, 0.9);
+  color: var(--rb-ink-3);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.search-trigger:hover { border-color: rgba(30, 36, 51, 0.3); background: #fff; color: var(--rb-ink-2); }
+.search-trigger[aria-expanded="true"] { border-color: var(--rb-cyan-strong); background: var(--rb-paper); }
+
+.search-trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.conn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--rb-line);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--rb-ink-2);
+  white-space: nowrap;
+}
+
+.conn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--rb-ink-4);
+}
+
+.conn[data-state="online"] .conn-dot { background: var(--rb-green); box-shadow: 0 0 0 3px rgba(14, 159, 122, 0.2); }
+.conn[data-state="offline"] { background: var(--rb-red-ink); border-color: var(--rb-red-ink); color: #fff; }
+.conn[data-state="offline"] .conn-dot { background: #fff; animation: blink 1s steps(2, jump-none) infinite; }
+
+@keyframes blink { to { opacity: 0.25; } }
+
+.top-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-top { min-height: 44px; padding: 0 13px; font-size: 0.92rem; }
+
+/* « Fermer le stand » : crépuscule (7,3:1). */
+#btn-stand { --btn-fg: var(--rb-dusk); --btn-border: rgba(93, 79, 124, 0.35); }
+#btn-stand:hover { background: var(--rb-dusk-tint); border-color: var(--rb-dusk); }
+#btn-settings .ic,
+#btn-newday .ic { color: var(--rb-ink-2); }
+
+/* Le matin (journée de la veille encore ouverte) : « Nouvelle journée » passe en orange. */
+#btn-newday.is-morning {
+  --btn-fg: var(--rb-on-orange);
+  --btn-border: #e66b00;
+  background: var(--rb-orange-grad);
+  box-shadow: var(--rb-shadow-orange);
+  font-weight: 750;
+}
+
+#btn-newday.is-morning .ic { color: var(--rb-on-orange); }
+#btn-newday.is-morning:hover { background: linear-gradient(180deg, #ffa752 0%, #ff8a1f 55%, #f47a0c 100%); }
+
+/* Point orange sur « ⋯ » quand « Nouvelle journée » y est rangée et attendue. */
+#btn-more { position: relative; }
+
+.more-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rb-orange);
+  box-shadow: 0 0 0 2px var(--rb-paper);
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+/* Menus (« ⋯ » de la barre, menu d'une ligne de la file) : carte blanche opaque (rien ne transparaît). */
+.menu {
+  position: absolute;
+  z-index: 50;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 240px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--rb-paper);
+  border: 1px solid var(--rb-line);
+  box-shadow: var(--rb-shadow-pop);
+}
+
+.row-menu {
+  position: fixed;
+  top: 0;
+  right: auto;
+  left: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  color: var(--rb-ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible { background: var(--rb-lilac); }
+.menu-item small { margin-left: auto; padding-left: 12px; font-weight: 500; font-size: 0.78rem; color: var(--rb-ink-3); }
+.menu-item .ic { color: var(--rb-ink-3); }
+.menu-item.is-danger { color: var(--rb-red-ink); }
+.menu-item.is-danger .ic { color: var(--rb-red); }
+.menu-item.is-danger:hover,
+.menu-item.is-danger:focus-visible { background: var(--rb-red-tint); }
+
+.menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--rb-line);
+}
+
+.menu-label {
+  padding: 8px 12px 4px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rb-ink-3);
+}
+
+.menu-only-narrow { display: none; }
+
+.logout-form { margin: 0; }
+
+.menu-note {
+  max-width: 300px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  color: var(--rb-ink-2);
+}
+
+.menu-legal {
+  max-width: 260px;
+  margin: 6px 0 0;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--rb-line);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--rb-ink-3);
+}
+
+/* ------------------------------------------------------------------ bandeaux d'état */
+
+/* Stand fermé : bandeau crépuscule pleine largeur, impossible à rater (blanc ≥ 6,4:1 partout). */
+.closed-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  background: linear-gradient(100deg, #443866 0%, #5d4f7c 55%, #6a5687 100%);
+  color: #fff;
+}
+
+.closed-icon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: #f6c9a4;
+}
+
+.closed-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 14px;
+  row-gap: 2px;
+}
+
+.closed-banner .btn { flex: none; }
+
+.closed-title {
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.005em;
+}
+
+.closed-detail {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9); /* ≥ 5,3:1 sur le crépuscule */
+}
+
+/* Le matin : orange brûlé (blanc ≥ 5,4:1 partout), même consigne. */
+.closed-banner.is-morning {
+  background: linear-gradient(100deg, #8f3800 0%, #a84300 55%, #b04a06 100%);
+}
+
+.closed-banner.is-morning .closed-detail { color: #fff; }
+
+.closed-banner.is-morning .closed-newday {
+  --btn-fg: var(--rb-orange-ink);
+  --btn-border: #fff;
+  background: #fff;
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
+}
+
+/* Hors ligne : bandeau rouge (blanc ≥ 6:1), données grisées et hachures rouges entre les panneaux.
+   Pas de voile d'opacité : l'hôtesse doit pouvoir relire tables et file (AA). */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(100deg, #9c2131 0%, #ae2638 60%, #b92c3e 100%);
+  color: #fff;
+  font-weight: 500;
+}
+
+.offline-banner strong { font-weight: 750; }
+
+.offline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  animation: blink 1s steps(2, jump-none) infinite;
+}
+
+body.is-offline .layout {
+  background: repeating-linear-gradient(-45deg, rgba(174, 38, 56, 0.12) 0 8px, transparent 8px 18px);
+}
+
+body.is-offline .layout .panel,
+body.is-offline .layout .tabs {
+  filter: grayscale(0.85);
+}
+
+/* ------------------------------------------------------------------ disposition */
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--acc-col-reg) minmax(0, 1fr) var(--acc-col-side);
+  gap: var(--acc-gap);
+  height: calc(100vh - var(--acc-topbar-h));
+  min-height: 560px;
+  padding: var(--acc-gap);
+}
+
+.col-floor,
+.col-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--acc-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-register {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none; /* la position des champs pendant la saisie est gérée par accueil.js (lockRegResult) */
+  scroll-padding-bottom: 88px; /* un champ qui prend le focus n'est jamais caché sous le bouton collant */
+  scrollbar-width: thin;
+}
+
+/* Cale sous le formulaire : permet à la colonne de défiler quand le résultat grandit pendant la saisie. */
+.reg-spacer { height: 0; }
+
+.panel-calls { flex: none; max-height: min(44%, 312px); display: flex; flex-direction: column; }
+
+@media (max-height: 960px) {
+  .panel-calls { max-height: min(40%, 262px); }
+}
+
+
+.panel-tables { flex: 1 1 auto; min-height: 240px; display: flex; flex-direction: column; }
+.panel-goodies { flex: 0 1 auto; max-height: 46%; min-height: 0; display: flex; flex-direction: column; }
+.panel-queue { flex: 1 1 0; min-height: 160px; display: flex; flex-direction: column; }
+
+.calls-list,
+.goodies-list,
+.queue-list {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.tabs { display: none; }
+
+/* ------------------------------------------------------------------ panneaux (verre clair) */
+
+.panel {
+  position: relative;
+  padding: var(--acc-pad);
+  border-radius: var(--acc-radius);
+  background: var(--acc-glass);
+  border: 1px solid var(--rb-glass-edge);
+  box-shadow: var(--acc-glass-shadow), var(--rb-glass-inset);
+}
+
+/* Panneau désigné (statistique cliquée, nouveaux appels) : bref liseré orange, en opacité seulement. */
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px rgba(240, 112, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.panel.is-flash::after {
+  animation: flash 1.2s ease-out 2;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 0; }
+  30% { opacity: 1; }
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+
+.panel-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.32rem;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+/* Pastille d'étape (01 · 02 · 03) : médaillon blanc à liseré irisé, comme les numéros de table. */
+.step {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris-conic) border-box;
+  box-shadow: 0 2px 6px rgba(52, 62, 104, 0.18);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-ink);
+}
+
+.panel-sub {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  color: var(--rb-ink-3);
+}
+
+.count-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 99px;
+  background: var(--rb-lilac);
+  box-shadow: inset 0 0 0 1px var(--rb-line);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-ink-2);
+}
+
+.count-badge.is-pending { background: var(--rb-orange-grad); box-shadow: 0 4px 10px -5px rgba(240, 112, 0, 0.8); color: var(--rb-on-orange); }
+#goodies-count.is-pending { background: var(--rb-gold); box-shadow: none; color: var(--rb-ink); }
+
+/* État vide : encadré pointillé lilas. */
+.empty {
+  margin: 0;
+  padding: 14px 14px;
+  list-style: none;
+  border-radius: 14px;
+  background: rgba(243, 241, 248, 0.7);
+  border: 1px dashed var(--rb-line-2);
+  font-size: 0.92rem;
+  color: var(--rb-ink-3);
+}
+
+/* ------------------------------------------------------------------ 01 · inscription */
+
+.wait-pill {
+  margin-left: auto;
+  min-width: 0;
+  padding: 5px 11px;
+  border-radius: 99px;
+  background: var(--rb-cyan-tint);
+  box-shadow: inset 0 0 0 1px var(--rb-cyan-line);
+  color: var(--rb-cyan-ink);
+  font-weight: 650;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wait-pill b { font-family: var(--rb-font-display); font-weight: 700; font-size: 1.08em; }
+.wait-pill .ic { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.wait-pill.is-free { background: var(--rb-orange-grad); box-shadow: 0 4px 12px -6px rgba(240, 112, 0, 0.8); color: var(--rb-on-orange); }
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Stand fermé : encart crépuscule. */
+.form-paused,
+.queue-paused {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rb-dusk-tint);
+  border: 1px solid var(--rb-dusk-line);
+  color: var(--rb-ink-2);
+  font-size: 0.88rem;
+}
+
+/* Dans le formulaire, l'encart reste compact (le bandeau du haut dit déjà « Stand fermé ») : le
+   formulaire et son bouton tiennent sans défilement en 1440 × 900 comme stand ouvert. */
+.form-paused {
+  padding: 7px 11px;
+  font-size: 0.84rem;
+  line-height: 1.36;
+}
+
+.form-paused strong,
+.queue-paused strong { color: var(--rb-dusk); }
+
+.queue-paused { margin-bottom: 10px; }
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--rb-lilac);
+  border: 1px solid var(--rb-line);
+}
+
+.mode-option {
+  position: relative;
+  display: block;
+}
+
+.mode-option input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.mode-option span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--rb-ink-3);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.mode-option .ic { width: 17px; height: 17px; color: var(--rb-ink-4); }
+.mode-option input:checked + span { background: var(--rb-paper); color: var(--rb-ink); box-shadow: 0 1px 2px rgba(30, 36, 51, 0.08), 0 4px 12px -6px rgba(52, 62, 104, 0.35); }
+.mode-option input:checked + span .ic { color: var(--rb-orange); }
+.mode-option input:focus-visible + span { outline: 3px solid var(--acc-focus-ring); outline-offset: 1px; }
+
+/* Joueur : carte claire ; la légende indique la chaise (comme sur l'écran TV). */
+.player {
+  margin: 0;
+  padding: 5px 11px 3px;
+  min-width: 0;
+  border: 1px solid var(--rb-line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 248, 239, 0.75));
+}
+
+.player legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: -3px;
+  padding: 0 6px 0 3px;
+  font-weight: 750;
+  font-size: 0.86rem;
+  color: var(--rb-ink);
+}
+
+/* Mini-table : la chaise du joueur est irisée (comme sur l'écran TV), l'autre grise. */
+.seat-ic {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.legend-seat {
+  font-weight: 550;
+  font-size: 0.9em;
+  color: var(--rb-ink-3);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+}
+
+.field { min-width: 0; }
+.field-wide { grid-column: 1 / -1; }
+
+.field label,
+.duration-row label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 650;
+  font-size: 0.8rem;
+  color: var(--rb-ink-2);
+}
+
+.field input,
+.duration-row input,
+.search-box input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--rb-field-line);
+  border-radius: 11px;
+  background: var(--rb-paper);
+  color: var(--rb-ink);
+  font: inherit;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: border-color 0.12s, box-shadow 0.12s, background-color 0.12s;
+}
+
+.field input:hover { border-color: var(--rb-ink-3); }
+
+.field input:focus,
+.duration-row input:focus {
+  outline: none;
+  border-color: var(--rb-cyan-strong);
+  box-shadow: var(--rb-focus);
+}
+
+.field input.is-invalid,
+.duration-row input.is-invalid {
+  border-color: var(--rb-red);
+  background: #fff7f8;
+}
+
+.field input.is-warning {
+  border-color: var(--rb-orange);
+  background: #fffaf3;
+}
+
+.field-msg {
+  min-height: 16px;
+  padding: 3px 0 4px;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--rb-ink-3);
+}
+
+.field-msg:empty { min-height: 6px; padding: 0; }
+.field-msg.is-error { color: var(--rb-red-ink); font-weight: 600; }
+.field-msg.is-warning { color: var(--rb-orange-ink); font-weight: 600; }
+
+.form-error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rb-red-tint);
+  border: 1px solid var(--rb-red-line);
+  color: var(--rb-red-ink);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Bouton d'inscription collant : toujours visible en bas de la colonne. */
+.form-actions {
+  position: sticky;
+  bottom: calc(var(--acc-pad) * -1);
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(var(--acc-pad) * -1);
+  padding: 10px var(--acc-pad);
+  background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.97) 12px);
+}
+
+.form-actions .btn-primary { flex: 1; }
+
+.form-hint {
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--rb-ink-3);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.form-hint kbd { font-size: 0.66rem; }
+
+/* Résultat de la dernière inscription : ce que l'hôtesse annonce au visiteur. */
+.reg-result {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--rb-paper);
+  border: 1px solid var(--rb-line);
+  box-shadow: var(--rb-shadow-1);
+  animation: rise 0.28s ease-out;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.reg-result-label {
+  font-weight: 750;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rb-ink-3);
+}
+
+.reg-result-who {
+  margin-top: 4px;
+  font-weight: 650;
+  font-size: 0.98rem;
+}
+
+.reg-result-where {
+  margin-top: 2px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.reg-result-detail {
+  margin-top: 4px;
+  font-size: 0.88rem;
+  color: var(--rb-ink-2);
+}
+
+.reg-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Placé : carte ardoise à liseré irisé, « → Table 4 · B » en très grand (blanc 15:1). */
+.reg-result[data-tone="table"] {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(135deg, #1e2433 0%, #2a3150 100%) padding-box,
+    var(--rb-iris) border-box;
+  color: #fff;
+  box-shadow: 0 14px 28px -18px rgba(30, 36, 51, 0.75);
+}
+.reg-result[data-tone="table"] .reg-result-label { color: rgba(255, 255, 255, 0.78); }
+.reg-result[data-tone="table"] .reg-result-where { color: #fff; font-size: 1.9rem; }
+.reg-result-where .ic-arrow { width: 0.9em; height: 0.9em; margin-right: 0.25em; vertical-align: -0.06em; color: var(--rb-orange); }
+.reg-result[data-tone="table"] .reg-result-detail { color: rgba(255, 255, 255, 0.86); }
+.reg-result[data-tone="queue"] { background: linear-gradient(135deg, #e6f4f8 0%, #ffffff 70%); border-color: var(--rb-cyan-line); }
+.reg-result[data-tone="solo"] { background: linear-gradient(135deg, var(--acc-mauve-tint) 0%, #ffffff 75%); border-color: rgba(113, 75, 105, 0.3); }
+.reg-result[data-tone="solo"] .reg-result-where { font-size: 1.22rem; color: var(--rb-mauve); }
+.reg-result[data-tone="paused"] { background: linear-gradient(135deg, var(--rb-dusk-tint) 0%, #ffffff 80%); border-color: var(--rb-dusk-line); }
+.reg-result[data-tone="paused"] .reg-result-where { font-size: 1.25rem; color: var(--rb-dusk); }
+.reg-result[data-tone="muted"] { background: var(--rb-lilac); }
+.reg-result[data-tone="muted"] .reg-result-where { font-size: 1.1rem; color: var(--rb-ink-2); }
+
+/* Inscription ancienne (> 90 s) : version compacte. */
+.reg-result.is-old { padding: 8px 12px; }
+.reg-result.is-old .reg-result-who { display: none; }
+.reg-result.is-old .reg-result-where { font-size: 1.08rem; }
+.reg-result.is-old[data-tone="table"] .reg-result-where { font-size: 1.18rem; }
+.reg-result.is-old .reg-result-detail { display: none; }
+
+/* ------------------------------------------------------------------ 02 · à appeler */
+
+.panel-calls {
+  padding-bottom: 12px;
+}
+
+/* Des joueurs à appeler : liseré orange → rose (fond opaque, aucune animation en boucle). */
+.panel-calls.has-calls {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(180deg, #fffaf4 0%, #ffffff 60%) padding-box,
+    linear-gradient(120deg, #ffb066 0%, #f07000 55%, #e58bc9 100%) border-box;
+  box-shadow: 0 16px 30px -20px rgba(240, 112, 0, 0.7), var(--rb-shadow-1);
+}
+
+.panel-calls .panel-head { margin-bottom: 10px; }
+.panel-calls:not(.has-calls) .panel-head { margin-bottom: 0; }
+.panel-calls .calls-clear { flex: none; }
+
+/* Liste plafonnée (environ trois cartes) : elle défile, le plan reste visible. */
+.calls-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-calls:not(.has-calls) .calls-list { display: none; }
+
+.call {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--rb-paper);
+  border: 1px solid rgba(240, 112, 0, 0.26);
+  box-shadow: 0 6px 14px -10px rgba(240, 112, 0, 0.55);
+  animation: rise 0.3s ease-out;
+}
+
+/* Grande étiquette « Table 8 · B » : plaque orange, texte encre (≥ 6,4:1). */
+.call-place {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 54px;
+  padding: 0 7px 0 0;
+  border: 1px solid #e66b00;
+  border-radius: 13px;
+  background: var(--rb-orange-grad);
+  color: var(--rb-on-orange);
+  box-shadow: var(--rb-shadow-orange);
+  font: inherit;
+  cursor: pointer;
+}
+
+.call-place:hover { background: linear-gradient(180deg, #ffa752 0%, #ff8a1f 55%, #f47a0c 100%); }
+
+.call-place .plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  height: 52px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+.call-place .plate small {
+  margin-bottom: 1px;
+  font-family: var(--rb-font-ui);
+  font-weight: 750;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.call-place .call-slot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 38px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--rb-ink);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.call-main { min-width: 0; }
+
+/* Noms complets, sur deux lignes si besoin (jamais coupés à la première). */
+.call-names {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-weight: 750;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.call-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-top: 2px;
+  font-size: 0.84rem;
+  color: var(--rb-ink-3);
+}
+
+/* « Prévenir un animateur » : mauve (animateur), 6:1. */
+.call-chip {
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--acc-mauve-tint);
+  box-shadow: inset 0 0 0 1px rgba(113, 75, 105, 0.28);
+  font-weight: 700;
+  font-size: 0.76rem;
+  color: var(--rb-mauve);
+  white-space: nowrap;
+}
+
+.call-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ------------------------------------------------------------------ plan des tables */
+
+/* Le plan n'est jamais écrasé : chaque table garde une hauteur minimale et le plan défile s'il
+   manque de place (petite fenêtre, nombreux appels). Le haut du plan laisse la place aux médaillons
+   des tables, posés à cheval sur le bord de chaque table (comme sur l'écran TV). */
+.tables-grid {
+  --card-min: 128px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(var(--card-min), 1fr));
+  gap: 18px 12px;
+  margin: -6px -3px -3px;
+  padding: 16px 3px 3px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* Table : « sol » lilas → menthe ; chaises au-dessus et au-dessous de chaque emplacement. */
+.table-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 6px 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(243, 241, 248, 0.96), rgba(237, 242, 233, 0.78));
+  border: 1px solid var(--rb-line);
+}
+
+.table-head {
+  position: absolute;
+  z-index: 2;
+  top: -15px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+/* Numéro de table : médaillon blanc à liseré irisé (encre 15:1). */
+.table-no {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  background:
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris-conic) border-box;
+  box-shadow: 0 2px 6px rgba(52, 62, 104, 0.22);
+  color: var(--rb-ink);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* « Table N » : lu par les lecteurs d'écran, le médaillon suffit à l'œil. */
+.table-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Occupation « 2/2 » : lue par les lecteurs d'écran (les chaises et les emplacements la montrent) ;
+   « Hors service » : pastille foncée à côté du médaillon (blanc 10:1). */
+.table-flag {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.table-card.is-disabled {
+  background: repeating-linear-gradient(-45deg, rgba(124, 132, 155, 0.12) 0 7px, rgba(255, 255, 255, 0.55) 7px 15px);
+}
+
+/* Hors service : médaillon gris (encre 2 sur gris pâle ≥ 7:1), pastille foncée, chaises retirées. */
+.table-card.is-disabled .table-no {
+  background:
+    linear-gradient(var(--rb-sunken), var(--rb-sunken)) padding-box,
+    linear-gradient(var(--rb-ink-4), var(--rb-ink-4)) border-box;
+  color: var(--rb-ink-2);
+}
+
+.table-card.is-disabled .table-flag {
+  position: static;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  clip: auto;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: var(--rb-ink-2);
+  box-shadow: 0 2px 6px rgba(52, 62, 104, 0.22);
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: #fff;
+  text-overflow: ellipsis;
+}
+
+.table-card.is-disabled .slot::before { display: none; }
+
+.table-slots {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 6px;
+}
+
+/* Emplacement : un bouton qui ouvre le panneau d'actions. L'essentiel seulement (état, anneau de
+   temps autour de la lettre, chrono, noms) ; contenu centré et tailles relatives à l'emplacement
+   (unités de conteneur) : pas de grand vide sur un grand écran, rien de tassé sur une tablette.
+   L'écart sous le chrono est porté par les enfants (.slot-names, .slot-end) : sur .slot lui-même,
+   « cqh » vaudrait la hauteur de la fenêtre (aucun conteneur parent), pas celle de l'emplacement. */
+.slot {
+  container: slot / size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 7px 7px 8px;
+  border: 1px solid rgba(30, 36, 51, 0.12);
+  border-radius: 12px;
+  background: var(--rb-paper);
+  color: var(--rb-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(30, 36, 51, 0.05), 0 6px 14px -12px rgba(52, 62, 104, 0.5);
+  transition: border-color 0.12s, box-shadow 0.12s, background-color 0.12s;
+}
+
+.slot:hover { border-color: var(--rb-aqua); box-shadow: 0 8px 18px -12px rgba(52, 62, 104, 0.7); }
+.slot.is-open { border-color: var(--rb-ink); box-shadow: 0 0 0 2px var(--rb-ink), 0 10px 22px -14px rgba(52, 62, 104, 0.8); }
+
+/* Chaises (comme sur l'écran TV) : joueur 1 en haut, joueur 2 en bas. Irisées = occupées,
+   mauve = animateur, pointillés orange = libre, crépuscule = stand fermé, gris = hors service. */
+.slot::before,
+.slot::after {
+  content: '';
+  position: absolute;
+  left: 32%;
+  right: 32%;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--acc-chair);
+  pointer-events: none;
+}
+
+.slot::before { top: -9px; }
+.slot::after { bottom: -9px; }
+
+.slot.host-top::before,
+.slot.host-bottom::after { background: linear-gradient(115deg, #9c86b8, var(--rb-mauve)); }
+
+.slot.is-free::before,
+.slot.is-free::after {
+  height: 6px;
+  background: transparent;
+  border: 1.5px dashed var(--rb-orange);
+}
+
+.slot.is-paused-free::before,
+.slot.is-paused-free::after { background: var(--rb-dusk-line); }
+
+.slot.is-off::before,
+.slot.is-off::after { background: var(--rb-hatch); }
+
+.slot-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Anneau de temps irisé autour de la lettre (part restante, mis à jour par accueil.js). */
+.slot-ring {
+  --rb-ring-w: 25%;
+  --rb-ring-track: #dfe4ee;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: clamp(26px, min(22cqw, 28cqh), 44px);
+  height: clamp(26px, min(22cqw, 28cqh), 44px);
+  border-radius: 50%;
+}
+
+.slot-letter {
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: clamp(0.8rem, min(9.5cqw, 12cqh), 1.2rem);
+  line-height: 1;
+  color: var(--rb-ink-2);
+}
+
+/* Emplacement sans partie : lettre dans un rond simple. */
+.slot-ring.is-empty {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 1.5px var(--rb-line-2);
+}
+
+.slot.is-free .slot-ring.is-empty { box-shadow: inset 0 0 0 1.5px var(--rb-orange-line); }
+.slot.is-free .slot-letter { color: var(--rb-orange-ink); }
+.slot.is-paused-free .slot-letter { color: var(--rb-dusk); }
+
+.countdown {
+  margin-left: auto;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.slot .countdown {
+  font-size: clamp(1.1rem, min(16cqh, 20cqw), 2.15rem);
+  line-height: 1;
+}
+
+.slot .countdown.is-long { font-size: clamp(0.95rem, min(13cqh, 15cqw), 1.7rem); }
+.countdown.is-warn { color: var(--rb-warn-ink); }
+.countdown.is-over { color: var(--rb-green-ink); }
+.slot .countdown.is-over { font-size: clamp(0.95rem, min(11cqh, 13cqw), 1.4rem); }
+
+.slot-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Écart chrono → noms (et noms → fin prévue) : 4 px sur un petit emplacement (tablette),
+   10 px sur un grand (TV de l'accueil, 1920 × 1080). */
+.slot-names,
+.slot-end { margin-top: clamp(0px, calc(12cqh - 6px), 6px); }
+
+/* Anneau plus serré sur un emplacement bas (tablette, fenêtre basse, pastille affichée) : la lettre
+   reste lisible (0,8 rem, encre) et les deux noms gardent leur place au-dessus de la pastille. */
+@container slot (max-height: 64px) {
+  .slot-ring { width: 22px; height: 22px; }
+}
+
+.sn {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--rb-font-display);
+  font-weight: 600;
+  font-size: clamp(0.86rem, min(10cqh, 12cqw), 1.3rem);
+  line-height: 1.24;
+  letter-spacing: -0.005em;
+}
+
+/* Nom long (prénom composé) : sur deux lignes plutôt que coupé, seulement si l'emplacement a la
+   hauteur (hauteur utile, pastille déjà déduite : voir .slot-chip) — un nom long sur 3 lignes en
+   tout dès 76 px, deux noms longs (4 lignes) dès 94 px. Sinon points de suite : le nom complet
+   reste dans l'infobulle, le panneau de l'emplacement et la liste « À appeler ». */
+@container slot (min-height: 76px) {
+  .slot-names:not(.many-long) .sn.is-long {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+    line-height: 1.16;
+  }
+}
+
+@container slot (min-height: 94px) {
+  .sn.is-long {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
+    line-height: 1.16;
+  }
+}
+
+.sn.is-animator {
+  color: var(--rb-mauve);
+  font-weight: 650;
+}
+
+/* Fin prévue : seulement si l'emplacement a la hauteur (grand écran). */
+.slot-end {
+  display: none;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-ink-3);
+}
+
+@container slot (min-height: 150px) {
+  .slot-end { display: block; }
+}
+
+/* Étiquette « Nouveau » / « À appeler » : à cheval sur le bord bas (jamais sur le chrono). */
+.slot-chip {
+  position: absolute;
+  z-index: 1;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 9px;
+  border-radius: 99px;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rb-ink);
+  box-shadow: 0 0 0 2px var(--rb-paper);
+}
+
+.slot-chip.chip-new { background: var(--rb-iris); }
+.slot-chip.chip-call { background: var(--rb-orange-grad); color: var(--rb-on-orange); }
+
+/* Pastille affichée : le bas de l'emplacement lui est réservé, aucun nom ne passe dessous
+   (la pastille « Nouveau » disparaît au bout de 3 min : la place est alors rendue aux noms). */
+.slot.is-call,
+.slot:has(> .slot-chip:not([hidden])) { padding-bottom: 13px; }
+
+/* Joueurs à appeler : bordure orange pleine. */
+.slot.is-call { border-color: var(--rb-orange); box-shadow: inset 0 0 0 1.5px var(--rb-orange), 0 8px 16px -12px rgba(240, 112, 0, 0.8); }
+
+/* 5 dernières minutes : bordure rose épaisse, fond rose, anneau et chrono roses. */
+.slot.is-warn {
+  background: linear-gradient(180deg, #fff 0%, var(--rb-warn-tint) 100%);
+  border-color: var(--rb-warn);
+  box-shadow: inset 0 0 0 1.5px var(--rb-warn), 0 8px 16px -12px rgba(210, 62, 138, 0.8);
+}
+
+.slot.is-warn .slot-ring { --rb-ring-fill: linear-gradient(var(--rb-warn), var(--rb-warn)); --rb-ring-track: var(--rb-warn-line); }
+.slot.is-warn .slot-letter { color: var(--rb-warn-ink); }
+
+/* Temps écoulé (la partie se termine) : vert. */
+.slot.is-over { background: linear-gradient(180deg, #fff 0%, var(--rb-green-tint) 100%); }
+.slot.is-over .slot-ring::before { background: linear-gradient(var(--rb-green), var(--rb-green)); }
+
+.slot.is-call.is-open,
+.slot.is-warn.is-open { box-shadow: 0 0 0 2px var(--rb-ink); }
+
+/* Libre : tuile nacrée, « Libre » en orange foncé (6:1) avec l'étincelle Aurore. */
+.slot.is-free {
+  justify-content: space-between;
+  background: var(--rb-nacre);
+  border: 1.5px dashed rgba(240, 112, 0, 0.55);
+  box-shadow: none;
+}
+
+.slot-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  margin-block: auto;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: clamp(1rem, min(13cqh, 12cqw), 1.4rem);
+  color: var(--rb-orange-ink);
+}
+
+.slot.is-free .slot-state::before {
+  content: '';
+  flex: none;
+  width: 0.85em;
+  height: 0.85em;
+  background: var(--rb-orange);
+  -webkit-mask: var(--acc-spark) center / contain no-repeat;
+  mask: var(--acc-spark) center / contain no-repeat;
+}
+
+.slot-state small {
+  display: block;
+  flex-basis: 100%;
+  font-family: var(--rb-font-ui);
+  font-weight: 600;
+  font-size: 0.74rem;
+  color: var(--rb-ink-3);
+}
+
+/* Libre mais stand fermé : crépuscule. */
+.slot.is-paused-free {
+  background: var(--rb-dusk-tint);
+  border: 1.5px dashed var(--rb-dusk-line);
+  box-shadow: none;
+}
+
+.slot.is-paused-free .slot-state { color: var(--rb-dusk); }
+.slot.is-paused-free .slot-state small { color: var(--rb-dusk); }
+
+.slot.is-off {
+  background: repeating-linear-gradient(-45deg, var(--rb-hatch) 0 5px, var(--rb-paper) 5px 11px);
+  border-color: var(--rb-line-2);
+  box-shadow: none;
+}
+
+.slot.is-off .slot-state { color: var(--rb-ink-2); font-size: 0.86rem; }
+
+.plan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--rb-ink-2);
+}
+
+.plan-legend li { display: flex; align-items: center; gap: 6px; }
+.plan-legend .lg-hint { margin-left: auto; color: var(--rb-ink-3); }
+
+.lg {
+  flex: none;
+  box-sizing: border-box;
+  width: 18px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+/* Repères calqués sur le plan : Libre = tuile nacrée en pointillés avec l'étincelle (crépuscule
+   quand le stand est fermé, comme les tuiles) ; À appeler = plaque orange pleine, comme la
+   pastille « À APPELER » et le compteur du panneau 02. */
+.lg-free {
+  display: grid;
+  place-items: center;
+  background: var(--rb-nacre);
+  border: 1.5px dashed var(--rb-orange);
+}
+
+.lg-free::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--rb-orange);
+  -webkit-mask: var(--acc-spark) center / contain no-repeat;
+  mask: var(--acc-spark) center / contain no-repeat;
+}
+
+body.is-dusk .lg-free { background: var(--rb-dusk-tint); border-color: var(--rb-dusk); }
+body.is-dusk .lg-free::before { background: var(--rb-dusk); }
+
+.lg-busy { background: var(--rb-paper); box-shadow: inset 0 0 0 1px var(--rb-line-2), inset 0 -3px 0 #a7b7cf; }
+.lg-warn { background: var(--rb-warn-tint); box-shadow: inset 0 0 0 2px var(--rb-warn); }
+.lg-call { background: var(--rb-orange-grad); box-shadow: inset 0 0 0 1px rgba(168, 67, 0, 0.45), 0 2px 5px -2px rgba(240, 112, 0, 0.8); }
+
+/* Panneau d'actions d'un emplacement (popover) : carte blanche opaque, liseré irisé en haut
+   (rose dans les 5 dernières minutes). */
+.slot-pop {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  width: 376px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 18px 16px 16px;
+  border-radius: 22px;
+  background:
+    var(--rb-iris) top / 100% 4px no-repeat,
+    var(--rb-paper);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(30, 36, 51, 0.06), 0 30px 60px -22px rgba(52, 62, 104, 0.5), 0 10px 20px -12px rgba(52, 62, 104, 0.3);
+  outline: none;
+  scrollbar-width: thin;
+  animation: pop-in 0.14s ease-out;
+}
+
+.slot-pop.is-warn {
+  background:
+    linear-gradient(var(--rb-warn), var(--rb-warn)) top / 100% 4px no-repeat,
+    var(--rb-paper);
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.pop-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Plaque « 1 · A » : numéro blanc sur ardoise, lettre encre sur irisé. */
+.pop-plate {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 42px;
+  padding: 0 5px 0 0;
+  border-radius: 12px;
+  background: var(--acc-ink-grad);
+  color: #fff;
+  box-shadow: 0 6px 14px -8px rgba(30, 36, 51, 0.6);
+}
+
+.pop-plate b {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.45rem;
+}
+
+.pop-plate span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--rb-iris);
+  color: var(--rb-ink);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.pop-title {
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -0.005em;
+}
+
+.pop-title small {
+  display: block;
+  font-family: var(--rb-font-ui);
+  font-weight: 550;
+  font-size: 0.8rem;
+  color: var(--rb-ink-3);
+}
+
+.pop-head .btn-icon { margin-left: auto; }
+
+/* Temps restant : anneau irisé « VS » + chrono, sur fond lilas (rose en fin de partie). */
+.pop-time {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--rb-lilac);
+}
+
+.slot-pop.is-warn .pop-time { background: var(--rb-warn-tint); }
+.slot-pop.is-over .pop-time { background: var(--rb-green-tint); }
+
+.pop-ring {
+  --rb-ring-w: 15%;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--rb-ink-2);
+}
+
+.slot-pop.is-warn .pop-ring { --rb-ring-fill: linear-gradient(var(--rb-warn), var(--rb-warn)); --rb-ring-track: var(--rb-warn-line); color: var(--rb-warn-ink); }
+.slot-pop.is-over .pop-ring::before { background: linear-gradient(var(--rb-green), var(--rb-green)); }
+
+.pop-time-text {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.pop-time .countdown {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pop-time small {
+  font-size: 0.86rem;
+  color: var(--rb-ink-3);
+}
+
+.pop-players {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pop-player + .pop-player { margin-top: 6px; }
+
+.pop-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 7px 8px 7px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--rb-line);
+  background: var(--rb-paper);
+}
+
+.pop-player-main { flex: 1; min-width: 0; }
+
+.pop-seat {
+  display: block;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rb-ink-3);
+}
+
+.pop-player-name {
+  display: block;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.pop-player-meta {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--rb-ink-3);
+}
+
+.pop-player.is-animator { background: var(--acc-mauve-tint); border-color: rgba(113, 75, 105, 0.22); }
+.pop-player.is-animator .pop-player-name { color: var(--rb-mauve); }
+
+.btn-absent { min-width: 104px; }
+.btn-absent small { font-weight: 550; font-size: 0.74rem; }
+
+.pop-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pop-actions .btn { width: 100%; }
+.pop-actions .span-2 { grid-column: 1 / -1; }
+
+.pop-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rb-lilac);
+  font-size: 0.85rem;
+  color: var(--rb-ink-2);
+}
+
+.pop-note b { color: var(--rb-ink); }
+
+/* Libérer : isolé en bas du panneau, loin de « +5 min » (action irréversible). */
+.pop-danger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--rb-line-2);
+}
+
+.pop-danger small {
+  font-size: 0.8rem;
+  color: var(--rb-ink-3);
+}
+
+/* ------------------------------------------------------------------ 03 · goodies */
+
+.goodies-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goodies-list > li + li,
+.goodies-given li + li { margin-top: 6px; }
+
+.goodie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 7px 7px 7px 10px;
+  border-radius: 14px;
+  background: var(--rb-paper);
+  border: 1px solid var(--rb-line);
+}
+
+.goodie-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--rb-gold-tint);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, 0.45);
+  color: var(--rb-gold-ink);
+}
+
+.goodie-main { flex: 1; min-width: 0; }
+
+.goodie-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.goodie-meta {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--rb-ink-3);
+}
+
+.goodie .btn { flex: none; padding: 0 14px; }
+
+.goodies-given {
+  margin-top: 4px;
+}
+
+.goodies-given summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-weight: 650;
+  font-size: 0.88rem;
+  color: var(--rb-ink-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.goodies-given summary:hover { background: var(--rb-lilac); }
+.goodies-given summary::-webkit-details-marker { display: none; }
+
+.goodies-given summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.goodies-given[open] summary::before { transform: rotate(45deg); }
+
+.goodies-given ul { margin: 0; padding: 0; list-style: none; }
+.goodie.is-given { min-height: 52px; background: rgba(255, 255, 255, 0.6); }
+.goodie.is-given .goodie-name { font-weight: 600; color: var(--rb-ink-2); }
+.goodie.is-given .goodie-icon { background: var(--rb-green-tint); box-shadow: none; color: var(--rb-green-ink); }
+
+/* ------------------------------------------------------------------ file d'attente */
+
+.queue-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-list > li + li { margin-top: 6px; }
+
+.q-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 8px 4px 8px 9px;
+  border-radius: 14px;
+  background: var(--rb-paper);
+  border: 1px solid var(--rb-line);
+}
+
+/* Rang : médaillon lilas en Outfit. */
+.q-rank {
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--rb-lilac);
+  box-shadow: inset 0 0 0 1px var(--rb-line);
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-ink-2);
+}
+
+/* Prochain : liseré orange, rang orange (texte encre). */
+.q-row.is-next {
+  border-color: rgba(240, 112, 0, 0.5);
+  box-shadow: inset 4px 0 0 var(--rb-orange), 0 6px 16px -12px rgba(240, 112, 0, 0.75);
+}
+
+.q-row.is-next .q-rank { background: var(--rb-orange-grad); box-shadow: none; color: var(--rb-on-orange); }
+
+.q-main { min-width: 0; }
+
+.q-names {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.q-name { min-width: 0; overflow-wrap: anywhere; }
+.q-amp { color: var(--rb-ink-3); font-weight: 500; }
+
+.q-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--rb-ink-3);
+}
+
+.q-meta strong { color: var(--rb-cyan-ink); font-weight: 650; }
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-weight: 750;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tag-next { background: var(--rb-orange-grad); color: var(--rb-on-orange); }
+.tag-solo { background: var(--acc-mauve-tint); color: var(--rb-mauve); box-shadow: inset 0 0 0 1px rgba(113, 75, 105, 0.28); }
+.tag-animator { background: var(--rb-mauve); color: #fff; }
+.tag-pair { background: var(--rb-lilac); color: var(--rb-ink-2); box-shadow: inset 0 0 0 1px var(--rb-line); }
+
+.q-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.q-more { color: var(--rb-ink-3); }
+.q-more[aria-expanded="true"] { background: var(--rb-lilac); }
+
+.q-main-action { margin-top: 8px; }
+.q-main-action .btn { max-width: 100%; white-space: normal; text-align: left; line-height: 1.2; padding-block: 6px; }
+
+/* Joueur seul qui cherche un partenaire : pointillés mauves (comme sur l'écran TV). */
+.q-row.is-solo {
+  border: 1.5px dashed rgba(113, 75, 105, 0.4);
+  background: linear-gradient(90deg, var(--acc-mauve-tint), rgba(255, 255, 255, 0.92) 80%);
+}
+
+.q-row.is-solo .q-rank { background: var(--rb-paper); box-shadow: inset 0 0 0 1.5px rgba(113, 75, 105, 0.35); color: var(--rb-mauve); }
+
+/* ------------------------------------------------------------------ recherche */
+
+.search-pop {
+  position: fixed;
+  z-index: 45;
+  top: 72px;
+  right: 16px;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background:
+    var(--rb-iris) top / 100% 3px no-repeat,
+    var(--rb-paper);
+  border: 1px solid var(--rb-line);
+  box-shadow: var(--rb-shadow-pop);
+  animation: pop-in 0.14s ease-out;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--rb-line);
+}
+
+.search-box > .ic {
+  position: absolute;
+  left: 26px;
+  color: var(--rb-ink-3);
+  pointer-events: none;
+}
+
+.search-box input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+.search-box input {
+  padding-left: 40px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--rb-paper);
+  font-size: 1.05rem;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--rb-cyan-strong);
+  box-shadow: var(--rb-focus);
+}
+
+.search-results {
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 10px 10px;
+  scrollbar-width: thin;
+}
+
+.search-results:empty::before {
+  content: 'Tapez au moins 2 caractères : nom, prénom, email ou n° de billet.';
+  display: block;
+  padding: 14px 4px 4px;
+  font-size: 0.86rem;
+  color: var(--rb-ink-3);
+}
+
+.search-results .empty { margin: 6px 2px; }
+
+.result {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.result + .result { margin-top: 4px; border-top-color: var(--rb-line); }
+.result:hover,
+.result:focus-within { background: var(--rb-lilac); border-color: var(--rb-line); }
+
+.result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 750;
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
+
+.pill {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: var(--rb-lilac);
+  box-shadow: inset 0 0 0 1px var(--rb-line);
+  font-weight: 700;
+  font-size: 0.74rem;
+  color: var(--rb-ink-2);
+  white-space: nowrap;
+}
+
+.pill-waiting { background: var(--rb-orange-tint); box-shadow: inset 0 0 0 1px var(--rb-orange-line); color: var(--rb-orange-ink); }
+.pill-playing { background: var(--rb-cyan-tint); box-shadow: inset 0 0 0 1px var(--rb-cyan-line); color: var(--rb-cyan-ink); }
+.pill-completed { background: var(--rb-green-tint); box-shadow: none; color: var(--rb-green-ink); }
+.pill-left_early,
+.pill-removed { background: var(--rb-red-tint); box-shadow: none; color: var(--rb-red-ink); }
+.pill-expired,
+.pill-interrupted { background: var(--rb-dusk-tint); box-shadow: none; color: var(--rb-dusk); }
+
+.result-meta {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  color: var(--rb-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.result-where {
+  margin-top: 6px;
+  font-size: 0.88rem;
+  color: var(--rb-ink-2);
+}
+
+.result-where:empty { display: none; }
+.result-where strong { color: var(--rb-gold-ink); }
+
+.countdown-inline { font-family: var(--rb-font-display); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--rb-ink); }
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* ------------------------------------------------------------------ toasts */
+
+/* Une notification à la fois, posée sur la barre du haut (au-dessus des statistiques et de la
+   recherche) : elle ne couvre ni un panneau de travail, ni un menu, ni le panneau d'un emplacement.
+   À la souris, elle laisse passer les clics (sauf la croix) et s'estompe sous le pointeur ; au
+   toucher, un tap dessus la ferme (jamais de tap à l'aveugle sur le bouton qu'elle cache). Le texte
+   n'est jamais tronqué : la consigne est souvent en fin de message. */
+.toasts {
+  position: fixed;
+  z-index: 60;
+  top: 7px;
+  left: 50%;
+  width: min(620px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 5px 5px 5px 14px;
+  border-radius: 16px;
+  background: var(--rb-ink);
+  color: #fff;
+  box-shadow: 0 18px 40px -18px rgba(30, 36, 51, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  font-weight: 550;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  pointer-events: none;
+  animation: toast-in 0.2s ease-out;
+  transition: opacity 0.2s;
+}
+
+.toast + .toast { display: none; }
+
+.toast::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rb-green);
+  box-shadow: 0 0 0 4px rgba(14, 159, 122, 0.3);
+}
+
+.toast-info::before { background: var(--rb-iris); box-shadow: 0 0 0 4px rgba(167, 183, 207, 0.3); }
+.toast-error { background: #9c2131; }
+.toast-error::before { background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25); }
+
+.toast-msg {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.is-touch .toast { pointer-events: auto; cursor: pointer; }
+
+.toast-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.toast-close:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.toast.is-peek { opacity: 0.2; }
+.toast.is-leaving { opacity: 0; transform: translateY(-6px); transition: opacity 0.2s, transform 0.2s; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------------ modales */
+
+.modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background:
+    var(--rb-iris) top / 100% 4px no-repeat,
+    var(--rb-paper);
+  color: var(--rb-ink);
+  box-shadow: 0 40px 80px -30px rgba(30, 36, 51, 0.55), 0 0 0 1px rgba(30, 36, 51, 0.05);
+}
+
+.modal-danger {
+  background:
+    linear-gradient(var(--rb-red), var(--rb-red)) top / 100% 4px no-repeat,
+    var(--rb-paper);
+}
+
+/* Voile simple (pas de flou : les comptes à rebours continuent dessous). */
+.modal::backdrop {
+  background: rgba(30, 36, 51, 0.4);
+}
+
+.modal[open] { animation: pop-in 0.16s ease-out; }
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 22px 4px;
+}
+
+.modal-head h2 {
+  flex: 1;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.42rem;
+  letter-spacing: -0.015em;
+}
+
+.modal-danger .modal-head h2 { color: var(--rb-red-ink); }
+
+.modal-section {
+  padding: 14px 22px;
+}
+
+.modal-section h3 {
+  margin-bottom: 10px;
+  font-weight: 750;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rb-ink-2);
+}
+
+.modal-section + .modal-section { border-top: 1px solid var(--rb-line); }
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px 20px;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 0.84rem;
+  color: var(--rb-ink-3);
+}
+
+.duration-row {
+  display: grid;
+  grid-template-columns: auto 110px auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.duration-row label { margin: 0; }
+
+.toggles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* Table en service : interrupteur (marche / arrêt). Hors service : hachures. */
+.toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--rb-line-2);
+  background: repeating-linear-gradient(-45deg, var(--rb-hatch) 0 5px, var(--rb-paper) 5px 11px);
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.toggle-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.toggle-name { font-family: var(--rb-font-display); font-weight: 700; font-size: 1rem; }
+.toggle-state { font-size: 0.76rem; line-height: 1.25; color: var(--rb-ink-2); }
+
+.switch {
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 24px;
+  border-radius: 99px;
+  background: var(--rb-ink-3);
+  transition: background-color 0.15s;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(30, 36, 51, 0.3);
+  transition: transform 0.15s;
+}
+
+.toggle.is-on { background: var(--rb-paper); border-color: rgba(14, 159, 122, 0.4); }
+.toggle.is-on .toggle-state { color: var(--rb-green-ink); }
+.toggle.is-on .switch { background: var(--rb-green-ink); }
+.toggle.is-on .switch::after { transform: translateX(16px); }
+.toggle:focus-within { box-shadow: var(--rb-focus); }
+
+.confirm-text { font-size: 1rem; }
+.modal-confirm .modal-section p + p,
+.modal-confirm .modal-section p + ul,
+.modal-confirm .modal-section ul + p,
+.modal-confirm .modal-section div + p { margin-top: 10px; }
+
+.confirm-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--rb-ink-2);
+}
+
+.confirm-list li + li { margin-top: 4px; }
+
+.confirm-note {
+  font-size: 0.9rem;
+  color: var(--rb-ink-2);
+}
+
+.confirm-alert {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--rb-orange-tint);
+  border: 1px solid var(--rb-orange-line);
+  color: var(--rb-ink);
+  font-size: 0.92rem;
+}
+
+.confirm-alert p + p { margin-top: 8px; }
+p.confirm-alert { margin: 12px 0 0; }
+
+.newday-lead { font-size: 1.05rem; }
+
+.impact-list {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.impact-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rb-red-tint);
+  font-size: 0.92rem;
+  color: var(--rb-ink-2);
+}
+
+.impact-list strong {
+  min-width: 26px;
+  font-family: var(--rb-font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--rb-red-ink);
+}
+
+.impact-list li.is-zero { background: var(--rb-lilac); color: var(--rb-ink-3); }
+.impact-list li.is-zero strong { color: var(--rb-ink-3); }
+
+.newday-reopen {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--rb-ink-2);
+}
+
+.newday-reopen.is-reopen {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rb-green-tint);
+  color: var(--rb-green-ink);
+}
+
+/* ------------------------------------------------------------------ largeurs intermédiaires */
+
+.more-dot { display: none; }
+
+@media (max-width: 1599px) {
+  .wait-pill .wait-word { display: none; }
+  .stat { min-width: 52px; padding: 3px 7px; }
+  .lbl-full { display: none; }
+  .lbl-abbr { display: inline; }
+  .search-trigger { max-width: 210px; }
+  :root { --acc-pad: 16px; }
+  .plan-legend .lg-hint { display: none; }
+  .appbar { gap: 14px; }
+  #btn-settings { width: 44px; padding: 0; }
+  #btn-settings .btn-top-label { display: none; }
+}
+
+@media (max-width: 1439px) {
+  .search-trigger { flex: none; width: auto; }
+  .search-trigger-label { display: none; }
+}
+
+/* ------------------------------------------------------------------ portable étroit, tablette (onglets) */
+
+@media (max-width: 1365px) {
+  .search-trigger-label,
+  .search-trigger kbd { display: none; }
+  .search-trigger { flex: none; width: 44px; height: 44px; justify-content: center; padding: 0; }
+  .conn-label { display: none; }
+  .conn { padding: 0 12px; }
+}
+
+@media (max-width: 1365px) {
+  :root { --acc-gap: 12px; --acc-pad: 14px; }
+
+  .appbar { gap: 10px; padding: 8px 12px; }
+  .brand { gap: 10px; }
+  .brand-card { padding: 2px 6px; }
+  .brand-logo { height: 32px; }
+  .brand-text { padding-left: 10px; }
+  .brand-title { font-size: 1.15rem; }
+  .stats { gap: 0; }
+  .stat { min-width: 48px; padding: 3px 6px; }
+  .stat-num { font-size: 1.25rem; }
+  .stat-lbl { letter-spacing: 0.02em; }
+  #btn-newday { display: none; }
+  .menu-only-narrow { display: flex; }
+  .more-dot:not([hidden]) { display: block; }
+
+  .layout {
+    grid-template-columns: minmax(300px, 330px) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .col-floor,
+  .col-side { display: contents; }
+
+  .panel-register { grid-column: 1; grid-row: 1 / -1; }
+  .panel-calls { grid-column: 2; grid-row: 1; max-height: min(34vh, 262px); }
+  .tabs { grid-column: 2; grid-row: 2; }
+  .panel-tables,
+  .panel-goodies,
+  .panel-queue { grid-column: 2; grid-row: 3; max-height: none; min-height: 0; }
+
+  .layout[data-tab="plan"] .panel-goodies,
+  .layout[data-tab="plan"] .panel-queue,
+  .layout[data-tab="queue"] .panel-tables,
+  .layout[data-tab="queue"] .panel-goodies,
+  .layout[data-tab="goodies"] .panel-tables,
+  .layout[data-tab="goodies"] .panel-queue { display: none; }
+
+  /* Onglets : sélecteur segmenté lilas (comme « 1 joueur / 2 joueurs »). */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: rgba(243, 241, 248, 0.92);
+    border: 1px solid var(--rb-glass-edge);
+    box-shadow: var(--acc-glass-shadow);
+  }
+
+  .tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--rb-ink-2);
+    font: inherit;
+    font-weight: 650;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  .tab:hover { background: rgba(255, 255, 255, 0.6); }
+  .tab[aria-pressed="true"] { background: var(--rb-paper); color: var(--rb-ink); box-shadow: 0 1px 2px rgba(30, 36, 51, 0.08), 0 4px 12px -6px rgba(52, 62, 104, 0.35); }
+
+  .tab-count {
+    min-width: 22px;
+    padding: 1px 6px;
+    border-radius: 99px;
+    background: var(--rb-paper);
+    box-shadow: inset 0 0 0 1px var(--rb-line);
+    font-family: var(--rb-font-display);
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tab[aria-pressed="true"] .tab-count { background: var(--rb-lilac); }
+  .tab-count.is-pending { background: var(--rb-gold); box-shadow: none; color: var(--rb-ink); }
+  .tab[aria-pressed="true"] .tab-count.is-pending { background: var(--rb-gold); }
+
+  .panel-tables .panel-head .panel-sub { font-size: 0.8rem; }
+  .panel-calls.has-many #calls-sub { display: none; }
+  .panel-calls .calls-clear { margin-left: auto; }
+  .closed-banner { padding: 8px 12px; gap: 10px; }
+  .closed-detail { font-size: 0.82rem; }
+}
+
+/* Fenêtre basse (1366 × 768, 1280 × 800, tablette 1024 × 768) : les 9 tables restent visibles
+   avec 2 à 3 appels en cours — appels plafonnés plus bas (la liste défile), tables compactes,
+   légende masquée (les couleurs sont celles de l'écran TV). */
+@media (max-height: 820px) {
+  .panel-calls { max-height: min(27vh, 200px); }
+  .tables-grid { --card-min: 104px; gap: 16px 10px; padding-top: 15px; }
+  .table-card { padding: 16px 5px 11px; }
+  .table-head { top: -14px; }
+  .table-no { width: 28px; height: 28px; font-size: 0.92rem; }
+  .slot { min-height: 74px; padding: 6px 6px; }
+  .plan-legend { display: none; }
+}
+
+/* Tablette en fenêtre basse : l'onglet « Plan des tables » tient lieu de titre. */
+@media (max-height: 820px) and (max-width: 1365px) {
+  .panel-tables > .panel-head { display: none; }
+}
+
+/* Fenêtre basse (tablette 768 px, portable 800 px) : formulaire plus compact. Stand fermé, les
+   champs du joueur 2 restent visibles au-dessus du bouton collant (1024 × 768, 1366 × 768). */
+@media (max-height: 860px) {
+  .register-form { gap: 9px; }
+  .panel-register .panel-head { margin-bottom: 10px; }
+  .player { padding: 2px 10px 1px; }
+  .player legend { margin-bottom: 0; }
+  .seat-ic { width: 20px; height: 20px; }
+  .field label { margin-bottom: 3px; }
+  .field-msg:empty { min-height: 2px; }
+  .form-paused { padding: 5px 10px; font-size: 0.8rem; line-height: 1.32; }
+}
+
+/* Très petit écran : la page défile (cas de secours, pas un poste prévu). */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
+  }
+  .panel-register,
+  .panel-calls,
+  .tabs,
+  .panel-tables,
+  .panel-goodies,
+  .panel-queue { grid-column: 1; grid-row: auto; }
+  .stats { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,36 @@
+# Fichiers exclus de l'image Docker (et du contexte envoyé au build).
+# L'image n'a besoin que de : package.json, package-lock.json, server/, public/, scripts/.
+
+# Dépendances : réinstallées proprement dans l'image (npm ci)
+node_modules
+npm-debug.log*
+
+# Données locales, bases SQLite et secrets : ne JAMAIS les mettre dans l'image
+data
+data-*
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+.env
+.env.*
+
+# Git et outils de développement
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+coverage
+
+# Documentation, plans du stand et tests : inutiles à l'exécution
+docs
+test
+*.md
+
+# Fichiers Docker eux-mêmes
+Dockerfile
+.dockerignore
+docker-compose*.yml
+compose*.yml
