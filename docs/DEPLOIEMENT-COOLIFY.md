@@ -324,10 +324,10 @@ démarrage (voir [§ 11](#11-dépannage)).
 Les essais (inscriptions de test) restent dans la base et dans l'export CSV.
 Surtout, la règle « un email ou un billet déjà utilisé est refusé, quel que
 soit le jour » s'applique **aussi aux essais** : tout email ou billet d'un
-joueur d'essai qui a été placé à une table (partie terminée, libérée ou
-interrompue) reste **refusé pendant tout le salon**. Seuls les joueurs d'essai
-retirés de la file, ou encore en file lors d'une « Nouvelle journée », ne
-bloquent rien.
+joueur d'essai qui a terminé sa partie ou l'a quittée (« Libérer ») reste
+**refusé pendant tout le salon**. Seuls les joueurs d'essai retirés de la file
+ou déclarés « Absent », encore en file lors d'une « Nouvelle journée », ou dont
+la partie a été interrompue par celle-ci, ne bloquent rien.
 
 Pour démarrer le salon proprement **avec le jour 1** :
 
