@@ -74,11 +74,12 @@
     return result;
   }
 
-  // 3 599 000 ms → « 59:59 » ; au-delà d'une heure → « 1:05:00 ».
+  // 3 599 000 ms → « 59:59 » ; 3 600 000 → « 60:00 » ; au-delà d'une heure → « 1:05:00 ».
   function formatRemaining(ms) {
     const total = Math.max(0, Math.ceil(ms / 1000));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
+    // Une partie d'1 h démarre à « 60:00 » (et non « 1:00:00 ») : pas de saut à la 1re seconde.
+    const h = total > 3600 ? Math.floor(total / 3600) : 0;
+    const m = Math.floor((total - h * 3600) / 60);
     const s = total % 60;
     const pad = (n) => String(n).padStart(2, '0');
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;

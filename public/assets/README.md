@@ -17,7 +17,7 @@ la carte nacrée `.rb-logo-card` (`public/shared/theme.css`), jamais recoloré n
 déformé (hauteur fixée, largeur proportionnelle).
 
 Le mot **RADIANCE** de l'en-tête de l'écran TV est un texte stylé (dégradé
-bleu-argent, classe `.rb-radiance`), en attendant le logotype officiel du set.
+bleu-argent métallisé, classe `.rb-metal`), en attendant le logotype officiel du set.
 Le halo irisé et les cercles concentriques sont dessinés en CSS (dégradés
 statiques) : aucun fichier d'image n'est nécessaire.
 
@@ -39,14 +39,14 @@ statiques) : aucun fichier d'image n'est nécessaire.
   Recadrer au plus près du dessin (pas de marge transparente inutile) : la
   hauteur est fixée, une marge rendrait le logo plus petit.
 - **Logotype RADIANCE** : dans `public/ecran/index.html`, remplacer
-  `<p class="rb-radiance wordmark">Radiance</p>` par
+  `<p class="rb-metal wordmark">Radiance</p>` par
   `<img class="wordmark-img" src="/assets/radiance-logo.svg" alt="Radiance">`
   (la classe `.wordmark-img` est déjà prévue dans `public/ecran/ecran.css`,
   avec la bonne hauteur en paysage et en portrait).
 
-Les couleurs, le halo et la police (Inter, auto-hébergée) se règlent dans
-`public/shared/theme.css` (variables `--rb-*`, classes `.rb-halo`,
-`.rb-logo-card`, `.rb-radiance`).
+Les couleurs, le halo et les polices (Outfit et Inter, auto-hébergées) se
+règlent dans `public/shared/theme.css` (variables `--rb-*`, classes `.rb-aura`,
+`.rb-logo-card`, `.rb-metal`).
 
 ## Tester après remplacement
 

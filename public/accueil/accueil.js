@@ -648,6 +648,7 @@
     const label = paused ? 'Rouvrir le stand' : 'Fermer le stand';
     if (standLabel.textContent !== label) standLabel.textContent = label;
     standBtn.hidden = paused;
+    document.body.classList.toggle('is-dusk', paused); // fond « crépuscule » (theme.css, .rb-aura.is-dusk)
     standBtn.title = 'Le soir, à la fermeture : plus aucun placement automatique';
     newDayBtn.classList.toggle('is-morning', morning);
     moreDot.hidden = !morning;
@@ -955,21 +956,57 @@
     }
   }
 
-  // Contenu d'un emplacement : l'essentiel (état, chrono, noms). Les actions sont dans le panneau.
+  // Chaise de l'animateur (comme sur l'écran TV) : le joueur restant garde sa chaise (seat 1 = haut,
+  // 2 = bas), l'animateur prend l'autre. null : deux joueurs.
+  function hostChair(m) {
+    if (!m.vsAnimator) return null;
+    return m.players[0] && m.players[0].seat === 2 ? 'top' : 'bottom';
+  }
+
+  // Anneau de temps : part restante (0 → 1), arrondie au 1/200 (un repeint toutes les ~18 s par anneau).
+  function ringLeft(start, end, t = now()) {
+    const left = 1 - Math.min(1, Math.max(0, (t - start) / Math.max(1, end - start)));
+    return String(Math.round(left * 200) / 200);
+  }
+
+  // Met à jour les anneaux de `root` (sans repeindre ceux dont la valeur n'a pas changé).
+  function syncRings(root = document, t = now()) {
+    for (const el of root.querySelectorAll('.rb-ring[data-start][data-end]')) {
+      const p = ringLeft(Number(el.dataset.start), Number(el.dataset.end), t);
+      if (el.style.getPropertyValue('--p') !== p) el.style.setProperty('--p', p);
+    }
+  }
+
+  const LONG_NAME = 12; // caractères (« Prénom N. ») au-delà desquels un nom risque d'être coupé
+
+  const remainingText = (endsAt) => {
+    const left = endsAt - now();
+    return left > 0 ? LC.formatRemaining(left) : 'Terminé';
+  };
+
+  // Contenu d'un emplacement : l'essentiel (état, anneau de temps autour de la lettre, chrono, noms
+  // dans l'ordre des chaises). Les actions sont dans le panneau. Chrono écrit dès le rendu (pas de
+  // case vide jusqu'à la seconde suivante) ; l'anneau est réglé par syncRings juste après.
   function slotHtml(table, slot, m, paused) {
-    const letter = `<span class="slot-letter">${slot}</span>`;
     if (!m) {
       const label = !table.enabled ? 'Hors service' : paused ? 'Libre<small>stand fermé</small>' : 'Libre';
-      return `<span class="slot-top">${letter}</span><span class="slot-state">${label}</span>`;
+      return `<span class="slot-top"><span class="slot-ring is-empty" aria-hidden="true"><span class="slot-letter">${slot}</span></span></span><span class="slot-state">${label}</span>`;
     }
-    const names = m.players.map((p) => `<span class="sn">${esc(shortName(p))}</span>`);
-    if (m.vsAnimator) names.push('<span class="sn is-animator">Animateur</span>');
+    // Prénom composé (« Marie-Charlotte D. ») : peut passer sur deux lignes plutôt que d'être coupé.
+    const shorts = m.players.map(shortName);
+    const longs = shorts.filter((n) => n.length >= LONG_NAME).length;
+    const names = shorts.map((n) => `<span class="sn${n.length >= LONG_NAME ? ' is-long' : ''}">${esc(n)}</span>`);
+    if (m.vsAnimator) {
+      const host = '<span class="sn is-animator">Animateur</span>';
+      if (hostChair(m) === 'top') names.unshift(host);
+      else names.push(host);
+    }
     const chip = calls.has(m.matchId)
       ? '<span class="slot-chip chip-call">À appeler</span>'
-      : `<span class="slot-chip chip-new" data-new-until="${m.startedAt + NEW_BADGE_MS}">Nouveau</span>`;
-    return `${chip}<span class="slot-top">${letter}<span class="countdown" data-ends-at="${m.endsAt}"></span></span>
-      <span class="slot-names">${names.join('')}</span>
-      <span class="slot-bar"><i data-start="${m.startedAt}" data-end="${m.endsAt}"></i></span>
+      : `<span class="slot-chip chip-new" data-new-until="${m.startedAt + NEW_BADGE_MS}"${now() >= m.startedAt + NEW_BADGE_MS ? ' hidden' : ''}>Nouveau</span>`;
+    const left = remainingText(m.endsAt);
+    return `${chip}<span class="slot-top"><span class="slot-ring rb-ring" data-start="${m.startedAt}" data-end="${m.endsAt}" aria-hidden="true"><span class="slot-letter">${slot}</span></span><span class="countdown${left.length > 5 ? ' is-long' : ''}" data-ends-at="${m.endsAt}">${left}</span></span>
+      <span class="slot-names${longs >= 2 ? ' many-long' : ''}">${names.join('')}</span>
       <span class="slot-end">fin prévue à ${clock(m.endsAt)}</span>`;
   }
 
@@ -1002,13 +1039,17 @@
         node.classList.toggle('is-off', !m && !t.enabled);
         node.classList.toggle('is-busy', !!m);
         node.classList.toggle('is-call', !!m && calls.has(m.matchId));
+        const host = m ? hostChair(m) : null;
+        node.classList.toggle('host-top', host === 'top');
+        node.classList.toggle('host-bottom', host === 'bottom');
         if (!m) node.classList.remove('is-warn', 'is-over');
         const key = JSON.stringify([
           t.enabled,
           !m && paused,
-          m && [m.matchId, m.endsAt, m.startedAt, m.vsAnimator, calls.has(m.matchId), m.players.map((p) => [p.id, p.firstName, p.lastName])],
+          m && [m.matchId, m.endsAt, m.startedAt, m.vsAnimator, calls.has(m.matchId), m.players.map((p) => [p.id, p.firstName, p.lastName, p.seat])],
         ]);
         if (patch(node, key, () => slotHtml(t, slot, m, paused))) {
+          syncRings(node);
           node.setAttribute('aria-label', slotLabel(t, slot, m, paused));
           node.title = m ? joinNames(matchNames(m)) : '';
         }
@@ -1016,11 +1057,13 @@
     });
     const minutes = Math.round(state.settings.matchDurationMs / MIN);
     const off = state.tables.filter((t) => !t.enabled).length;
-    $('#tables-summary').textContent =
+    const summary = $('#tables-summary');
+    summary.textContent =
       `${busy}/${capacity} occupés · parties de ${minutes} min` +
       (off ? ` · ${plural(off, 'table hors service', 'tables hors service')}` : '') +
       (busyOff ? ` (${plural(busyOff, 'partie', 'parties')} en cours dessus)` : '') +
       (paused ? ' · stand fermé' : '');
+    summary.title = summary.textContent; // texte complet si la largeur le coupe
     updateOpenSlot();
   }
 
@@ -1247,10 +1290,13 @@
       const noShowOpen = now() < noShowUntil;
       const called = calls.has(id);
       key = JSON.stringify(['busy', id, m.endsAt, m.startedAt, m.vsAnimator, called, noShowOpen, table.enabled, paused,
-        m.players.map((p) => [p.id, p.firstName, p.lastName, p.email, p.ticket])]);
+        m.players.map((p) => [p.id, p.firstName, p.lastName, p.email, p.ticket, p.seat])]);
       render = () => {
-        // Places à table (comme sur l'écran TV) ; contre un animateur, la place n'est pas imposée.
-        const seats = m.players.length >= 2 ? ['Joueur 1 · chaise du haut', 'Joueur 2 · chaise du bas'] : ['Joueur', 'Adversaire'];
+        // Places à table (comme sur l'écran TV) ; contre un animateur, le joueur garde sa chaise.
+        const host = hostChair(m);
+        const seats = m.players.length >= 2
+          ? ['Joueur 1 · chaise du haut', 'Joueur 2 · chaise du bas']
+          : [`Joueur · chaise du ${host === 'top' ? 'bas' : 'haut'}`, `Adversaire · chaise du ${host === 'top' ? 'haut' : 'bas'}`];
         const players = m.players.map((p, i) => {
           const absent = noShowOpen
             ? `<button type="button" class="btn btn-danger-outline btn-absent" data-action="noshow" data-match="${id}" data-participant="${p.id}"
@@ -1265,11 +1311,13 @@
             </div>${absent}</li>`;
         });
         if (m.vsAnimator) {
-          players.push(`<li class="pop-player is-animator"><div class="pop-player-main">
+          const animator = `<li class="pop-player is-animator"><div class="pop-player-main">
             <span class="pop-seat">${seats[1]}</span>
             <span class="pop-player-name">Animateur</span>
             <span class="pop-player-meta">Prévenir un animateur : il joue contre ${esc(joinNames(m.players.map(fullName)) || 'le joueur')}</span>
-          </div></li>`);
+          </div></li>`;
+          if (host === 'top') players.unshift(animator);
+          else players.push(animator);
         }
         const seated = called
           ? `<button type="button" class="btn btn-dark span-2" data-action="seated" data-match="${id}" data-focus="pop-seated">${ICON('check')}Joueurs installés</button>`
@@ -1283,8 +1331,10 @@
         }
         if (!table.enabled) notes.push("<p class=\"pop-note\">Table hors service : l'emplacement restera libre après cette partie.</p>");
         return `${popHead(table, slot, `Démarrée à\u00a0${clock(m.startedAt)} · fin\u00a0prévue\u00a0à\u00a0${clock(m.endsAt)}`)}
-          <div class="pop-time"><span class="countdown" data-ends-at="${m.endsAt}"></span><small>restantes</small></div>
-          <div class="pop-bar"><i data-start="${m.startedAt}" data-end="${m.endsAt}"></i></div>
+          <div class="pop-time">
+            <span class="pop-ring rb-ring" data-start="${m.startedAt}" data-end="${m.endsAt}" aria-hidden="true">VS</span>
+            <div class="pop-time-text"><span class="countdown" data-ends-at="${m.endsAt}">${remainingText(m.endsAt)}</span><small>restantes</small></div>
+          </div>
           <ul class="pop-players">${players.join('')}</ul>
           <div class="pop-actions">
             ${seated}
@@ -1319,7 +1369,10 @@
           <div class="pop-actions">${toggle}</div>`;
       };
     }
-    if (patch(pop, key, render)) tick();
+    if (patch(pop, key, render)) {
+      syncRings(pop);
+      tick();
+    }
     positionSlotPop();
   }
 
@@ -1926,7 +1979,7 @@
       const est = LC.estimate(state, t);
       if (est.newcomerAt === null) html = 'Aucune table en service';
       else if (freeSlotCount() > 0 && est.newcomerAt - t < MIN) {
-        html = `<b>${plural(freeSlotCount(), 'place libre', 'places libres')}</b> maintenant`;
+        html = `<b>${plural(freeSlotCount(), 'place libre', 'places libres')}</b><span class="wait-word"> maintenant</span>`;
         free = true;
       } else html = `${ICON('clock')}<span class="wait-word">Attente </span><b>~${esc(waitLabel(est.newcomerAt - t))}</b> · vers ${esc(clock(est.newcomerAt))}`;
     }
@@ -2645,10 +2698,13 @@
     renderStandState();
     renderWaitPill();
     if (lastRegistration && state) renderLastRegistration(); // version compacte au bout de 90 s
+    let popWarn = false;
+    let popOver = false;
     for (const el of $$('[data-ends-at]')) {
       const left = Number(el.dataset.endsAt) - t;
       const text = left > 0 ? LC.formatRemaining(left) : 'Terminé';
       if (el.textContent !== text) el.textContent = text;
+      el.classList.toggle('is-long', text.length > 5); // « 1:04:52 » (après « +5 min ») : chiffres plus petits
       const warn = left > 0 && left <= WARN_MS;
       el.classList.toggle('is-warn', warn);
       el.classList.toggle('is-over', left <= 0);
@@ -2657,15 +2713,16 @@
         slot.classList.toggle('is-warn', warn);
         slot.classList.toggle('is-over', left <= 0);
       }
-      const bar = el.closest('.slot-pop') && $('.pop-bar', pop);
-      if (bar) bar.classList.toggle('is-warn', warn || left <= 0);
+      if (pop.contains(el)) {
+        popWarn = popWarn || warn;
+        popOver = popOver || left <= 0;
+      }
     }
-    for (const el of $$('[data-start][data-end]')) {
-      const start = Number(el.dataset.start);
-      const end = Number(el.dataset.end);
-      const progress = Math.min(1, Math.max(0, (t - start) / Math.max(1, end - start)));
-      el.style.transform = `scaleX(${progress.toFixed(4)})`;
-    }
+    // Panneau d'emplacement : liseré et anneau roses dans les 5 dernières minutes, verts à la fin.
+    pop.classList.toggle('is-warn', popWarn);
+    pop.classList.toggle('is-over', popOver);
+    // Anneaux de temps (part restante, voir ringLeft) ; ne repeint que si la valeur change.
+    syncRings(document, t);
     for (const el of $$('[data-since]')) {
       const text = formatWait(t - Number(el.dataset.since));
       if (el.textContent !== text) el.textContent = text;

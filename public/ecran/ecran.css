@@ -1,20 +1,47 @@
-/* Écran TV public (/ecran) — plan du stand, attente estimée, joueurs à installer, file d'attente.
-   Fond nacré éclairé par le halo Radiance (statique), panneaux blancs, typographie Inter très
-   grasse ; cyan = libre, orange = fin proche / à suivre, irisé = nouveauté (joueurs installés).
+/* Écran TV public (/ecran) — direction « Aurore holographique », ergonomie de la version retenue.
+   Plan du stand, attente estimée, « À vos tables ! », file d'attente, bandeau d'appel.
+
+   Look Aurore : fond nacré à halos irisés (.rb-aura du thème, STATIQUE), cartes en verre clair
+   aux ombres douces, logo officiel sur carte nacrée, wordmark RADIANCE bleu-argent, médaillons de
+   table à liseré irisé, chaises en dégradé irisé, chrono en anneau de progression autour du « VS »,
+   police Outfit, accents orange Riftbound, crépuscule mauve quand le stand est fermé.
+
+   Sens des couleurs (toujours doublés d'un texte), communs avec l'accueil : orange Riftbound =
+   place libre (tuile pêche, pastille « Libre », chaises en pointillés), à suivre, entrée, appel ;
+   irisé = en jeu ; cyan = nouveauté (« Nouveau », « À vos tables ! ») ; rose Seraphine = 5 dernières
+   minutes ; vert = terminé ; mauve = animateur, joueur seul ; crépuscule = stand fermé.
+
+   Performance (mini-PC du stand) : aucun filtre de flou, aucun backdrop-filter, aucun halo animé.
+   Animations en boucle limitées au cadre « 5 dernières minutes » (opacité d'un pseudo-élément), à
+   la barre de page de la file et au voyant « Reconnexion… » ; le reste se joue une fois. Toutes
+   coupées en prefers-reduced-motion. Chaque seconde, seuls le texte des chronos et la variable
+   --p des anneaux changent.
+
+   Contraste (WCAG AA) : jamais de texte blanc sur l'orange (texte encre --rb-on-orange) ; gris
+   le plus pâle pour du texte : --rb-ink-3 ; texte posé directement sur le halo : --rb-ink ou
+   --rb-ink-2 seulement.
+
    Tout est dimensionné à partir de --u (1 % de la hauteur d'un écran paysage, de la largeur en
    portrait) et, dans les tables, en unités de conteneur (cqw/cqh) : la page tient dans l'écran
-   quelle que soit sa résolution, sans défilement. Animations : transform / opacity uniquement. */
+   quelle que soit sa résolution, sans défilement. Full HD paysage : noms ≈ 29 px, chronos ≈ 39 px,
+   lettres A/B ≈ 24 px (≈ 23 px en portrait), « VS » ≥ 16 px, « Nouveau » ≈ 20 px, attente ≈ 95 px. */
 
 :root {
   --vw: 1vw;
   --vh: 1vh;
   --u: min(var(--vh), calc(var(--vw) * 0.5625));
-  --gap: calc(var(--u) * 2);
+  --gap: calc(var(--u) * 1.6);
   --wall: calc(var(--u) * 0.55);
 
-  --chair: #dcdcd5;
-  --chair-taken: #7d8089;
-  --board-line: #d6d6cf;
+  /* Chaises : libres en pointillés orange, occupées en dégradé irisé, animateur en mauve,
+     inutilisées (stand fermé, hors service) en nacre cerclée. */
+  --chair-empty: rgba(255, 255, 255, 0.95);
+  --chair-line: rgba(124, 132, 155, 0.55);
+  --chair-iris: linear-gradient(90deg, #79c7d8 0%, #9aaad6 55%, #da8cc4 100%);
+  --chair-host: linear-gradient(90deg, #9a7a98 0%, #714b69 100%);
+  --board-line: rgba(167, 183, 207, 0.5);
+  --mauve-tint: #f4ecf3;
+  --mauve-line: rgba(113, 75, 105, 0.4);
 }
 
 :root[data-layout="portrait"] {
@@ -35,6 +62,10 @@ body {
   cursor: none;
 }
 
+body {
+  font-family: var(--rb-font-tv);
+}
+
 body * {
   cursor: none;
 }
@@ -45,20 +76,17 @@ body * {
   position: fixed;
   top: 0;
   left: 0;
-  isolation: isolate;
   width: calc(var(--vw) * 100);
   height: calc(var(--vh) * 100);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  row-gap: calc(var(--u) * 1.6);
-  padding: calc(var(--u) * 1.5) calc(var(--u) * 2.4);
+  row-gap: calc(var(--u) * 1.3);
+  padding: calc(var(--u) * 1.1) calc(var(--u) * 2.2) calc(var(--u) * 1.3);
   overflow: hidden;
-}
-
-.screen > :not(.rings) {
-  position: relative;
-  z-index: 1;
+  color: var(--rb-ink);
+  /* Cercles concentriques du halo : derrière l'horloge, en haut à droite. */
+  --rb-aura-rings-at: 97% 2%;
 }
 
 :root[data-rotation="90"] .screen {
@@ -75,103 +103,82 @@ body * {
   transform: rotate(180deg);
 }
 
-/* Cercles concentriques lumineux du key art (décor statique). */
-.rings {
-  position: absolute;
-  z-index: 0;
-  top: calc(var(--u) * -52);
-  right: calc(var(--u) * -18);
-  width: calc(var(--u) * 104);
-  height: calc(var(--u) * 104);
-  border-radius: 50%;
-  pointer-events: none;
-  background: repeating-radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0) 0,
-    rgba(255, 255, 255, 0) calc(var(--u) * 3.6 - 2px),
-    rgba(255, 255, 255, 0.95) calc(var(--u) * 3.6 - 1px),
-    rgba(255, 255, 255, 0) calc(var(--u) * 3.6)
-  );
-  -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.6) 38%, transparent 70%);
-  mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.6) 38%, transparent 70%);
-}
-
 /* ------------------------------------------------------------------ en-tête */
 
-/* En-tête compact (≈ 10u) : la hauteur gagnée va à la file d'attente. En paysage, la carte
-   « Attente estimée » y prend place entre RADIANCE et l'horloge (ecran.js). */
+/* Logo officiel sur sa carte nacrée, puis « Nouveau set / RADIANCE / Paris Games Week », horloge.
+   En paysage, la carte « Attente estimée » prend place entre RADIANCE et l'horloge (ecran.js). */
 .masthead {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 2.4);
+  gap: calc(var(--u) * 2.2);
   min-width: 0;
 }
 
 .brand {
   flex: none;
-  padding: calc(var(--u) * 0.9) calc(var(--u) * 1.5);
-  border-radius: calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 0.6) calc(var(--u) * 1.3);
+  border-radius: calc(var(--u) * 1.9);
+  --rb-holo-w: max(2px, calc(var(--u) * 0.22));
 }
 
 .logo {
-  height: calc(var(--u) * 8);
+  height: calc(var(--u) * 10);
 }
 
+/* Bloc du set : filet irisé vertical, pastille, mot RADIANCE métallisé, lieu. */
 .set {
   flex: none;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 0.7);
+  align-items: flex-start;
+  gap: calc(var(--u) * 0.55);
+  padding-left: calc(var(--u) * 2.2);
+  border-left: max(2px, calc(var(--u) * 0.2)) solid transparent;
+  border-image: linear-gradient(180deg, rgba(167, 183, 207, 0), var(--rb-lavender) 30%, var(--rb-rose) 70%, rgba(229, 139, 201, 0)) 1;
 }
 
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 1.2);
+.set p {
   margin: 0;
-  font-weight: 650;
-  font-size: calc(var(--u) * 1.6);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--rb-ink-2);
-  white-space: nowrap;
 }
 
-.eyebrow .rb-iris-pill {
-  font-size: 0.92em;
-}
-
-.eyebrow-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7em;
-}
-
-.eyebrow .dot {
-  width: 0.4em;
-  height: 0.4em;
-  border-radius: 50%;
-  background: var(--rb-orange);
+.kicker .rb-iris-pill {
+  font-size: calc(var(--u) * 1.45);
+  font-weight: 750;
 }
 
 .wordmark {
-  margin: 0;
-  font-size: calc(var(--u) * 5);
-  line-height: 1;
-  letter-spacing: 0.22em;
+  font-size: calc(var(--u) * 5.6);
+  letter-spacing: 0.2em;
+  margin-right: -0.2em; /* l'espacement final ne décale pas le bloc */
   white-space: nowrap;
 }
 
 /* Logotype officiel RADIANCE (quand UVS le fournira) : <img class="wordmark-img"> à la place du texte. */
 .wordmark-img {
   display: block;
-  height: calc(var(--u) * 5);
+  height: calc(var(--u) * 5.4);
   width: auto;
 }
 
-:root[data-layout="portrait"] .wordmark-img {
-  height: calc(var(--u) * 4.6);
+.set-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-weight: 650;
+  font-size: calc(var(--u) * 1.5);
+  line-height: 1.1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rb-ink-2);
+}
+
+.set-sub .dot {
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 50%;
+  background: var(--rb-orange);
 }
 
 .meta {
@@ -184,10 +191,10 @@ body * {
 }
 
 .clock {
-  font-weight: 750;
-  font-size: calc(var(--u) * 6);
+  font-weight: 650;
+  font-size: calc(var(--u) * 6.6);
   line-height: 0.92;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink);
 }
@@ -196,10 +203,12 @@ body * {
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 0.7);
-  padding: calc(var(--u) * 0.35) calc(var(--u) * 1);
+  padding: calc(var(--u) * 0.4) calc(var(--u) * 1.1);
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.72);
-  font-weight: 700;
+  background: var(--rb-glass-strong);
+  border: 1px solid var(--rb-glass-edge);
+  box-shadow: var(--rb-shadow-1);
+  font-weight: 650;
   font-size: calc(var(--u) * 1.5);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -210,12 +219,12 @@ body * {
   width: calc(var(--u) * 1);
   height: calc(var(--u) * 1);
   border-radius: 50%;
-  background: var(--rb-ink-3);
+  background: var(--rb-ink-4);
 }
 
 .conn[data-state="on"] i {
   background: var(--rb-green);
-  box-shadow: 0 0 0 calc(var(--u) * 0.35) rgba(18, 161, 80, 0.2);
+  box-shadow: 0 0 0 calc(var(--u) * 0.3) rgba(14, 159, 122, 0.2);
 }
 
 /* Serveur injoignable : pastille rouge pleine, impossible à rater. */
@@ -223,6 +232,7 @@ body * {
   padding: calc(var(--u) * 0.55) calc(var(--u) * 1.4);
   font-size: calc(var(--u) * 2.1);
   background: var(--rb-red-ink);
+  border-color: var(--rb-red-ink);
   color: #fff;
 }
 
@@ -239,7 +249,7 @@ body * {
 
 .main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) calc(var(--u) * 58);
+  grid-template-columns: minmax(0, 1fr) calc(var(--u) * 57);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--gap);
   min-height: 0;
@@ -252,42 +262,44 @@ body * {
 }
 
 :root[data-layout="portrait"] .masthead {
-  gap: calc(var(--u) * 2.2);
+  gap: calc(var(--u) * 2);
 }
 
 :root[data-layout="portrait"] .logo {
-  height: calc(var(--u) * 8);
+  height: calc(var(--u) * 9.6);
 }
 
 :root[data-layout="portrait"] .wordmark {
-  font-size: calc(var(--u) * 4.6);
+  font-size: calc(var(--u) * 5);
 }
 
-:root[data-layout="portrait"] .eyebrow-text {
-  display: none;
+:root[data-layout="portrait"] .wordmark-img {
+  height: calc(var(--u) * 4.8);
 }
 
 :root[data-layout="portrait"] .clock {
-  font-size: calc(var(--u) * 5.8);
+  font-size: calc(var(--u) * 6.2);
 }
 
-/* ------------------------------------------------------------------ plan */
+/* ------------------------------------------------------------------ panneaux en verre clair */
 
 .panel {
   min-width: 0;
   min-height: 0;
-  border-radius: calc(var(--u) * 1.8);
-  background: var(--rb-paper);
-  border: 1px solid rgba(17, 18, 20, 0.06);
-  box-shadow: 0 1px 2px rgba(17, 18, 20, 0.04), 0 calc(var(--u) * 1) calc(var(--u) * 3) calc(var(--u) * -1.6) rgba(52, 62, 104, 0.2);
+  border-radius: calc(var(--u) * 2.2);
+  background: var(--rb-glass-grad);
+  border: 1px solid var(--rb-glass-edge);
+  box-shadow: var(--rb-shadow-2), var(--rb-glass-inset);
 }
+
+/* ------------------------------------------------------------------ plan */
 
 .plan-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  gap: calc(var(--u) * 1.3);
-  padding: calc(var(--u) * 1.8) calc(var(--u) * 2.2) calc(var(--u) * 1.8);
+  gap: calc(var(--u) * 1.1);
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8) calc(var(--u) * 1.6);
 }
 
 .plan-head {
@@ -295,25 +307,27 @@ body * {
   align-items: center;
   gap: calc(var(--u) * 2.4);
   min-width: 0;
+  padding: 0 calc(var(--u) * 0.4);
 }
 
 .plan-head h1,
 .queue-head h2 {
   margin: 0;
-  font-weight: 800;
-  font-size: calc(var(--u) * 3.2);
+  font-weight: 700;
+  font-size: calc(var(--u) * 3.4);
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.015em;
   white-space: nowrap;
+  color: var(--rb-ink);
 }
 
 .legend {
   display: flex;
-  gap: calc(var(--u) * 1.8);
+  gap: calc(var(--u) * 1.9);
   margin: 0;
   padding: 0;
   list-style: none;
-  font-weight: 600;
+  font-weight: 550;
   font-size: calc(var(--u) * 2.1);
   color: var(--rb-ink-2);
   white-space: nowrap;
@@ -322,19 +336,39 @@ body * {
 .legend li {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 0.6);
+  gap: calc(var(--u) * 0.65);
 }
 
 .legend i {
+  flex: none;
   width: calc(var(--u) * 2.4);
-  height: calc(var(--u) * 1.7);
-  border-radius: calc(var(--u) * 0.45);
+  height: calc(var(--u) * 1.8);
+  border-radius: calc(var(--u) * 0.5);
 }
 
-.lg-free { background: radial-gradient(circle, #fff 0%, #c5eef3 100%); box-shadow: inset 0 0 0 2px var(--rb-cyan-strong); }
-.lg-busy { background: var(--rb-paper); box-shadow: inset 0 0 0 2px var(--rb-ink); }
-.lg-warn { background: var(--rb-orange-tint); box-shadow: inset 0 0 0 3px var(--rb-orange); }
-.lg-shut { background: repeating-linear-gradient(135deg, var(--rb-hatch) 0 3px, var(--rb-paper) 3px 6px); box-shadow: inset 0 0 0 1px var(--rb-line-2); }
+/* Libre : la pastille orange des emplacements libres. */
+.lg-free {
+  background: var(--rb-orange-grad);
+}
+
+/* En jeu : le petit anneau irisé du chrono. */
+.legend .lg-busy {
+  width: calc(var(--u) * 2);
+  height: calc(var(--u) * 2);
+  border-radius: 50%;
+  border: calc(var(--u) * 0.42) solid transparent;
+  background: linear-gradient(#fff, #fff) padding-box, var(--rb-iris-conic) border-box;
+}
+
+.lg-warn {
+  background: var(--rb-warn-tint);
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.36) var(--rb-warn);
+}
+
+.lg-shut {
+  background: var(--rb-dusk-tint);
+  box-shadow: inset 0 0 0 2px var(--rb-dusk);
+}
 
 .legend .lg-closed,
 :root[data-stand="ferme"] .legend .lg-open {
@@ -350,8 +384,8 @@ body * {
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 0.7);
-  font-weight: 650;
-  font-size: calc(var(--u) * 2);
+  font-weight: 600;
+  font-size: calc(var(--u) * 2.1);
   color: var(--rb-ink-2);
   white-space: nowrap;
 }
@@ -360,18 +394,19 @@ body * {
   display: inline-grid;
   place-items: center;
   min-width: calc(var(--u) * 4.4);
-  height: calc(var(--u) * 3.8);
+  height: calc(var(--u) * 3.9);
   padding: 0 calc(var(--u) * 1);
-  border-radius: calc(var(--u) * 0.8);
-  font-weight: 800;
-  font-size: calc(var(--u) * 2.7);
+  border-radius: 99px;
+  font-weight: 750;
+  font-size: calc(var(--u) * 2.8);
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink);
   background: var(--rb-sunken);
 }
 
 .free-count.has-free b {
-  background: var(--rb-cyan);
+  background: var(--rb-orange-grad);
+  color: var(--rb-on-orange);
 }
 
 .free-count .of {
@@ -379,51 +414,54 @@ body * {
   color: var(--rb-ink-3);
 }
 
-/* Enceinte (fidèle au plan du stand) : barrières irisées sur trois côtés, entrée en bas au
-   centre ; sol nacré avec les cercles concentriques de Radiance qui partent de l'entrée. */
+/* Enceinte (fidèle au plan du stand) : rubans irisés et poteaux nacrés sur trois côtés, entrée en
+   bas au centre ; sol perle avec les cercles concentriques de Radiance qui partent de l'entrée. */
 .enclosure {
   position: relative;
   min-height: 0;
   padding:
-    calc(var(--wall) + var(--u) * 1.7)
-    calc(var(--wall) + var(--u) * 2.2)
+    calc(var(--wall) + var(--u) * 1.6)
+    calc(var(--wall) + var(--u) * 2.1)
     calc(var(--wall) + var(--u) * 2.5);
-  border-radius: calc(var(--u) * 0.8);
+  border-radius: calc(var(--u) * 1.4);
   background:
-    repeating-radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0) 0 calc(var(--u) * 7 - 2px), rgba(255, 255, 255, 0.85) calc(var(--u) * 7 - 2px) calc(var(--u) * 7)),
-    radial-gradient(70% 60% at 50% 100%, rgba(139, 216, 225, 0.2), rgba(139, 216, 225, 0) 70%),
-    #efefea;
+    repeating-radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0) 0 calc(var(--u) * 7 - 2px), rgba(255, 255, 255, 0.8) calc(var(--u) * 7 - 2px) calc(var(--u) * 7)),
+    radial-gradient(70% 60% at 50% 100%, rgba(139, 216, 225, 0.24), rgba(139, 216, 225, 0) 70%),
+    radial-gradient(60% 55% at 50% 35%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #eceff6 0%, #e4e8f1 100%);
+  box-shadow: inset 0 2px 10px rgba(52, 62, 104, 0.08);
 }
 
 .wall {
   position: absolute;
   z-index: 2;
-  background: var(--rb-iris);
   border-radius: 99px;
+  background: linear-gradient(90deg, #6cc1d3, #93a6d3 50%, #d77fbd);
+  box-shadow: 0 1px 4px rgba(52, 62, 104, 0.2);
 }
 
 .w-top { top: 0; left: 0; right: 0; height: var(--wall); }
-.w-left { top: 0; bottom: 0; left: 0; width: var(--wall); background: linear-gradient(180deg, #8bd8e1, #c3aee6 60%, #e58bc9); }
-.w-right { top: 0; bottom: 0; right: 0; width: var(--wall); background: linear-gradient(180deg, #f6c99a, #e58bc9 40%, #c3aee6); }
+.w-left { top: 0; bottom: 0; left: 0; width: var(--wall); background: linear-gradient(180deg, #6cc1d3, #93a6d3 55%, #d77fbd); }
+.w-right { top: 0; bottom: 0; right: 0; width: var(--wall); background: linear-gradient(180deg, #d77fbd, #93a6d3 45%, #6cc1d3); }
 .w-bl { bottom: 0; left: 0; width: 35%; height: var(--wall); }
-.w-br { bottom: 0; right: 0; width: 35%; height: var(--wall); background: linear-gradient(90deg, #c3aee6, #e58bc9 60%, #f6c99a); }
+.w-br { bottom: 0; right: 0; width: 35%; height: var(--wall); background: linear-gradient(90deg, #93a6d3, #d77fbd 60%, #f0b3a0); }
 
-/* Plots aux extrémités de l'ouverture. */
+/* Poteaux nacrés aux extrémités de l'ouverture. */
 .w-bl::after,
 .w-br::after {
   content: '';
   position: absolute;
   top: 50%;
-  width: calc(var(--wall) * 2.6);
-  height: calc(var(--wall) * 2.6);
-  border-radius: 50%;
-  background: var(--rb-paper);
-  box-shadow: 0 0 0 calc(var(--wall) * 0.6) var(--rb-ink-2);
+  width: calc(var(--wall) * 2.8);
+  height: calc(var(--wall) * 2.8);
+  border-radius: 32%;
+  background: linear-gradient(180deg, #fff, #eef1f8);
+  box-shadow: 0 1px 4px rgba(52, 62, 104, 0.4), inset 0 0 0 1px rgba(124, 132, 155, 0.35);
   transform: translateY(-50%);
 }
 
-.w-bl::after { right: calc(var(--wall) * -0.8); }
-.w-br::after { left: calc(var(--wall) * -0.8); }
+.w-bl::after { right: calc(var(--wall) * -0.9); }
+.w-br::after { left: calc(var(--wall) * -0.9); }
 
 .entrance {
   position: absolute;
@@ -433,14 +471,15 @@ body * {
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 0.7);
-  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.7);
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.8) calc(var(--u) * 0.5) calc(var(--u) * 1.4);
   transform: translate(-50%, 50%);
   border-radius: 99px;
-  background: var(--rb-orange);
-  color: var(--rb-ink);
-  font-weight: 800;
+  background: var(--rb-orange-grad);
+  box-shadow: var(--rb-shadow-orange);
+  color: var(--rb-on-orange);
+  font-weight: 750;
   font-size: calc(var(--u) * 2.1);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -450,8 +489,10 @@ body * {
   height: calc(var(--u) * 2.3);
 }
 
+/* Stand fermé : entrée au crépuscule (texte blanc sur #5D4F7C : 7,3:1). */
 :root[data-stand="ferme"] .entrance {
-  background: var(--rb-ink-3);
+  background: var(--rb-dusk);
+  box-shadow: 0 6px 16px -8px rgba(93, 79, 124, 0.8);
   color: #fff;
 }
 
@@ -462,36 +503,21 @@ body * {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  column-gap: calc(var(--u) * 3);
-  row-gap: calc(var(--u) * 1.3);
+  column-gap: calc(var(--u) * 2.8);
+  row-gap: calc(var(--u) * 1.2);
 }
 
 :root[data-layout="portrait"] .tables {
-  column-gap: calc(var(--u) * 1.8);
-  row-gap: calc(var(--u) * 1.8);
-}
-
-/* Portrait : tables plus hautes que larges, chaises plus fines (plus de place pour les noms). */
-:root[data-layout="portrait"] .table {
-  grid-template-rows: 16% minmax(0, 1fr) 10%;
-}
-
-:root[data-layout="portrait"] .num {
-  height: 16.5cqh;
-  min-width: 16.5cqh;
-  font-size: min(13cqh, 10cqw);
-}
-
-:root[data-layout="portrait"] .chair {
-  height: 6.5cqh;
+  column-gap: calc(var(--u) * 1.6);
+  row-gap: calc(var(--u) * 1.6);
 }
 
 :root[data-layout="portrait"] .plan-panel {
-  padding-inline: calc(var(--u) * 1.6);
+  padding-inline: calc(var(--u) * 1.5);
 }
 
 :root[data-layout="portrait"] .enclosure {
-  padding-inline: calc(var(--wall) + var(--u) * 1.4);
+  padding-inline: calc(var(--wall) + var(--u) * 1.3);
 }
 
 .loading {
@@ -501,7 +527,7 @@ body * {
   margin: 0;
   font-weight: 600;
   font-size: calc(var(--u) * 2.4);
-  color: var(--rb-ink-3);
+  color: var(--rb-ink-2);
 }
 
 /* ------------------------------------------------------------------ table */
@@ -512,7 +538,12 @@ body * {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 19% minmax(0, 1fr) 12%;
+  grid-template-rows: 18% minmax(0, 1fr) 10%;
+}
+
+/* Portrait : tables plus hautes que larges, rangées de chaises plus fines. */
+:root[data-layout="portrait"] .table {
+  grid-template-rows: 15% minmax(0, 1fr) 8.5%;
 }
 
 .chairs {
@@ -523,12 +554,15 @@ body * {
   justify-items: center;
 }
 
+/* Largeur d'Aurore (≈ 34 % de la demi-table) : entre les deux chaises du bas reste la place de
+   l'étiquette « Nouveau ». */
 .chair {
-  width: min(20cqw, 44cqh);
-  height: 8cqh;
-  border-radius: 2cqh;
-  background: var(--chair);
-  transition: background-color 0.6s ease;
+  box-sizing: border-box;
+  width: min(17cqw, 38cqh);
+  height: 6.5cqh;
+  border-radius: 99px;
+  background: var(--chair-empty);
+  box-shadow: inset 0 0 0 max(1px, 0.4cqh) var(--chair-line);
 }
 
 /* Chaises au ras de la table (joueur 1 en haut, joueur 2 en bas). */
@@ -537,29 +571,93 @@ body * {
 .chairs.top .chair { margin-bottom: 1.6cqh; }
 .chairs.bottom .chair { margin-top: 1.6cqh; }
 
-.chair.taken { background: var(--chair-taken); }
-.chair.host { background: var(--rb-cyan-strong); } /* chaise de l'animateur (celle du joueur absent) */
+.chair.taken {
+  background: var(--chair-iris);
+  box-shadow: 0 0.5cqh 1.4cqh rgba(112, 120, 190, 0.32);
+}
 
-/* Numéro de table : plaque signalétique foncée, chiffre blanc, entre les deux chaises du haut. */
+/* Chaise de l'animateur (celle du joueur absent, ou du partenaire d'un joueur seul). */
+.chair.host {
+  background: var(--chair-host);
+}
+
+/* Chaise libre (stand ouvert) : pointillés orange sur pêche, comme sur l'accueil. */
+.chair.free {
+  background: var(--rb-orange-tint);
+  box-shadow: none;
+  border: max(2px, 0.9cqh) dashed var(--rb-orange);
+}
+
+:root[data-layout="portrait"] .chair {
+  height: 5.6cqh;
+}
+
+/* Lettres d'emplacement, aux coins extérieurs de la rangée du haut : A (moitié gauche), B (moitié
+   droite). Pastille blanche à liseré irisé, lettre encre très grasse ≥ 24 px en Full HD paysage,
+   ≥ 22 px en portrait (repère annoncé par l'hôtesse : « Table 4 · A »). */
+.tag {
+  position: absolute;
+  z-index: 2;
+  bottom: 0.4cqh;
+  display: grid;
+  place-items: center;
+  width: 1.36em;
+  height: 1.36em;
+  border-radius: 0.34em;
+  border: max(1.5px, 0.5cqh) solid transparent;
+  background:
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris) border-box;
+  box-shadow: 0 0.4cqh 1.2cqh rgba(52, 62, 104, 0.18);
+  font-weight: 800;
+  font-size: min(11cqh, 7.6cqw);
+  line-height: 1;
+  color: var(--rb-ink);
+}
+
+.tag-a { left: 0.4cqw; }
+.tag-b { right: 0.4cqw; }
+
+:root[data-layout="portrait"] .tag {
+  bottom: 0;
+  font-size: min(10.5cqh, 7.6cqw);
+}
+
+/* Table entièrement fermée ou hors service : une seule mention, lettres effacées. */
+.table.off-all .tag,
+.table.shut-all .tag {
+  visibility: hidden;
+}
+
+/* Numéro de table : médaillon foncé à liseré irisé (chiffre blanc 15,5:1), entre les chaises du haut. */
 .num {
   position: absolute;
   z-index: 3;
   left: 50%;
-  top: 0;
-  height: 19cqh;
-  min-width: 19cqh;
-  padding: 0 2.4cqh;
+  top: -1.6cqh;
+  width: 21cqh;
+  height: 21cqh;
   transform: translateX(-50%);
   display: grid;
   place-items: center;
-  border-radius: 2.6cqh;
-  font-weight: 800;
-  font-size: min(15cqh, 10cqw);
+  border-radius: 50%;
+  border: max(2px, 1cqh) solid transparent;
+  background:
+    linear-gradient(var(--rb-ink), var(--rb-ink)) padding-box,
+    var(--rb-iris-conic) border-box;
+  box-shadow: 0 0.8cqh 2.2cqh rgba(52, 62, 104, 0.32);
+  font-weight: 700;
+  font-size: min(14cqh, 10cqw);
   line-height: 1;
-  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: #fff;
-  background: var(--rb-ink);
+}
+
+:root[data-layout="portrait"] .num {
+  top: -1.2cqh;
+  width: 18.5cqh;
+  height: 18.5cqh;
+  font-size: min(12.5cqh, 10cqw);
 }
 
 .board {
@@ -569,133 +667,107 @@ body * {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  gap: 2cqw;
-  padding: 1.6cqh 1.3cqw;
-  border-radius: 2.4cqh;
-  background: var(--rb-paper);
-  box-shadow: 0 0 0 max(1px, 0.5cqh) var(--board-line);
+  gap: 1.6cqw;
+  padding: 1.4cqh 1.2cqw;
+  border-radius: 7cqh; /* ≈ 16 px en Full HD : carte de verre arrondie d'Aurore */
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfe 100%);
+  box-shadow:
+    0 1.9cqh 7.8cqh rgba(52, 62, 104, 0.14),
+    0 0.3cqh 0.9cqh rgba(52, 62, 104, 0.06),
+    0 0 0 max(1px, 0.45cqh) var(--board-line);
 }
 
-/* Séparation des deux emplacements A | B. */
+/* Filet central (séparation des deux matchs A | B). */
 .board::before {
   content: '';
   position: absolute;
-  top: 10%;
-  bottom: 10%;
   left: 50%;
-  border-left: max(1px, 0.5cqh) dashed var(--board-line);
+  top: 14%;
+  bottom: 14%;
+  width: max(1px, 0.4cqh);
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(167, 183, 207, 0), rgba(124, 132, 155, 0.5), rgba(167, 183, 207, 0));
 }
 
 /* ------------------------------------------------------------------ emplacement */
 
+/* Rayon concentrique à celui du plateau (7cqh moins sa marge) : les cadres d'état (« 5 dernières
+   minutes », « Nouveau », terminé) suivent la courbe et gardent des coins intérieurs arrondis. */
 .slot {
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 1.8cqh;
+  border-radius: 5.6cqh;
 }
 
-/* Lettre d'emplacement (A = moitié gauche, B = moitié droite) : ≥ 22 px en Full HD. */
-.slot-tag {
-  display: inline-grid;
-  place-items: center;
-  min-width: 1.35em;
-  height: 1.3em;
-  padding: 0 0.22em;
-  border-radius: 0.3em;
-  font-weight: 800;
-  font-size: min(11.2cqh, 7.8cqw);
-  line-height: 1;
-  color: var(--rb-ink-2);
-  background: var(--rb-sunken);
-}
-
-.slot.free > .slot-tag,
-.slot.shut > .slot-tag,
-.slot.off > .slot-tag {
-  position: absolute;
-  z-index: 2;
-  top: 5%;
-}
-
-.slot[data-slot='A'] > .slot-tag { left: 5%; }
-.slot[data-slot='B'] > .slot-tag { right: 5%; }
-
-/* Libre : tuile nacrée irisée et cercles concentriques — l'invitation la plus visible de l'écran. */
+/* Libre (Aurore) : tuile nacre pêche, cercles concentriques orange pâle STATIQUES, pastille orange
+   « Libre » en texte encre (6,4:1 : jamais de blanc sur l'orange). Pastille plate, sans « + » ni
+   ombre portée : l'écran n'est pas tactile, rien ne doit ressembler à un bouton. */
 .slot.free {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: radial-gradient(90% 80% at 50% 50%, #ffffff 0%, #e2f6f9 46%, #a6e2ea 100%);
-  box-shadow: inset 0 0 0 max(2px, 0.9cqh) var(--rb-cyan-strong);
+  background:
+    radial-gradient(80% 70% at 0% 0%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #fffaf4 0%, var(--rb-orange-tint) 100%);
+  box-shadow: inset 0 0 0 max(1.5px, 0.5cqh) var(--rb-orange-line);
 }
 
 .slot.free::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 calc(6cqh - 1.5px), rgba(255, 255, 255, 0.95) calc(6cqh - 1.5px) 6cqh);
-  -webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.25), #000 70%);
-  mask-image: radial-gradient(closest-side, rgba(0, 0, 0, 0.25), #000 70%);
-}
-
-/* Onde lente (transform + opacity). */
-.slot.free::after {
-  content: '';
-  position: absolute;
   left: 50%;
   top: 50%;
-  width: 46cqh;
-  height: 46cqh;
-  margin: -23cqh 0 0 -23cqh;
+  width: min(82cqh, 44cqw);
+  height: min(82cqh, 44cqw);
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  border: max(2px, 1cqh) solid rgba(32, 179, 199, 0.55);
-  animation: ripple 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
-}
-
-@keyframes ripple {
-  from { transform: scale(0.5); opacity: 0.9; }
-  to { transform: scale(1.7); opacity: 0; }
+  background:
+    repeating-radial-gradient(circle, rgba(240, 112, 0, 0) 0 9%, rgba(240, 112, 0, 0.17) 9.5% 10.5%, rgba(240, 112, 0, 0) 11% 16%),
+    radial-gradient(closest-side, rgba(255, 141, 34, 0.2), rgba(255, 141, 34, 0));
 }
 
 .free-label {
   position: relative;
   z-index: 1;
-  font-weight: 800;
-  font-size: min(15cqh, 10.4cqw);
+  padding: 0.24em 0.62em 0.28em;
+  border-radius: 99px;
+  background: var(--rb-orange-grad);
+  font-weight: 700;
+  font-size: min(13cqh, 9cqw);
   line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--rb-ink);
+  letter-spacing: 0.01em;
+  color: var(--rb-on-orange);
 }
 
-/* En jeu : noms à l'encre, compte à rebours, jauge cyan.
+/* En jeu : joueur 1 (chaise du haut) / anneau « VS » + temps restant / joueur 2 (chaise du bas).
    --frame = épaisseur du cadre d'état (« 5 dernières minutes », « Nouveau ») : elle est réservée
-   dans le padding (cadre + marge), donc le cadre ne touche jamais les noms ni la lettre A/B, et
-   l'ajustement des noms (ecran.js) travaille dans la place qui reste réellement. */
+   dans le padding (cadre + marge), donc le cadre ne touche jamais les noms, et l'ajustement des
+   noms (ecran.js) travaille dans la place qui reste réellement. */
 .slot.busy {
-  --frame: max(4px, 2cqh);
+  --frame: max(4px, 2.2cqh);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
   padding:
-    calc(var(--frame) + max(2px, 1cqh))
-    calc(var(--frame) + max(2px, 0.7cqw))
-    calc(var(--frame) + max(2px, 1.2cqh));
+    calc(var(--frame) + max(2px, 0.6cqh))
+    calc(var(--frame) + max(2px, 0.5cqw))
+    calc(var(--frame) + max(2px, 0.8cqh));
 }
 
 .pl {
   min-width: 0;
   text-align: center;
-  font-weight: 680;
-  font-size: min(12cqh, 8.8cqw);
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  font-size: min(13cqh, 9.4cqw);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   color: var(--rb-ink);
 }
 
 .pl.pl1 { grid-row: 1; }
-.pl.pl2 { grid-row: 7; }
+.pl.pl2 { grid-row: 5; }
 
 /* « Prénom N. » : seul le prénom est raccourci (« … »), l'initiale du nom reste visible. */
 .nm {
@@ -719,25 +791,6 @@ body * {
   margin-left: 0.12em;
 }
 
-/* Emplacement serré (deux noms longs sur deux lignes) : « VS » masqué, chrono un peu réduit. */
-.slot.compact .vs {
-  min-height: 9cqh;
-}
-
-.slot.compact .vs-word,
-.slot.compact .vs::before,
-.slot.compact .vs::after {
-  visibility: hidden;
-}
-
-.slot.compact .time {
-  font-size: min(15.5cqh, 11.4cqw);
-}
-
-.slot.compact .gauge {
-  margin-top: 0;
-}
-
 /* Nom long sur deux lignes dans un emplacement (coupure au tiret ou à l'espace). */
 .nm.wrap {
   display: block;
@@ -754,93 +807,133 @@ body * {
 .pl .nm > :first-child { margin-left: auto; }
 .pl .nm > :last-child { margin-right: auto; }
 
-/* Animateur : étiquette cyan, distincte d'un nom de joueur. */
+/* Animateur : étiquette mauve, distincte d'un nom de joueur. */
 .pl.animator {
   display: flex;
   justify-content: center;
 }
 
 .anim-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0.08em 0.45em 0.12em;
+  padding: 0.1em 0.5em 0.14em 0.4em;
   border-radius: 99px;
-  font-weight: 750;
-  font-size: 0.8em;
-  color: var(--rb-cyan-ink);
-  background: var(--rb-cyan-tint);
-  box-shadow: inset 0 0 0 max(1px, 0.35cqh) var(--rb-cyan-line);
+  font-weight: 650;
+  font-size: min(0.8em, 7cqw);
+  color: var(--rb-mauve);
+  background: var(--mauve-tint);
+  box-shadow: inset 0 0 0 max(1px, 0.35cqh) var(--mauve-line);
 }
 
-/* Ligne A/B + « VS ». */
-.vs {
+.anim-pill::before {
+  content: '';
+  flex: none;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #c8a2c6, var(--rb-mauve));
+}
+
+/* Portrait (emplacements étroits) : pastille sans puce, pour que « Animateur » tienne en entier. */
+:root[data-layout="portrait"] .anim-pill {
+  padding-inline: 0.42em;
+}
+
+:root[data-layout="portrait"] .anim-pill::before {
+  display: none;
+}
+
+/* Anneau + temps restant. */
+.mid {
   grid-row: 3;
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.4cqw;
-  min-height: 11cqh;
+  gap: 1.6cqw;
+  min-width: 0;
+}
+
+/* Anneau de progression irisé (.rb-ring du thème : --p = part restante, mise à jour par ecran.js).
+   Épaisseur ≥ 6 px en Full HD pour rester lisible à 4 m. */
+.ring {
+  flex: none;
+  width: 21cqh;
+  --rb-ring-w: 28%;
+  --rb-ring-track: #dde3ee;
+  --rb-ring-fill: conic-gradient(from 180deg, #33a8c2, #6c86cc 35%, #c460ab 68%, #de8a6c 88%, #33a8c2);
+}
+
+.vs-word {
   font-weight: 800;
-  font-size: min(8cqh, 5.6cqw);
+  font-size: min(8cqh, 5.2cqw); /* ≥ 16 px en Full HD, paysage comme portrait */
   line-height: 1;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--rb-ink-2);
 }
 
-.vs::before,
-.vs::after {
-  content: '';
-  flex: 1;
-  max-width: 7cqw;
-  height: max(1px, 0.4cqh);
-  background: var(--rb-line-2);
-}
-
-.vs .slot-tag {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  letter-spacing: 0;
-}
-
-.slot[data-slot='A'] .vs .slot-tag { left: 1%; }
-.slot[data-slot='B'] .vs .slot-tag { right: 1%; }
-
 .time {
-  grid-row: 4;
-  text-align: center;
-  font-weight: 750;
-  font-size: min(17cqh, 12.6cqw);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
+  min-width: 0;
+  font-weight: 650;
+  font-size: min(17.5cqh, 11.6cqw);
+  line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--rb-ink);
 }
 
-.gauge {
-  grid-row: 5;
-  justify-self: center;
-  width: 78%;
-  height: max(4px, 2cqh);
-  margin-top: 0.6cqh;
-  border-radius: 99px;
-  background: var(--rb-sunken);
-  overflow: hidden;
+/* Partie prolongée au-delà d'une heure (« 1:02:30 ») : pas d'anneau (il ressemblerait à un « O »
+   collé aux chiffres), chiffres ≥ 34 px. */
+.slot.long .ring {
+  display: none;
 }
 
-.gauge i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--rb-cyan-strong);
-  transform-origin: left center;
-  transform: scaleX(0);
+.slot.long .time {
+  font-size: min(15.5cqh, 10cqw);
 }
 
-/* Cadre d'état (fin proche, nouveaux joueurs) : pseudo-élément au-dessus du fond. */
+/* Portrait (emplacements hauts et étroits) : temps sous l'anneau. */
+:root[data-layout="portrait"] .mid {
+  flex-direction: column;
+  gap: 0.9cqh;
+}
+
+:root[data-layout="portrait"] .ring {
+  width: 17.5cqh;
+}
+
+:root[data-layout="portrait"] .pl {
+  font-size: min(12.8cqh, 9.4cqw);
+}
+
+:root[data-layout="portrait"] .time {
+  font-size: min(15.6cqh, 12cqw);
+}
+
+:root[data-layout="portrait"] .slot.long .time {
+  font-size: min(15.5cqh, 11.4cqw);
+}
+
+/* Emplacement serré (deux noms longs sur deux lignes) : l'anneau s'efface, le chrono reste
+   ≥ 34 px en Full HD. */
+.slot.compact .ring {
+  display: none;
+}
+
+.slot.compact .time {
+  font-size: min(15.5cqh, 10cqw);
+}
+
+:root[data-layout="portrait"] .slot.compact .time {
+  font-size: min(15.5cqh, 11.4cqw);
+}
+
+/* Cadre d'état (fin proche, terminé, nouveaux joueurs) : pseudo-élément au-dessus du fond. */
 .slot.busy::after {
   content: '';
   position: absolute;
@@ -851,71 +944,67 @@ body * {
   opacity: 0;
 }
 
-/* 5 dernières minutes : fond orange pâle, cadre orange épais qui respire, chrono orange gras. */
+/* 5 dernières minutes : fond rose pâle, cadre rose Seraphine épais qui respire (opacité seule),
+   anneau rose, chrono rose foncé très gras (6,6:1). Lisible à 4 m. */
 .slot.warn {
-  background: var(--rb-orange-tint);
+  background: var(--rb-warn-tint);
 }
 
 .slot.warn::after {
   opacity: 1;
-  box-shadow: inset 0 0 0 var(--frame) var(--rb-orange);
-  animation: breathe 1.6s ease-in-out infinite alternate;
+  box-shadow: inset 0 0 0 var(--frame) var(--rb-warn);
+  animation: warn-breathe 1.8s ease-in-out infinite alternate;
 }
 
 .slot.warn .time {
-  font-weight: 850;
-  color: var(--rb-orange-ink);
+  font-weight: 800;
+  color: var(--rb-warn-ink);
 }
 
-.slot.warn .gauge {
-  background: rgba(240, 112, 0, 0.18);
+.slot.warn .vs-word {
+  color: var(--rb-warn-ink);
 }
 
-.slot.warn .gauge i {
-  background: var(--rb-orange);
+.slot.warn .ring {
+  --rb-ring-fill: linear-gradient(var(--rb-warn), var(--rb-warn));
+  --rb-ring-track: var(--rb-warn-line);
 }
 
-@keyframes breathe {
-  from { opacity: 0.4; }
+@keyframes warn-breathe {
+  from { opacity: 0.5; }
   to { opacity: 1; }
 }
 
-/* Terminé : aplat orange plein, texte encre (6,3:1). */
+/* Terminé : fond vert pâle, cadre vert, « Terminé ! » en vert foncé (l'anneau, plein, s'efface pour
+   laisser la place au mot). */
 .slot.done {
-  background: var(--rb-orange);
+  background: var(--rb-green-tint);
 }
 
-.slot.done .pl,
-.slot.done .time,
-.slot.done .vs {
-  color: var(--rb-ink);
+.slot.done::after {
+  opacity: 1;
+  box-shadow: inset 0 0 0 calc(var(--frame) * 0.7) var(--rb-green);
 }
 
-.slot.done .vs::before,
-.slot.done .vs::after {
-  background: rgba(17, 18, 20, 0.35);
-}
-
-.slot.done .slot-tag {
-  background: rgba(255, 255, 255, 0.6);
-  color: var(--rb-ink);
+.slot.done .ring {
+  display: none;
 }
 
 .slot.done .time {
-  font-weight: 850;
-  font-size: min(12.5cqh, 8.8cqw);
-  letter-spacing: -0.02em;
-}
-
-.slot.done .gauge {
-  visibility: hidden;
+  font-weight: 800;
+  font-size: min(12.5cqh, 8.6cqw);
+  letter-spacing: -0.01em;
+  color: var(--rb-green-ink);
 }
 
 .slot.done .anim-pill {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.9);
 }
 
-/* Nouveaux joueurs (3 premières minutes, comme « À vos tables ! ») : cadre cyan + étiquette irisée « Nouveau ». */
+/* Nouveaux joueurs (3 premières minutes, comme « À vos tables ! ») : cadre cyan sur l'emplacement
+   et étiquette irisée « Nouveau » (texte encre ≈ 6,7:1), une par table, posée ENTRE les deux chaises
+   du bas : elle ne cache aucune chaise (ni celle, mauve, de l'animateur). Le cadre cyan désigne le
+   ou les emplacements concernés. */
 .slot.is-new::after {
   opacity: 1;
   box-shadow: inset 0 0 0 max(3px, 1.4cqh) var(--rb-cyan-strong);
@@ -927,27 +1016,29 @@ body * {
 }
 
 .new-tag {
-  position: absolute !important;
-  z-index: 4 !important;
+  position: absolute;
+  z-index: 4;
   left: 50%;
-  bottom: 100%;
-  margin-bottom: -0.8cqh;
-  transform: translateX(-50%);
-  padding: 0.18em 0.6em;
+  top: calc(1.6cqh + 3.25cqh); /* centre des chaises du bas */
+  transform: translate(-50%, -50%);
+  padding: 0.18em 0.5em 0.2em;
   border-radius: 99px;
   background: var(--rb-iris);
-  box-shadow: 0 0 0 max(2px, 0.6cqh) var(--rb-paper);
-  font-weight: 850;
+  box-shadow: 0 0 0 max(2px, 0.6cqh) var(--rb-paper), 0 0.6cqh 1.6cqh rgba(52, 62, 104, 0.25);
+  font-weight: 800;
   font-size: min(9cqh, 5.6cqw);
   line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--rb-ink);
   white-space: nowrap;
 }
 
-.slot:not(.is-new) .new-tag {
+.table:not(.has-new) .new-tag {
   display: none;
+}
+
+:root[data-layout="portrait"] .new-tag {
+  top: calc(1.6cqh + 2.8cqh);
 }
 
 /* Arrivée de nouveaux joueurs : reflet irisé qui balaie l'emplacement, une seule fois (transform). */
@@ -967,24 +1058,27 @@ body * {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 22%, rgba(139, 216, 225, 0.7) 40%, rgba(195, 174, 230, 0.6) 52%, rgba(229, 139, 201, 0.55) 62%, rgba(255, 255, 255, 0) 80%);
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0) 22%, rgba(139, 216, 225, 0.7) 40%, rgba(255, 255, 255, 0.9) 50%, rgba(229, 139, 201, 0.55) 60%, rgba(255, 255, 255, 0) 80%);
   transform: translateX(-110%);
 }
 
 .slot.seated .fx::before {
-  animation: sheen 1.4s ease-out var(--seated-delay, 0ms) 2 both;
+  animation: rb-sheen 1.4s ease-out var(--seated-delay, 0ms) 2 both;
 }
 
-@keyframes sheen {
-  from { transform: translateX(-110%); }
-  to { transform: translateX(110%); }
-}
-
-/* Emplacement fermé (stand fermé) / table hors service : hachures grises, mention sobre. */
+/* Emplacement fermé (stand fermé) : crépuscule, lune. Hors service : hachures, mention sobre. */
 .slot.shut,
 .slot.off {
   display: grid;
   place-items: center;
+}
+
+.slot.shut {
+  background: linear-gradient(180deg, rgba(236, 232, 244, 0.95), rgba(236, 232, 244, 0.7));
+  box-shadow: inset 0 0 0 max(1px, 0.4cqh) var(--rb-dusk-line);
+}
+
+.slot.off {
   background: repeating-linear-gradient(135deg, var(--rb-hatch) 0 0.9cqh, var(--rb-paper) 0.9cqh 1.8cqh);
 }
 
@@ -992,40 +1086,69 @@ body * {
 .whole-label {
   display: flex;
   align-items: center;
-  gap: 0.4em;
-  font-weight: 750;
+  justify-content: center;
+  gap: 0.35em;
+  font-weight: 650;
   font-size: min(8.6cqh, 6cqw);
   line-height: 1.1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   text-align: center;
   color: var(--rb-ink-2);
 }
 
 .slot .state-label {
   padding: 0.3em 0.6em;
-  border-radius: 0.5em;
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 0.6em;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.slot.shut .state-label {
+  color: var(--rb-dusk);
+  background: none;
+  font-size: min(9.6cqh, 6.6cqw);
 }
 
 .slot.off .state-label {
-  font-size: min(7.4cqh, 5.2cqw);
+  font-size: min(8.4cqh, 6cqw);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.moon {
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  box-shadow: inset -0.28em -0.1em 0 0 currentColor;
+  transform: rotate(-20deg);
 }
 
 .whole-label {
   grid-column: 1 / -1;
   align-self: center;
   justify-self: center;
-  padding: 1.6cqh 4cqw;
+  padding: 1.6cqh 4.4cqw;
   border-radius: 99px;
   font-size: min(10cqh, 7cqw);
   background: var(--rb-paper);
   box-shadow: inset 0 0 0 max(1px, 0.4cqh) var(--rb-line-2);
 }
 
-.table.off .board,
-.table.shut-all .board {
+.whole-label:not(.shut) {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.whole-label.shut {
+  color: var(--rb-dusk);
+  box-shadow: inset 0 0 0 max(1px, 0.4cqh) var(--rb-dusk-line);
+}
+
+.table.off .board {
   background: repeating-linear-gradient(135deg, var(--rb-hatch) 0 0.9cqh, var(--rb-paper) 0.9cqh 1.8cqh);
+}
+
+.table.shut-all .board {
+  background: linear-gradient(180deg, rgba(236, 232, 244, 0.95), rgba(236, 232, 244, 0.72));
 }
 
 .table.off-all .board::before,
@@ -1038,13 +1161,20 @@ body * {
   background: var(--rb-paper);
 }
 
-.table.off .chair:not(.taken),
-:root[data-stand="ferme"] .chair:not(.taken) {
-  opacity: 0.5;
+.table.off .slot.busy.warn {
+  background: var(--rb-warn-tint);
 }
 
+.table.off .chair:not(.taken),
+:root[data-stand="ferme"] .chair:not(.taken) {
+  opacity: 0.55;
+}
+
+/* Table hors service : médaillon ardoise à liseré gris (chiffre blanc 10:1). */
 .table.off .num {
-  background: var(--rb-ink-2);
+  background:
+    linear-gradient(var(--rb-ink-2), var(--rb-ink-2)) padding-box,
+    linear-gradient(var(--rb-ink-4), var(--rb-ink-4)) border-box;
 }
 
 /* ------------------------------------------------------------------ colonne attente / file */
@@ -1089,153 +1219,209 @@ body * {
   grid-row: 1;
 }
 
-/* Attente estimée pour une nouvelle inscription : sur-titre, puis valeur et heure de début sur une
-   ligne (l'heure passe dessous si la carte est étroite). */
+/* Attente estimée pour une nouvelle inscription : carte blanche à liseré irisé (reflets cyan et
+   rose), chronomètre, sur-titre et heure de début à gauche, valeur GÉANTE à droite (≈ 95 px en
+   Full HD). Portrait, à côté de « À vos tables ! » : valeur sous le sur-titre. */
 .wait {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: calc(var(--u) * 0.5);
+  --wait-pad: calc(var(--u) * 1.1);
+  position: relative;
   min-width: 0;
-  padding: calc(var(--u) * 1.4) calc(var(--u) * 2.4) calc(var(--u) * 1.5);
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon eyebrow value'
+    'icon sub value';
+  align-items: center;
+  column-gap: calc(var(--u) * 1.6);
+  row-gap: calc(var(--u) * 0.35);
+  padding: var(--wait-pad) calc(var(--u) * 2.4) var(--wait-pad) calc(var(--u) * 1.4);
+  border: max(2px, calc(var(--u) * 0.22)) solid transparent;
+  border-radius: calc(var(--u) * 2.2);
+  background:
+    radial-gradient(60% 130% at 0% 0%, rgba(139, 216, 225, 0.3), rgba(139, 216, 225, 0) 70%) padding-box,
+    radial-gradient(60% 130% at 100% 100%, rgba(229, 139, 201, 0.2), rgba(229, 139, 201, 0) 70%) padding-box,
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris) border-box;
+  box-shadow: var(--rb-shadow-2);
+}
+
+.wait > p {
+  margin: 0;
+  min-width: 0;
+}
+
+.wait-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 6.4);
+  height: calc(var(--u) * 6.4);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff, #eef3fb);
+  box-shadow: 0 0 0 calc(var(--u) * 0.45) rgba(167, 183, 207, 0.28), var(--rb-shadow-1);
+  color: var(--rb-cyan-ink);
+}
+
+.wait-icon svg {
+  width: 58%;
+  height: 58%;
 }
 
 .wait-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.55em;
-  margin: 0;
-  font-weight: 700;
+  grid-area: eyebrow;
+  align-self: end;
+  font-weight: 600;
   font-size: calc(var(--u) * 2.2);
   line-height: 1.2;
-  letter-spacing: -0.005em;
   color: var(--rb-ink-2);
 }
 
-.wait-eyebrow .nb {
+.wait-eyebrow .nb,
+.howto .nb {
   white-space: nowrap;
 }
 
-/* Pastille irisée (gemme Radiance). */
-.gem {
-  flex: none;
-  width: 0.95em;
-  height: 0.95em;
-  border-radius: 50%;
-  background: var(--rb-iris-conic);
-}
-
-.wait-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: calc(var(--u) * 1.4);
-  row-gap: calc(var(--u) * 0.2);
-  margin: 0;
-}
-
 .wait-value {
+  grid-area: value;
   display: flex;
   align-items: baseline;
-  gap: calc(var(--u) * 0.4);
+  gap: calc(var(--u) * 0.3);
   line-height: 1;
   white-space: nowrap;
 }
 
-.wv-tilde {
-  font-weight: 650;
-  font-size: calc(var(--u) * 3.6);
-  color: var(--rb-ink-3);
-}
-
-.wv-num {
-  font-weight: 850;
-  font-size: calc(var(--u) * 6.2);
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-  color: var(--rb-ink);
-}
-
-.wv-unit {
-  margin-left: calc(var(--u) * 0.2);
-  font-weight: 800;
-  font-size: calc(var(--u) * 3);
-  letter-spacing: -0.02em;
-  color: var(--rb-ink);
-}
-
-.wv-text {
-  font-weight: 800;
-  font-size: calc(var(--u) * 3);
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  white-space: normal;
-  text-wrap: balance;
-}
-
-.wv-num + .wv-text {
-  margin-left: calc(var(--u) * 0.6);
-  white-space: nowrap;
-}
-
 .wait-sub {
-  font-weight: 600;
-  font-size: calc(var(--u) * 2.4);
+  grid-area: sub;
+  align-self: start;
+  font-weight: 550;
+  font-size: calc(var(--u) * 2.3);
   line-height: 1.2;
   color: var(--rb-ink-2);
   white-space: nowrap;
 }
 
 .wait-sub b {
-  font-weight: 800;
+  font-weight: 750;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink);
 }
 
-/* Places libres maintenant : carte cyan nacrée, nombre géant, texte encre. */
-.wait[data-mode="free"] {
-  background: radial-gradient(120% 140% at 100% 0%, #ffffff 0%, #c8eef3 40%, var(--rb-cyan) 100%);
-  border-color: var(--rb-cyan-strong);
-}
-
-.wait[data-mode="free"] .wait-eyebrow,
-.wait[data-mode="free"] .wait-sub {
-  color: var(--rb-ink);
-}
-
-.wait[data-mode="none"] .wv-text {
+.wv-tilde {
+  align-self: center;
+  font-weight: 600;
+  font-size: calc(var(--u) * 5.6);
+  line-height: 1;
   color: var(--rb-ink-2);
 }
 
-/* Paysage : carte compacte dans l'en-tête, collée à l'horloge (hauteur ≤ celle du logo). */
+.wv-num {
+  font-weight: 700;
+  font-size: calc(var(--u) * 8.8);
+  line-height: 0.84;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-ink);
+}
+
+.wv-unit {
+  margin: 0 calc(var(--u) * 0.3);
+  font-weight: 650;
+  font-size: calc(var(--u) * 3.6);
+  letter-spacing: -0.01em;
+  color: var(--rb-ink);
+}
+
+.wv-text {
+  font-weight: 700;
+  font-size: calc(var(--u) * 3);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  white-space: normal;
+  text-wrap: balance;
+}
+
+/* « 7 | places libres / maintenant ! » : texte sur deux lignes à côté du nombre géant. */
+.wv-num + .wv-text {
+  align-self: center;
+  max-width: 8.4em;
+  margin-left: calc(var(--u) * 0.8);
+}
+
+/* Places libres maintenant (Aurore) : la carte passe en aplat orange Riftbound, cercles
+   concentriques clairs statiques, nombre de places géant. Texte encre --rb-on-orange (≥ 6,4:1),
+   jamais de blanc sur l'orange. */
+.wait[data-mode="free"] {
+  background:
+    radial-gradient(50% 120% at 0% 0%, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 70%) padding-box,
+    repeating-radial-gradient(circle at 100% 50%, rgba(255, 255, 255, 0) 0 calc(var(--u) * 2.6), rgba(255, 255, 255, 0.18) calc(var(--u) * 2.7) calc(var(--u) * 2.85), rgba(255, 255, 255, 0) calc(var(--u) * 2.95) calc(var(--u) * 3.4)) padding-box,
+    var(--rb-orange-grad) padding-box,
+    linear-gradient(120deg, #ffd2a6, #ffffff 50%, #ffc28a) border-box;
+  box-shadow: var(--rb-shadow-orange), var(--rb-shadow-2);
+}
+
+.wait[data-mode="free"] .wait-eyebrow,
+.wait[data-mode="free"] .wait-sub,
+.wait[data-mode="free"] .wv-num,
+.wait[data-mode="free"] .wv-text {
+  color: var(--rb-on-orange);
+}
+
+.wait[data-mode="free"] .wait-icon {
+  background: var(--rb-paper);
+  box-shadow: 0 0 0 calc(var(--u) * 0.45) rgba(255, 255, 255, 0.35);
+  color: var(--rb-orange-ink);
+}
+
+.wait[data-mode="none"] .wv-text {
+  max-width: 11em;
+  color: var(--rb-ink-2);
+}
+
+/* Pas de seconde ligne (places libres maintenant) : sur-titre centré verticalement. */
+.masthead > .wait[data-mode="free"] .wait-eyebrow,
+:root[data-layout="portrait"] .side:not(.has-placed) > .wait[data-mode="free"] .wait-eyebrow {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+/* Paysage : dans l'en-tête, collée à l'horloge (même hauteur que la carte du logo). */
 .masthead > .wait {
   flex: 0 1 auto;
   margin-left: auto;
-  padding: calc(var(--u) * 0.9) calc(var(--u) * 2.2) calc(var(--u) * 1);
-  gap: calc(var(--u) * 0.2);
-  border-radius: calc(var(--u) * 1.6);
 }
 
 .masthead > .wait:not([hidden]) + .meta {
   margin-left: 0;
 }
 
-.masthead > .wait .wv-num {
-  font-size: calc(var(--u) * 5);
+/* Portrait, à côté de « À vos tables ! » (demi-largeur) : valeur sous le sur-titre. */
+:root[data-layout="portrait"] .side.has-placed > .wait {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon eyebrow'
+    'value value'
+    'sub sub';
+  row-gap: calc(var(--u) * 0.7);
+  padding-inline: calc(var(--u) * 2);
 }
 
-.masthead > .wait .wv-tilde {
-  font-size: calc(var(--u) * 3);
+:root[data-layout="portrait"] .side.has-placed > .wait .wait-icon {
+  width: calc(var(--u) * 4.6);
+  height: calc(var(--u) * 4.6);
 }
 
-.masthead > .wait .wv-unit,
-.masthead > .wait .wv-text {
-  font-size: calc(var(--u) * 2.7);
+:root[data-layout="portrait"] .side.has-placed > .wait .wait-eyebrow {
+  align-self: center;
 }
 
-/* Portrait, carte d'attente seule sur la largeur : un peu plus grande. */
-:root[data-layout="portrait"] .side:not(.has-placed) > .wait .wv-num {
-  font-size: calc(var(--u) * 7);
+:root[data-layout="portrait"] .side.has-placed > .wait .wait-sub {
+  white-space: normal;
+}
+
+:root[data-layout="portrait"] .side > .wait {
+  align-self: stretch;
+  align-content: center;
 }
 
 /* Joueurs placés depuis moins de 3 minutes : « À vos tables ! » (2 lignes au plus, compactes). */
@@ -1260,16 +1446,16 @@ body * {
   align-items: center;
   gap: 0.45em;
   margin: 0 0 calc(var(--u) * 0.3);
-  font-weight: 800;
-  font-size: calc(var(--u) * 2.4);
+  font-weight: 700;
+  font-size: calc(var(--u) * 2.6);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .placed-spark {
   flex: none;
-  width: 0.8em;
-  height: 0.8em;
+  width: 0.85em;
+  height: 0.85em;
   background: var(--rb-iris-conic);
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
 }
@@ -1287,7 +1473,7 @@ body * {
   align-items: center;
   gap: calc(var(--u) * 1.3);
   min-width: 0;
-  min-height: calc(var(--u) * 4.9);
+  min-height: calc(var(--u) * 5);
   padding: calc(var(--u) * 0.45) 0;
   border-top: 1px solid var(--rb-line);
 }
@@ -1296,41 +1482,42 @@ body * {
   border-top: 0;
 }
 
-/* Plaque « Table 5 A » : même code que le plan (plaque foncée + lettre). */
+/* Plaque « Table 5 A » : même code que le plan (médaillon foncé + lettre à liseré irisé). */
 .where {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: calc(var(--u) * 0.35);
-  height: calc(var(--u) * 4);
-  padding: 0 calc(var(--u) * 0.4) 0 calc(var(--u) * 0.9);
-  border-radius: calc(var(--u) * 0.8);
+  height: calc(var(--u) * 4.1);
+  padding: 0 calc(var(--u) * 0.4) 0 calc(var(--u) * 1.1);
+  border-radius: 99px;
   background: var(--rb-ink);
+  box-shadow: 0 0 0 calc(var(--u) * 0.18) rgba(167, 183, 207, 0.6), var(--rb-shadow-1);
   color: #fff;
-  font-weight: 800;
-  font-size: calc(var(--u) * 2.7);
+  font-weight: 700;
+  font-size: calc(var(--u) * 2.8);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .where small {
-  font-weight: 650;
-  font-size: 0.76em;
+  font-weight: 550;
+  font-size: 0.74em;
   letter-spacing: 0.02em;
-  opacity: 0.9;
 }
 
 .where i {
   display: grid;
   place-items: center;
-  min-width: calc(var(--u) * 3.1);
-  height: calc(var(--u) * 3.1);
-  margin-left: calc(var(--u) * 0.3);
-  border-radius: calc(var(--u) * 0.55);
+  min-width: calc(var(--u) * 3.2);
+  height: calc(var(--u) * 3.2);
+  margin-left: calc(var(--u) * 0.35);
+  border-radius: 50%;
   background: var(--rb-iris);
   color: var(--rb-ink);
   font-style: normal;
-  font-size: 0.82em;
+  font-weight: 750;
+  font-size: 0.8em;
 }
 
 /* Noms : « Prénom N. » (.nm) ; un joueur par ligne si la paire ne tient pas sur une seule. */
@@ -1341,10 +1528,10 @@ body * {
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: 0.32em;
-  font-weight: 700;
-  font-size: calc(var(--u) * 2.5);
+  font-weight: 650;
+  font-size: calc(var(--u) * 2.7);
   line-height: 1.15;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 
 .placed-names .pn {
@@ -1368,16 +1555,16 @@ body * {
 
 .placed-names .vs-host {
   flex-basis: 100%;
-  font-weight: 650;
-  font-size: 0.8em;
-  color: var(--rb-cyan-ink);
+  font-weight: 600;
+  font-size: 0.78em;
+  color: var(--rb-mauve);
 }
 
 .placed-list .more {
   justify-content: flex-start;
   min-height: 0;
   padding: calc(var(--u) * 0.5) 0 calc(var(--u) * 0.2);
-  font-weight: 650;
+  font-weight: 600;
   font-size: calc(var(--u) * 2.1);
   line-height: 1.2;
   color: var(--rb-ink-2);
@@ -1388,7 +1575,7 @@ body * {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4) calc(var(--u) * 1.2);
+  padding: calc(var(--u) * 1.6) calc(var(--u) * 2) calc(var(--u) * 1.2);
 }
 
 .queue-head {
@@ -1396,8 +1583,8 @@ body * {
   align-items: flex-end;
   justify-content: space-between;
   gap: calc(var(--u) * 1.2);
-  padding-bottom: calc(var(--u) * 1);
-  border-bottom: 2px solid var(--rb-ink);
+  padding: 0 calc(var(--u) * 0.3) calc(var(--u) * 1);
+  background: linear-gradient(90deg, #8bd8e1, #a7b7cf 50%, #e58bc9) left bottom / 100% max(2px, calc(var(--u) * 0.22)) no-repeat;
 }
 
 .queue-count {
@@ -1407,15 +1594,26 @@ body * {
   line-height: 1;
 }
 
+/* Compteur au bleu-argent du mot RADIANCE (bande la plus claire ≥ 4,4:1). */
 .queue-count b {
-  font-weight: 800;
-  font-size: calc(var(--u) * 3.6);
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  font-size: calc(var(--u) * 3.8);
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: #2a447f;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .queue-count b {
+    background: var(--rb-metal);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 
 .queue-count span {
-  font-weight: 600;
+  font-weight: 550;
   font-size: calc(var(--u) * 2.1);
   color: var(--rb-ink-2);
   white-space: nowrap;
@@ -1426,7 +1624,7 @@ body * {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  margin-top: calc(var(--u) * 0.4);
+  margin-top: calc(var(--u) * 0.6);
 }
 
 .queue-list {
@@ -1435,50 +1633,67 @@ body * {
   flex: 0 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 0;
+  padding: 0 0 2px; /* ombre de la dernière carte */
   list-style: none;
   display: grid;
   grid-template-columns: repeat(var(--qcols), minmax(0, 1fr));
-  grid-auto-rows: max-content; /* jamais de chevauchement : les lignes en trop sont masquées (« + N autres ») */
+  grid-auto-rows: max-content; /* jamais de chevauchement : les lignes en trop vont à la page suivante */
   align-content: start;
-  column-gap: calc(var(--u) * 3.4);
+  column-gap: calc(var(--u) * 1.4);
+  /* Espacement serré : la file tient au moins autant d'entrées par page que la version retenue
+     (cartes de 5u, pas de 5,25u ; ecran.js mesure le pas réel). */
+  row-gap: calc(var(--u) * 0.25);
   overflow: hidden;
 }
 
-/* Portrait : deux colonnes lues ligne par ligne (1 | 2, 3 | 4…). */
+/* Portrait : deux colonnes lues ligne par ligne (1 | 2, 3 | 4…) ; les deux cartes d'une rangée ont
+   la même hauteur. */
 .queue-list.cols-2 {
   --qcols: 2;
+}
+
+.queue-list.cols-2 .q:not(.more) {
+  align-self: stretch;
 }
 
 .queue-list .q[hidden] {
   display: none;
 }
 
+/* Une entrée = une carte nacrée : pastille de rang, « Prénom N. & Prénom N. », heure estimée. */
 .q {
   align-self: start;
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 1.3);
+  gap: calc(var(--u) * 1.2);
   min-width: 0;
   min-height: calc(var(--u) * 5);
-  padding: calc(var(--u) * 0.6) 0;
-  border-bottom: 1px solid var(--rb-line);
-  font-weight: 640;
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.3) calc(var(--u) * 0.5) calc(var(--u) * 0.8);
+  border-radius: calc(var(--u) * 1.4);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(167, 183, 207, 0.5), 0 1px 3px rgba(52, 62, 104, 0.07);
+  font-weight: 600;
   font-size: calc(var(--u) * 2.8);
   line-height: 1.15;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   color: var(--rb-ink);
 }
 
 .q .rank {
   flex: none;
-  align-self: flex-start;
-  width: 1.6em;
-  padding-top: 0.08em;
-  font-weight: 800;
-  font-size: 0.86em;
-  color: var(--rb-ink-3);
-  text-align: right;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 3.7);
+  height: calc(var(--u) * 3.7);
+  margin-top: calc(var(--u) * -0.05);
+  border-radius: 50%;
+  background: var(--rb-lilac);
+  box-shadow: inset 0 0 0 1px rgba(167, 183, 207, 0.55);
+  font-weight: 700;
+  font-size: calc(var(--u) * 2);
+  line-height: 1;
+  color: var(--rb-ink-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1498,13 +1713,13 @@ body * {
 
 .q .amp {
   flex: none;
-  font-weight: 500;
+  font-weight: 450;
   color: var(--rb-ink-3);
 }
 
-/* Mesure de la largeur naturelle des noms (ecran.js). */
-.q.measuring .nm,
-.q.measuring .note {
+/* Mesure de la largeur naturelle des noms (ecran.js) ; spécificité plus forte que .q.solo .note. */
+.queue-list .q.measuring .nm,
+.queue-list .q.measuring .note {
   flex: none;
   width: max-content;
   max-width: none;
@@ -1512,13 +1727,13 @@ body * {
 
 /* Paire sur deux lignes (un joueur par ligne) plutôt que des noms coupés. */
 .q.two-line {
-  padding-block: calc(var(--u) * 0.8);
+  padding-block: calc(var(--u) * 0.75);
 }
 
 .q.two-line .names {
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.12em;
+  gap: 0.1em;
 }
 
 .q.two-line .names .amp {
@@ -1528,48 +1743,77 @@ body * {
 .q.two-line .names .nm + .amp + .nm::before {
   content: '& ';
   white-space: pre;
-  font-weight: 500;
+  font-weight: 450;
   color: var(--rb-ink-3);
 }
 
 .q .eta {
   flex: none;
-  font-weight: 650;
-  font-size: 0.82em;
+  font-weight: 550;
+  font-size: 0.8em;
   font-variant-numeric: tabular-nums;
   color: var(--rb-ink-2);
   white-space: nowrap;
 }
 
 .q .eta.soon {
+  font-weight: 700;
   color: var(--rb-orange-ink);
 }
 
-.q.no-eta .eta,
-.q.no-eta .soon-tag {
+/* Place manquante : l'heure estimée s'efface ; « À suivre » jamais (pastille compacte, puis sous
+   les noms). */
+.q.no-eta .eta {
   display: none;
 }
 
-/* Les prochains à jouer. */
+/* Les prochains à jouer : liseré orange, pastille de rang orange (texte encre 6,4:1). */
 .q.next {
-  font-weight: 760;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 max(2px, calc(var(--u) * 0.22)) var(--rb-orange), 0 calc(var(--u) * 0.5) calc(var(--u) * 1.6) calc(var(--u) * -0.8) rgba(240, 112, 0, 0.55);
 }
 
 .q.next .rank {
-  color: var(--rb-orange-ink);
+  background: var(--rb-orange-grad);
+  box-shadow: none;
+  color: var(--rb-on-orange);
 }
 
 .soon-tag {
   flex: none;
-  padding: 0.24em 0.6em;
+  padding: 0.3em 0.7em;
   border-radius: 99px;
-  font-weight: 800;
-  font-size: 0.7em;
-  letter-spacing: 0.06em;
+  font-weight: 750;
+  font-size: 0.68em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--rb-ink);
-  background: var(--rb-orange);
+  color: var(--rb-on-orange);
+  background: var(--rb-orange-grad);
   white-space: nowrap;
+}
+
+.q.tag-compact .soon-tag {
+  padding: 0.28em 0.5em;
+  font-size: 0.6em;
+  letter-spacing: 0.04em;
+}
+
+/* « À suivre » sous les noms (rang à gauche, sur les deux rangées). */
+.q.tag-below {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  row-gap: calc(var(--u) * 0.45);
+}
+
+.q.tag-below .rank {
+  grid-row: 1 / span 2;
+}
+
+.q.tag-below .soon-tag {
+  grid-column: 2;
+  justify-self: start;
+  font-size: 0.6em;
 }
 
 /* Joueur seul. */
@@ -1593,17 +1837,24 @@ body * {
   margin-left: 0.3em;
   font-weight: 600;
   font-size: 0.72em;
-  color: var(--rb-ink-2);
+  color: var(--rb-mauve);
 }
 
+/* Joueur seul qui cherche un partenaire : carte mauve en pointillés, invitation aux visiteurs seuls. */
 .q.seeking {
   align-items: flex-start;
-  margin: calc(var(--u) * 0.4) 0;
-  padding: calc(var(--u) * 0.8) calc(var(--u) * 1.4) calc(var(--u) * 0.9) 0;
-  border: none;
-  border-radius: calc(var(--u) * 1.1);
-  background: var(--rb-cyan-tint);
-  box-shadow: inset 0 0 0 2px var(--rb-cyan-line);
+  padding-block: calc(var(--u) * 0.7) calc(var(--u) * 0.8);
+  background: rgba(244, 236, 243, 0.92);
+  box-shadow: none;
+  outline: max(2px, calc(var(--u) * 0.2)) dashed var(--mauve-line);
+  outline-offset: calc(max(2px, calc(var(--u) * 0.2)) * -1);
+}
+
+.q.seeking .rank {
+  align-self: flex-start;
+  background: var(--rb-paper);
+  box-shadow: inset 0 0 0 1px var(--mauve-line);
+  color: var(--rb-mauve);
 }
 
 .q.seeking .body {
@@ -1614,30 +1865,37 @@ body * {
   flex: 1;
 }
 
+/* « cherche un partenaire » passe sous le nom plutôt que d'être coupé. */
+.q.seeking .names {
+  flex-wrap: wrap;
+  row-gap: 0.1em;
+}
+
 .q.seeking .note {
-  font-weight: 750;
-  color: var(--rb-cyan-ink);
+  margin-left: 0;
+  font-weight: 700;
 }
 
 /* Invitation pour les visiteurs seuls : jamais coupée (passe à la ligne). */
 .q .invite {
-  font-weight: 600;
+  font-weight: 550;
   font-size: 0.72em;
   line-height: 1.25;
   color: var(--rb-ink-2);
 }
 
 .q .invite b {
-  font-weight: 800;
-  color: var(--rb-ink);
+  font-weight: 750;
+  color: var(--rb-orange-ink);
 }
 
 .q.more {
   justify-content: center;
   gap: calc(var(--u) * 1);
-  min-height: calc(var(--u) * 4.8);
-  border: none;
-  font-weight: 750;
+  min-height: calc(var(--u) * 4.6);
+  background: none;
+  box-shadow: none;
+  font-weight: 700;
   font-size: calc(var(--u) * 2.4);
   color: var(--rb-ink);
 }
@@ -1647,25 +1905,25 @@ body * {
 }
 
 .q.more small {
-  font-weight: 600;
-  font-size: 0.72em;
+  font-weight: 550;
+  font-size: 0.74em;
   color: var(--rb-ink-2);
 }
 
 /* File par pages : « Rangs 1 à 9 sur 39 » et une barre par page (la page en cours se remplit
-   pendant qu'elle est affichée ; animation transform uniquement). */
+   pendant qu'elle est affichée ; animation transform uniquement, sur un petit élément). */
 .q.pager {
   justify-content: space-between;
   gap: calc(var(--u) * 2);
   min-height: calc(var(--u) * 4);
-  padding: calc(var(--u) * 0.6) 0 0;
+  padding: calc(var(--u) * 0.4) calc(var(--u) * 0.3) 0;
   font-size: calc(var(--u) * 2.3);
   white-space: nowrap;
 }
 
 .pg-text small {
   font-size: 1em;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--rb-ink-2);
 }
 
@@ -1683,11 +1941,11 @@ body * {
   height: calc(var(--u) * 0.9);
   border-radius: 99px;
   overflow: hidden;
-  background: var(--rb-sunken);
+  background: #dde2ec;
 }
 
 .pg-bars i.seen {
-  background: var(--rb-ink-3);
+  background: var(--rb-lavender);
 }
 
 .pg-bars i.on::after {
@@ -1695,7 +1953,7 @@ body * {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--rb-orange);
+  background: var(--rb-iris);
   transform-origin: left center;
   animation: page-progress var(--page-ms, 10s) linear var(--page-delay, 0ms) 1 both;
 }
@@ -1715,57 +1973,85 @@ body * {
   to { opacity: 1; transform: none; }
 }
 
-/* File vide. */
+/* File vide : halo concentrique, « Aucune attente », places libres. */
 .queue-empty,
 .queue-closed {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
+  text-align: center;
   padding: calc(var(--u) * 1) 0;
 }
 
-.qe-title {
+.queue-empty p,
+.queue-closed p {
   margin: 0;
-  font-weight: 800;
-  font-size: calc(var(--u) * 5.4);
-  line-height: 1;
-  letter-spacing: -0.04em;
+}
+
+.qe-halo {
+  position: relative;
+  flex: none;
+  width: calc(var(--u) * 9);
+  height: calc(var(--u) * 9);
+  margin-bottom: calc(var(--u) * 1.4);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #fff 0 33%, rgba(255, 255, 255, 0) 35%),
+    repeating-radial-gradient(circle, rgba(167, 183, 207, 0) 0 calc(var(--u) * 1.1), rgba(167, 183, 207, 0.6) calc(var(--u) * 1.15) calc(var(--u) * 1.28), rgba(167, 183, 207, 0) calc(var(--u) * 1.33) calc(var(--u) * 1.6)),
+    radial-gradient(circle, rgba(139, 216, 225, 0.5), rgba(229, 139, 201, 0.2) 60%, rgba(229, 139, 201, 0) 72%);
+}
+
+.qe-halo::after {
+  content: '';
+  position: absolute;
+  inset: 35%;
+  background: var(--rb-iris-conic);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+}
+
+.qe-title {
+  font-weight: 700;
+  font-size: calc(var(--u) * 5);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
 }
 
 .qe-text {
-  margin: calc(var(--u) * 1) 0 0;
+  margin-top: calc(var(--u) * 0.9) !important;
   font-weight: 650;
   font-size: calc(var(--u) * 3);
-  letter-spacing: -0.02em;
-  color: var(--rb-ink-2);
+  letter-spacing: -0.01em;
+  color: var(--rb-orange-ink);
 }
 
+/* « 18 places libres en ce moment » : pêche et orange foncé (≥ 5:1), comme les places libres. */
 .qe-sub {
-  margin: calc(var(--u) * 2) 0 0;
-  padding: calc(var(--u) * 0.6) calc(var(--u) * 1.4);
+  margin-top: calc(var(--u) * 1.8) !important;
+  padding: calc(var(--u) * 0.6) calc(var(--u) * 1.6);
   border-radius: 99px;
-  font-weight: 750;
-  font-size: calc(var(--u) * 2.1);
-  background: var(--rb-cyan-tint);
-  color: var(--rb-cyan-ink);
+  font-weight: 650;
+  font-size: calc(var(--u) * 2.2);
+  background: var(--rb-orange-tint);
+  box-shadow: inset 0 0 0 1px var(--rb-orange-line);
+  color: var(--rb-orange-ink);
 }
 
-/* Stand fermé : pastille « Fermée » à la place du compteur, carte de fin de journée. */
+/* Stand fermé : pastille « Fermée » au crépuscule à la place du compteur, carte de fin de journée. */
 .queue-shut {
   display: none;
   align-items: center;
-  padding: 0.35em 0.9em;
+  padding: 0.38em 0.95em;
   border-radius: 99px;
-  font-weight: 800;
+  font-weight: 700;
   font-size: calc(var(--u) * 2.1);
   line-height: 1;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #fff;
-  background: var(--rb-ink);
+  background: var(--rb-dusk);
   white-space: nowrap;
 }
 
@@ -1777,6 +2063,10 @@ body * {
   display: flex;
 }
 
+:root[data-stand="ferme"] .queue-head {
+  background-image: var(--rb-iris-dusk);
+}
+
 .queue-closed {
   animation: fade-in 1.2s ease-out both;
 }
@@ -1786,156 +2076,193 @@ body * {
   to { opacity: 1; }
 }
 
-/* Place comptée : croissant masqué, marges resserrées. */
+/* Place comptée : lune masquée, marges resserrées. */
 .queue-closed.tight .qc-mark {
   display: none;
 }
 
 .queue-closed.tight .qc-sub {
-  margin-top: calc(var(--u) * 1.4);
-  padding-top: calc(var(--u) * 1);
+  margin-top: calc(var(--u) * 1.4) !important;
+  padding-top: calc(var(--u) * 1) !important;
 }
 
 .queue-closed.tight .qc-note {
-  margin-top: calc(var(--u) * 1.2);
+  margin-top: calc(var(--u) * 1.2) !important;
 }
 
+/* Lune au crépuscule dans ses cercles concentriques. */
 .qc-mark {
-  width: calc(var(--u) * 7);
-  height: calc(var(--u) * 7);
-  margin-bottom: calc(var(--u) * 2.2);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 11);
+  height: calc(var(--u) * 11);
+  margin-bottom: calc(var(--u) * 1.6);
   border-radius: 50%;
-  box-shadow: inset calc(var(--u) * -2.4) calc(var(--u) * -0.4) 0 0 var(--rb-mauve);
-  transform: rotate(-24deg);
+  background:
+    repeating-radial-gradient(circle, rgba(167, 183, 207, 0) 0 calc(var(--u) * 1.4), rgba(156, 134, 184, 0.45) calc(var(--u) * 1.45) calc(var(--u) * 1.6), rgba(167, 183, 207, 0) calc(var(--u) * 1.65) calc(var(--u) * 2)),
+    radial-gradient(circle, rgba(167, 183, 207, 0.55), rgba(229, 139, 201, 0.18) 58%, rgba(229, 139, 201, 0) 72%);
+}
+
+.qc-mark::before {
+  content: '';
+  width: 44%;
+  height: 44%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%);
+  box-shadow: inset calc(var(--u) * -1.4) calc(var(--u) * -0.5) 0 0 var(--rb-dusk);
+  transform: rotate(-18deg);
 }
 
 .qc-title {
-  margin: 0;
-  font-weight: 800;
-  font-size: calc(var(--u) * 4.6);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  font-size: calc(var(--u) * 4.4);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
 .qc-text {
-  margin: calc(var(--u) * 1.2) 0 0;
-  font-weight: 650;
+  margin-top: calc(var(--u) * 1) !important;
+  font-weight: 600;
   font-size: calc(var(--u) * 3);
-  letter-spacing: -0.02em;
-  color: var(--rb-ink-2);
+  letter-spacing: -0.01em;
+  color: var(--rb-dusk);
 }
 
 .qc-sub {
-  align-self: stretch;
-  margin: calc(var(--u) * 2.4) 0 0;
+  margin-top: calc(var(--u) * 2.2) !important;
   padding-top: calc(var(--u) * 1.6);
-  border-top: 2px solid var(--rb-ink);
-  font-weight: 750;
+  min-width: 60%;
+  background: var(--rb-iris-dusk) center top / calc(var(--u) * 14) max(2px, calc(var(--u) * 0.22)) no-repeat;
+  font-weight: 700;
   font-size: calc(var(--u) * 2.1);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--rb-ink);
+  color: var(--rb-ink-2);
 }
 
 .qc-note {
-  margin: calc(var(--u) * 2.2) 0 0;
-  padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6);
-  border-radius: calc(var(--u) * 1);
-  font-weight: 600;
+  margin-top: calc(var(--u) * 2) !important;
+  padding: calc(var(--u) * 1.1) calc(var(--u) * 2);
+  border-radius: calc(var(--u) * 1.4);
+  font-weight: 550;
   font-size: calc(var(--u) * 2.2);
   line-height: 1.3;
   color: var(--rb-ink-2);
-  background: var(--rb-bg);
+  background: var(--rb-dusk-tint);
+  box-shadow: inset 0 0 0 1px var(--rb-dusk-line);
 }
 
 .qc-note b {
-  font-weight: 750;
+  font-weight: 700;
   color: var(--rb-ink);
 }
 
 /* Mode d'emploi (3 étapes) : grand quand la file est courte, compact sinon, masqué si la file
-   a besoin de la place (ecran.js). Centré dans l'espace libre : pas de grand vide. */
+   a besoin de la place (ecran.js). Étapes numérotées dans des médaillons à liseré irisé. */
 .howto {
   flex: none;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: calc(var(--u) * 1.6);
+  gap: calc(var(--u) * 1.4);
   margin: auto 0 0;
-  padding: calc(var(--u) * 1.5) 0 0;
-  border-top: 2px solid var(--rb-ink);
+  padding: calc(var(--u) * 1.4) 0 0;
   list-style: none;
+  background: linear-gradient(90deg, #8bd8e1, #a7b7cf 50%, #e58bc9) left top / 100% max(2px, calc(var(--u) * 0.22)) no-repeat;
 }
 
 .howto li {
   display: flex;
-  flex-direction: column;
-  gap: calc(var(--u) * 0.5);
+  align-items: flex-start;
+  gap: calc(var(--u) * 0.8);
   min-width: 0;
-  font-weight: 650;
-  font-size: calc(var(--u) * 1.85);
+  font-weight: 600;
+  font-size: calc(var(--u) * 1.9);
   line-height: 1.2;
   color: var(--rb-ink-2);
 }
 
 .howto b {
-  font-weight: 850;
-  font-size: calc(var(--u) * 3);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: 50%;
+  border: max(2px, 0.14em) solid transparent;
+  background:
+    linear-gradient(var(--rb-paper), var(--rb-paper)) padding-box,
+    var(--rb-iris-conic) border-box;
+  font-weight: 700;
+  font-size: calc(var(--u) * 2.2);
   line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--rb-orange-ink);
+  color: var(--rb-ink);
 }
 
-/* Grand format : étapes empilées (paysage) ou en colonnes (portrait), texte ≥ 26 px. */
+/* Grand format : étapes empilées (paysage) ou en colonnes (portrait), texte ≥ 27 px. */
 .howto.is-large {
   grid-template-columns: minmax(0, 1fr);
-  gap: calc(var(--u) * 1.2);
+  gap: calc(var(--u) * 1.3);
   margin-block: auto;
   padding: calc(var(--u) * 2) calc(var(--u) * 2.2);
-  border: 0;
-  border-radius: calc(var(--u) * 1.4);
+  border-radius: calc(var(--u) * 1.8);
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(139, 216, 225, 0.28), rgba(139, 216, 225, 0) 60%),
-    radial-gradient(120% 140% at 100% 100%, rgba(229, 139, 201, 0.2), rgba(229, 139, 201, 0) 60%),
-    var(--rb-pearl);
+    radial-gradient(70% 120% at 100% 0%, rgba(229, 139, 201, 0.16), rgba(229, 139, 201, 0) 70%),
+    radial-gradient(70% 120% at 0% 100%, rgba(139, 216, 225, 0.24), rgba(139, 216, 225, 0) 70%),
+    rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(167, 183, 207, 0.45);
 }
 
 .howto.is-large li {
-  flex-direction: row;
   align-items: center;
   gap: calc(var(--u) * 1.6);
-  font-size: calc(var(--u) * 2.5);
-  font-weight: 700;
+  font-size: calc(var(--u) * 2.6);
+  font-weight: 650;
   color: var(--rb-ink);
 }
 
 .howto.is-large b {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: calc(var(--u) * 5.2);
-  height: calc(var(--u) * 5.2);
-  border-radius: 50%;
-  font-size: calc(var(--u) * 3);
-  color: var(--rb-ink);
-  background: var(--rb-orange);
+  font-size: calc(var(--u) * 2.8);
+  box-shadow: 0 calc(var(--u) * 0.3) calc(var(--u) * 0.9) rgba(52, 62, 104, 0.2);
 }
 
+/* Portrait : trois colonnes, numéro au-dessus du texte (affiche lisible de loin). */
 :root[data-layout="portrait"] .howto.is-large {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: calc(var(--u) * 2.4) calc(var(--u) * 2);
+}
+
+:root[data-layout="portrait"] .howto.is-large li {
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 1.1);
+  text-align: center;
+  font-size: calc(var(--u) * 2.7);
+  text-wrap: balance;
+}
+
+:root[data-layout="portrait"] .howto.is-large b {
+  font-size: calc(var(--u) * 3.2);
 }
 
 /* ------------------------------------------------------------------ bandeau */
 
+/* Bandeau d'appel : barre encre à liseré irisé (texte blanc 15,5:1, ≥ 34 px en Full HD), flèche
+   dans une pastille orange (flèche encre), cartouche doré des goodies. Crépuscule stand fermé. */
 .cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--u) * 3);
-  min-height: calc(var(--u) * 6.8);
-  padding: calc(var(--u) * 0.8) calc(var(--u) * 3);
-  border-radius: calc(var(--u) * 1.8);
-  background: var(--rb-ink);
+  min-height: calc(var(--u) * 6.6);
+  padding: calc(var(--u) * 0.7) calc(var(--u) * 0.8);
+  border: max(2px, calc(var(--u) * 0.2)) solid transparent;
+  border-radius: 99px;
+  background:
+    linear-gradient(var(--rb-ink), var(--rb-ink)) padding-box,
+    var(--rb-iris) border-box;
+  box-shadow: var(--rb-shadow-2);
   color: #fff;
 }
 
@@ -1943,46 +2270,75 @@ body * {
 .cta-goodies {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 1.2);
+  gap: calc(var(--u) * 1.3);
   min-width: 0;
   white-space: nowrap;
-  font-weight: 760;
+}
+
+.cta-main {
+  font-weight: 650;
   font-size: calc(var(--u) * 3.2);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 
 .cta-arrow {
   flex: none;
-  width: calc(var(--u) * 3.6);
-  height: calc(var(--u) * 3.6);
-  color: var(--rb-orange);
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 4.8);
+  height: calc(var(--u) * 4.8);
+  border-radius: 50%;
+  background: var(--rb-orange-grad);
+  box-shadow: var(--rb-shadow-orange);
+  color: var(--rb-on-orange);
 }
 
-.cta-goodies {
-  font-weight: 600;
-  font-size: calc(var(--u) * 2.8);
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.cta-goodies b {
-  font-weight: 760;
-  color: #fff;
-}
-
-.gift {
-  flex: none;
-  width: calc(var(--u) * 3.4);
-  height: calc(var(--u) * 3.4);
-  color: var(--rb-gold);
+.cta-arrow svg {
+  width: 56%;
+  height: 56%;
 }
 
 .cta-moon {
   flex: none;
-  width: calc(var(--u) * 2.6);
-  height: calc(var(--u) * 2.6);
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 4.8);
+  height: calc(var(--u) * 4.8);
   border-radius: 50%;
-  box-shadow: inset calc(var(--u) * -0.9) calc(var(--u) * -0.1) 0 0 var(--rb-gold);
-  transform: rotate(-24deg);
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--rb-gold);
+}
+
+.cta-moon::before {
+  content: '';
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  box-shadow: inset calc(var(--u) * -0.8) calc(var(--u) * -0.25) 0 0 currentColor;
+  transform: rotate(-20deg);
+}
+
+/* Cartouche doré : texte or foncé sur crème (≥ 5:1). */
+.cta-goodies {
+  padding: calc(var(--u) * 0.75) calc(var(--u) * 2.2) calc(var(--u) * 0.75) calc(var(--u) * 1.5);
+  border-radius: 99px;
+  background: linear-gradient(180deg, #fffaf0, #f6ecd2);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, 0.55);
+  font-weight: 600;
+  font-size: calc(var(--u) * 2.6);
+  color: var(--rb-gold-ink);
+}
+
+.cta-goodies b {
+  font-weight: 750;
+  color: var(--rb-ink);
+}
+
+.gift {
+  flex: none;
+  width: calc(var(--u) * 3.2);
+  height: calc(var(--u) * 3.2);
+  color: var(--rb-gold);
 }
 
 .cta-closed,
@@ -1994,6 +2350,12 @@ body * {
   display: flex;
 }
 
+:root[data-stand="ferme"] .cta {
+  background:
+    linear-gradient(var(--rb-dusk), var(--rb-dusk)) padding-box,
+    var(--rb-iris-dusk) border-box;
+}
+
 .cta-goodies[hidden] {
   display: none;
 }
@@ -2002,12 +2364,17 @@ body * {
   justify-content: center;
 }
 
-/* Portrait : messages empilés (jamais de retour à la ligne à côté de la pastille goodies). */
+/* Portrait : messages empilés (jamais de retour à la ligne à côté du cartouche goodies). */
 :root[data-layout="portrait"] .cta {
   flex-direction: column;
   justify-content: center;
-  gap: calc(var(--u) * 0.8);
-  padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4);
+  gap: calc(var(--u) * 0.9);
+  padding: calc(var(--u) * 1.3) calc(var(--u) * 2.4);
+  border-radius: calc(var(--u) * 3.4);
+}
+
+:root[data-layout="portrait"] .cta-goodies {
+  font-size: calc(var(--u) * 2.4);
 }
 
 /* ------------------------------------------------------------------ sobriété */
@@ -2018,9 +2385,5 @@ body * {
   *::after {
     animation: none !important;
     transition: none !important;
-  }
-
-  .slot.free::after {
-    display: none;
   }
 }

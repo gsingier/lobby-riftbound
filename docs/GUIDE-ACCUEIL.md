@@ -52,9 +52,10 @@ L'écran suit votre boucle de travail, numérotée **01 → 02 → 03** :
   cachent jamais un panneau. La souris les rend transparentes ; la croix « × »
   les ferme.
 - **Les bandeaux d'état** s'affichent sous la barre, sur toute la largeur :
-  **noir** « Stand fermé » (orange le matin, voir la
+  **mauve** « Stand fermé » (orange foncé le matin, voir la
   [partie 2](#2-chaque-matin---nouvelle-journée-)), **rouge** « Connexion au
-  serveur perdue ».
+  serveur perdue ». Quand le stand est fermé, le fond de la page passe aussi au
+  mauve (« crépuscule »).
 
 ---
 
@@ -100,12 +101,16 @@ tournée (l'appareil relié à la TV ne sait pas pivoter l'affichage), ajoutez
 L'horloge de l'écran est à l'heure de Paris et les comptes à rebours sont
 calculés par le serveur : ils sont justes même si l'horloge de la TV est fausse.
 
-Ce que montre la TV : le plan des 9 tables (places **libres** en cyan, parties
-en cours avec leur compte à rebours, **5 dernières minutes** encadrées en
-orange, étiquette **« Nouveau »** pendant 3 minutes sur les joueurs qui viennent
-d'être placés), l'**attente estimée pour une nouvelle inscription** (ou « places
-libres maintenant »), la liste **« À vos tables ! »** des joueurs placés depuis
-moins de 3 minutes, et la **file d'attente** avec l'heure de passage estimée.
+Ce que montre la TV : le plan des 9 tables (places **libres** : pastille
+orange « Libre » ; parties en cours avec leur compte à rebours, entouré d'un
+anneau irisé qui se vide au fil de la partie ; **5 dernières minutes** : cadre
+rose épais et compte à rebours rose ; joueurs qui viennent d'être placés :
+cadre cyan et étiquette irisée **« Nouveau »** pendant 3 minutes), l'**attente
+estimée pour une nouvelle inscription** (ou, sur fond orange, « N places libres
+maintenant »), la liste **« À vos tables ! »** des joueurs placés depuis moins
+de 3 minutes, et la **file d'attente** avec l'heure de passage estimée. Stand
+fermé, la TV passe au mauve (« crépuscule ») et les places vides affichent
+« Fermé ». La légende au-dessus du plan rappelle les couleurs.
 
 ---
 
@@ -170,8 +175,8 @@ l'écran TV : vous pouvez l'annoncer au visiteur avant de l'inscrire.
 Le **cadre de résultat**, au-dessus du formulaire, vous dit quoi annoncer au
 visiteur :
 
-- **cadre noir « → Table 4 · B »** : la partie commence, envoyez-les à la
-  table (le compte à rebours a démarré) ;
+- **cadre foncé « → Table 4 · B »** (ardoise à liseré irisé) : la partie
+  commence, envoyez-les à la table (le compte à rebours a démarré) ;
 - **« En file d'attente · rang 3 »**, avec l'heure de passage estimée : ils
   attendent ; leur nom apparaît dans la file sur l'écran TV, puis à leur table
   quand une place se libère (stand fermé, le soir : la TV n'affiche plus la file
@@ -206,14 +211,14 @@ Quand une place se libère, l'application place **automatiquement** les suivants
 de la file. Ces joueurs ne sont pas devant vous : il faut **les appeler**. Le
 panneau **« 02 À appeler »** (en haut au centre) en tient la liste :
 
-- chaque carte indique la **table et l'emplacement** (plaque noire « Table 4 »
+- chaque carte indique la **table et l'emplacement** (plaque orange « Table 4 »
   + lettre **A** ou **B**), les **noms complets**, la moitié de table (gauche
   pour A, droite pour B) et depuis quand ils sont placés ;
 - **« Prévenir un animateur »** apparaît quand le joueur joue contre un
   animateur ;
-- le panneau s'entoure d'orange tant qu'il reste des joueurs à appeler, et le
-  titre de l'onglet du navigateur commence par « (N) À appeler » ;
-- sur le plan, ces emplacements sont encadrés d'orange avec l'étiquette
+- le panneau s'entoure d'un liseré orange tant qu'il reste des joueurs à
+  appeler, et le titre de l'onglet du navigateur commence par « (N) À appeler » ;
+- sur le plan, ces emplacements sont encadrés d'orange avec l'étiquette orange
   **« À appeler »**.
 
 Pour chaque carte :
@@ -365,14 +370,27 @@ Le **plan des tables** (au centre) montre chaque table avec ses deux
 emplacements **A** (gauche) et **B** (droite). Chaque emplacement n'affiche que
 l'essentiel :
 
-- **libre** (fond cyan, « Libre »), **libre, stand fermé** (gris) ou **hors
-  service** (hachures) ;
-- en jeu : la lettre, le **compte à rebours**, les noms (« Prénom N. ») et une
-  jauge ; sur un grand écran, l'heure de fin prévue ;
-- **5 dernières minutes** : fond et cadre orange ; « Terminé » quand le temps
-  est écoulé ;
-- étiquette **« Nouveau »** pendant 3 minutes après le placement, ou
-  **« À appeler »** tant que les joueurs sont dans la liste « À appeler ».
+- **libre** : tuile claire à bord en pointillés orange, « ✦ Libre » en
+  orange ; **libre, stand fermé** : tuile mauve « Libre · stand fermé » ;
+  **hors service** : hachures grises ;
+- en jeu : la lettre au centre d'un **anneau de temps** irisé (il se vide à
+  mesure que la partie avance), le **compte à rebours**, les noms
+  (« Prénom N. ») ; sur un grand écran, l'heure de fin prévue ;
+- **5 dernières minutes** : cadre épais **rose**, fond rosé, anneau et compte
+  à rebours roses ; « Terminé » (en vert) quand le temps est écoulé ;
+- étiquette irisée **« Nouveau »** pendant 3 minutes après le placement, ou
+  étiquette orange **« À appeler »** (avec un cadre orange) tant que les joueurs
+  sont dans la liste « À appeler ».
+
+Les deux petites barres au-dessus et au-dessous de chaque emplacement sont les
+**chaises** (joueur 1 en haut, joueur 2 en bas) : irisées quand elles sont
+occupées, mauves pour un animateur, en pointillés orange quand la place est
+libre.
+
+À retenir : **l'orange** signale une place **libre** ou des joueurs **à
+appeler** (lisez l'étiquette) ; **le rose**, une partie dans ses **5 dernières
+minutes**. La légende sous le plan (Libre, En jeu, 5 dernières min, À appeler)
+le rappelle ; elle est masquée quand la fenêtre est peu haute.
 
 Si la fenêtre est petite, le plan **défile** à l'intérieur de son panneau
 (les tables ne sont jamais écrasées).
@@ -488,7 +506,7 @@ terminé sa partie). **Échap** vide la recherche, puis la ferme.
      le plan) ;
    - la file d'attente reste affichée **à l'accueil**, mais personne n'y est
      placé ;
-   - un bandeau noir **« Stand fermé »** s'affiche sous la barre, avec le
+   - un bandeau mauve **« Stand fermé »** s'affiche sous la barre, avec le
      bouton **« Rouvrir le stand »** (le bouton « Fermer le stand » disparaît
      alors de la barre) ;
    - l'écran TV annonce la **fin de la journée** (« Le stand ferme ses
@@ -528,7 +546,7 @@ service) : la file reste affichée sur la TV, les parties en cours continuent,
 et les placements reprennent dès que vous remettez les tables en service.
 
 **Stand fermé par erreur** : cliquez sur **« Rouvrir le stand »** dans le
-bandeau noir, puis confirmez. Les placements reprennent aussitôt : les joueurs
+bandeau mauve, puis confirmez. Les placements reprennent aussitôt : les joueurs
 prêts de la file sont placés aux emplacements libres et arrivent dans
 « À appeler ». La TV leur a annoncé la fin de la journée entre-temps : certains
 ont pu partir. Un joueur placé qui ne vient pas à sa table : « Absent »

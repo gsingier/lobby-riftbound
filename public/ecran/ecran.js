@@ -21,8 +21,10 @@
   const SEATED_ANIM_MS = 2800;
   const IMMINENT_MS = 2 * MIN;
   const PAGE_MS = 10 * 1000; // file longue : une page toutes les 10 s
-  // Place minimale de la file (en lignes d'environ 5u) avant de réduire « À vos tables ! ».
+  // Place minimale de la file (en lignes d'une carte + espacement) avant de réduire « À vos tables ! ».
+  // QUEUE_ROW_U : pas d'une ligne d'après le CSS (carte de 5u + 0,25u), quand il n'y a rien à mesurer.
   const QUEUE_MIN_ROWS = { paysage: 8, portrait: 6 };
+  const QUEUE_ROW_U = 5.25;
 
   const root = document.documentElement;
   const $ = (id) => document.getElementById(id);
@@ -124,8 +126,8 @@
 
   // Noms du plan, jamais coupés tant qu'il reste une solution : police réduite (jusqu'à 0,78),
   // puis deux lignes (« Marie- / Charlotte D. ») si l'emplacement a la hauteur, puis police plus
-  // petite (jusqu'à `min`), puis deux lignes dans un emplacement resserré (chrono un peu plus
-  // petit, « VS » masqué), et seulement en dernier recours « … » sur le prénom.
+  // petite (jusqu'à `min`), puis deux lignes dans un emplacement resserré (anneau du chrono
+  // masqué, chiffres ≥ 34 px), et seulement en dernier recours « … » sur le prénom.
   function fitNames(scope, min) {
     const names = [...scope.querySelectorAll('.nm')];
     for (const nm of names) {
@@ -281,6 +283,10 @@
     if (changed) saveSeats();
   }
 
+  // Lettres A / B dans la rangée des chaises du haut, aux coins extérieurs de la table (« A ▬ ④ ▬ B ») :
+  // grandes et fixes, elles laissent toute la place de l'emplacement aux noms et à l'anneau du chrono.
+  // Étiquette « Nouveau » : une par table, ENTRE les deux chaises du bas (elle ne cache aucune chaise,
+  // ni celle de l'animateur) ; le cadre cyan désigne le ou les emplacements concernés.
   function buildTables(tables) {
     els.tables.textContent = '';
     tableViews.clear();
@@ -289,10 +295,10 @@
       const el = document.createElement('div');
       el.className = 'table';
       el.innerHTML =
-        '<div class="chairs top"><span class="chair"></span><span class="chair"></span></div>' +
+        '<div class="chairs top"><span class="tag tag-a">A</span><span class="chair"></span><span class="chair"></span><span class="tag tag-b">B</span></div>' +
         `<span class="num">${esc(t.no)}</span>` +
         '<div class="board"><div class="slot" data-slot="A"></div><div class="slot" data-slot="B"></div></div>' +
-        '<div class="chairs bottom"><span class="chair"></span><span class="chair"></span></div>';
+        '<div class="chairs bottom"><span class="chair"></span><span class="chair"></span><span class="new-tag">Nouveau</span></div>';
       const top = el.querySelectorAll('.chairs.top .chair');
       const bottom = el.querySelectorAll('.chairs.bottom .chair');
       tableViews.set(t.no, {
@@ -301,6 +307,7 @@
         chairs: { A: [top[0], bottom[0]], B: [top[1], bottom[1]] },
         slotKeys: { A: null, B: null },
         key: null,
+        fresh: false,
       });
       els.tables.appendChild(el);
     }
@@ -328,8 +335,8 @@
       for (const name of SLOT_NAMES) timers.delete(`${table.no}${name}`);
       view.board.innerHTML = whole === 'off-all'
         ? '<div class="whole-label">Hors service</div>'
-        : '<div class="whole-label shut">Fermé</div>';
-      for (const name of SLOT_NAMES) setChairs(view, name, null);
+        : '<div class="whole-label shut"><span class="moon" aria-hidden="true"></span>Fermé</div>';
+      for (const name of SLOT_NAMES) setChairs(view, name, null, false);
       return;
     }
     if (view.key !== 'slots' || !view.board.querySelector('.slot')) {
@@ -343,15 +350,19 @@
       if (view.slotKeys[name] === key) return;
       view.slotKeys[name] = key;
       renderSlot(slotEls[i], table, name, closed);
-      setChairs(view, name, table.slots[name]);
+      setChairs(view, name, table.slots[name], table.enabled && !closed);
     });
   }
 
-  function setChairs(view, name, match) {
+  // Chaises d'un emplacement : occupées (irisé), animateur (mauve), libres et ouvertes (pointillés
+  // orange), sinon inutilisées (stand fermé, hors service).
+  function setChairs(view, name, match, open) {
     const [top, bottom] = view.chairs[name];
     const host = match ? seatsOf(match).host : null;
-    top.classList.toggle('taken', !!match);
-    bottom.classList.toggle('taken', !!match);
+    for (const chair of [top, bottom]) {
+      chair.classList.toggle('taken', !!match);
+      chair.classList.toggle('free', !match && open);
+    }
     top.classList.toggle('host', host === 'top');
     bottom.classList.toggle('host', host === 'bottom');
   }
@@ -362,19 +373,18 @@
     timers.delete(id);
     el.dataset.slot = name;
     el.style.removeProperty('--seated-delay');
-    const tag = `<span class="slot-tag">${name}</span>`;
 
     if (!match) {
       if (!table.enabled) {
         el.className = 'slot off';
-        el.innerHTML = `${tag}<span class="state-label">Hors<br>service</span>`;
+        el.innerHTML = '<span class="state-label">Hors<br>service</span>';
       } else if (closed) {
         // Stand fermé : surtout pas « Libre », qui inviterait à venir s'asseoir.
         el.className = 'slot shut';
-        el.innerHTML = `${tag}<span class="state-label">Fermé</span>`;
+        el.innerHTML = '<span class="state-label"><span class="moon" aria-hidden="true"></span>Fermé</span>';
       } else {
         el.className = 'slot free';
-        el.innerHTML = `${tag}<span class="free-label">Libre</span>`;
+        el.innerHTML = '<span class="free-label">Libre</span>';
       }
       return;
     }
@@ -385,14 +395,13 @@
     const line = (p, cls) => (p
       ? `<div class="pl ${cls}">${nameHtml(p.displayName)}</div>`
       : `<div class="pl ${cls} animator"><span class="anim-pill">Animateur</span></div>`);
+    // Chrono : anneau de progression irisé autour du « VS » (part restante, --p mis à jour chaque
+    // seconde par tick() sans re-rendu), temps restant à côté (dessous en portrait).
     el.className = 'slot busy';
     el.innerHTML =
       '<span class="fx" aria-hidden="true"></span>' +
-      '<span class="new-tag">Nouveau</span>' +
       line(seats.top, 'pl1') +
-      `<div class="vs">${tag}<span class="vs-word">VS</span></div>` +
-      '<div class="time"></div>' +
-      '<div class="gauge"><i></i></div>' +
+      '<div class="mid"><span class="ring rb-ring"><span class="vs-word">VS</span></span><span class="time"></span></div>' +
       line(seats.bottom, 'pl2');
 
     // Nouveaux joueurs installés pendant que la page est ouverte : reflet irisé (une fois).
@@ -407,12 +416,16 @@
 
     timers.set(id, {
       slot: el,
+      table: table.no,
       timeEl: el.querySelector('.time'),
-      fillEl: el.querySelector('.gauge i'),
+      ringEl: el.querySelector('.ring'),
       startedAt: match.startedAt,
       endsAt: match.endsAt,
       phase: null,
       fresh: null,
+      text: null,
+      part: null,
+      long: null,
     });
   }
 
@@ -482,7 +495,11 @@
     } else {
       mode = 'wait';
       const w = waitLabel(est.newcomerAt - now);
-      value = `<span class="wv-tilde">~</span><span class="wv-num">${esc(w.num)}</span>${w.unit ? `<span class="wv-unit">${w.unit}</span>` : ''}`;
+      // « ~1 h 30 » : heures et minutes en grand, « h » en plus petit.
+      const hm = /^(\d+) h(?: (\d+))?$/.exec(w.num);
+      value = '<span class="wv-tilde">~</span>' + (hm
+        ? `<span class="wv-num">${esc(hm[1])}</span><span class="wv-unit">h</span>${hm[2] ? `<span class="wv-num">${esc(hm[2])}</span>` : ''}`
+        : `<span class="wv-num">${esc(w.num)}</span>${w.unit ? `<span class="wv-unit">${w.unit}</span>` : ''}`);
       sub = `début de partie vers <b>${esc(LC.formatClock(est.newcomerAt))}</b>`;
     }
     const key = `${mode}|${eyebrow}|${value}|${sub}`;
@@ -689,15 +706,18 @@
   }
 
   // Noms jamais coupés tant qu'il reste une solution : police un peu réduite, puis paire sur deux
-  // lignes (un joueur par ligne), puis heure estimée masquée, puis police réduite, puis « … ».
+  // lignes (un joueur par ligne), puis pastille « À suivre » compacte ou heure estimée masquée, puis
+  // police réduite, puis « À suivre » sous les noms, puis « … ». La pastille « À suivre » n'est
+  // jamais masquée : c'est le seul repère écrit « vous jouez bientôt ».
   function fitEntry(li) {
     if (li.classList.contains('more')) return;
     const names = li.querySelector('.names');
     if (!names) return;
-    li.classList.remove('two-line', 'no-eta', 'no-note');
+    li.classList.remove('two-line', 'no-eta', 'no-note', 'tag-compact', 'tag-below');
     names.style.fontSize = '';
     for (const nm of li.querySelectorAll('.nm')) nm.classList.remove('cut');
     const pair = li.classList.contains('pair');
+    const next = !!li.querySelector('.soon-tag');
     const size = (k) => {
       names.style.fontSize = k === 1 ? '' : `${k}em`;
     };
@@ -706,9 +726,10 @@
       () => size(0.86),
       pair && (() => { size(1); li.classList.add('two-line'); }),
       pair && (() => size(0.92)),
-      () => li.classList.add('no-eta'),
+      next ? () => li.classList.add('tag-compact') : () => li.classList.add('no-eta'),
       () => size(0.84),
       () => size(0.78),
+      next && (() => { li.classList.remove('tag-compact'); li.classList.add('tag-below'); }),
       !pair && (() => li.classList.add('no-note')),
     ].filter(Boolean);
     for (const step of steps) {
@@ -858,30 +879,62 @@
 
   const overflows = (el) => !el.hidden && el.scrollHeight > el.clientHeight + 1;
 
+  // Pas réel d'une ligne de file (carte d'une ligne + espacement), mesuré entre deux entrées
+  // affichées l'une sous l'autre ; à défaut, QUEUE_ROW_U.
+  function queueRowStep(u) {
+    const shown = [...els.queueList.children].filter((li) => !li.hidden && !li.classList.contains('more'));
+    let step = Infinity;
+    for (let i = 0; i < shown.length; i += 1) {
+      const a = shown[i];
+      if (a.classList.contains('seeking') || a.classList.contains('two-line') || a.classList.contains('tag-below')) continue;
+      const b = shown.slice(i + 1).find((li) => li.offsetLeft === a.offsetLeft);
+      if (b && b.offsetTop > a.offsetTop) step = Math.min(step, b.offsetTop - a.offsetTop);
+    }
+    return Number.isFinite(step) ? step : u * QUEUE_ROW_U;
+  }
+
   function sideFits() {
     if (!lastState) return true;
     if (isClosed(lastState)) return !overflows(els.queueClosed);
     if (!(lastState.queue || []).length) return !overflows(els.queueEmpty);
     if (!pages.length) return true;
-    const u = probe.offsetWidth || 10;
+    const u = probe.getBoundingClientRect().width || 10; // sans arrondi (7,68 px en 1366 × 768)
     const rows = QUEUE_MIN_ROWS[isPortrait() ? 'portrait' : 'paysage'];
     // Hauteur offerte à la file (la liste elle-même prend la hauteur de la page affichée).
-    return els.queueList.parentElement.clientHeight >= u * (rows * 5 + 4);
+    return els.queueList.parentElement.clientHeight >= rows * queueRowStep(u) + u * 4;
+  }
+
+  function layoutSide() {
+    els.queueClosed.classList.remove('tight');
+    fitQueueLayout();
+    if (overflows(els.queueClosed)) els.queueClosed.classList.add('tight');
+  }
+
+  function setPlacedMax(n) {
+    placedMax = n;
+    placedKey = '';
+    renderPlaced(lastState, client ? client.now() : Date.now());
   }
 
   function fitAll() {
     fitNames(els.tables, 0.64);
-    placedMax = PLACED_MAX;
-    placedKey = '';
-    renderPlaced(lastState, client ? client.now() : Date.now());
+    setPlacedMax(PLACED_MAX);
     for (;;) {
-      els.queueClosed.classList.remove('tight');
-      fitQueueLayout();
-      if (overflows(els.queueClosed)) els.queueClosed.classList.add('tight');
+      layoutSide();
       if (sideFits() || els.placed.hidden || placedMax <= 1) break;
-      placedMax -= 1;
-      placedKey = '';
-      renderPlaced(lastState, client ? client.now() : Date.now());
+      setPlacedMax(placedMax - 1);
+    }
+    // File encore par pages alors que « À vos tables ! » montre plusieurs entrées : une entrée de
+    // moins (les autres restent signalées par « + N autres » et l'étiquette « Nouveau » du plan)
+    // SEULEMENT si toute la file tient alors sur une page.
+    if (pages.length && !els.placed.hidden && placedMax > 1) {
+      const kept = placedMax;
+      setPlacedMax(1);
+      layoutSide();
+      if (pages.length) {
+        setPlacedMax(kept);
+        layoutSide();
+      }
     }
     // File redevenue courte : la prochaine mise en pages repartira de la page 1.
     if (!pages.length) {
@@ -926,17 +979,42 @@
   let client = null;
   let lastQueueRefresh = 0;
 
+  // Temps restant affiché. formatRemaining arrondit à la seconde supérieure : une partie d'une heure
+  // afficherait « 1:00:00 » pendant sa première seconde, puis « 59:59 », et l'emplacement changerait
+  // de mise en page (pas d'anneau au-delà d'une heure). On affiche « 60:00 » à la place : seules les
+  // parties qui durent vraiment plus d'une heure (réglage, prolongation) passent en « 1:02:30 ».
+  function remainingText(ms) {
+    return Math.ceil(ms / 1000) === 3600 ? '60:00' : LC.formatRemaining(ms);
+  }
+
   function tick() {
     const now = client ? client.now() : Date.now();
     els.clock.textContent = LC.formatClock(now);
 
+    // Seuls le texte du chrono et la variable --p de l'anneau changent (et seulement s'ils changent) :
+    // pas de re-rendu, un petit repeint par emplacement et par seconde.
+    const freshByTable = new Set();
     for (const t of timers.values()) {
       const remaining = t.endsAt - now;
       const total = Math.max(1, t.endsAt - t.startedAt);
-      const progress = Math.min(1, Math.max(0, 1 - remaining / total));
+      // Part restante (anneau plein au début, vide à la fin), arrondie au millième.
+      const part = (Math.round(Math.min(1, Math.max(0, remaining / total)) * 1000) / 1000).toFixed(3);
       const phase = remaining <= 0 ? 'done' : remaining <= WARN_MS ? 'warn' : 'run';
-      t.timeEl.textContent = phase === 'done' ? 'Terminé !' : LC.formatRemaining(remaining);
-      t.fillEl.style.transform = `scaleX(${progress.toFixed(4)})`;
+      const text = phase === 'done' ? 'Terminé !' : remainingText(remaining);
+      if (text !== t.text) {
+        t.timeEl.textContent = text;
+        t.text = text;
+        // « 1:02:30 » (partie prolongée au-delà d’une heure) : l’anneau s’efface pour laisser la place.
+        const long = phase !== 'done' && text.length > 5;
+        if (long !== t.long) {
+          t.slot.classList.toggle('long', long);
+          t.long = long;
+        }
+      }
+      if (part !== t.part) {
+        t.ringEl.style.setProperty('--p', part);
+        t.part = part;
+      }
       if (phase !== t.phase) {
         t.slot.classList.toggle('warn', phase === 'warn');
         t.slot.classList.toggle('done', phase === 'done');
@@ -947,6 +1025,15 @@
         t.slot.classList.toggle('is-new', fresh);
         t.fresh = fresh;
       }
+      if (fresh) freshByTable.add(t.table);
+    }
+    // Étiquette « Nouveau » de la table (entre les chaises du bas) : visible si l'un des deux
+    // emplacements vient d'être attribué.
+    for (const [no, view] of tableViews) {
+      const fresh = freshByTable.has(no);
+      if (fresh === view.fresh) continue;
+      view.fresh = fresh;
+      view.el.classList.toggle('has-new', fresh);
     }
 
     if (pages.length > 1 && Date.now() - pageShownAt >= PAGE_MS) nextPage();

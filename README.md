@@ -69,16 +69,27 @@ Les règles métier détaillées, validées avec le client, sont dans
 
 ## Interface
 
-Direction artistique **« Radiance »** : thème clair sur fond nacré éclairé par
-un halo irisé statique (cyan → lavande → rose, cercles concentriques), panneaux
-blancs, police **Inter** auto-hébergée, **logo officiel** Riftbound posé sur
-fond clair. Deux couleurs franches, avec le même sens partout : **cyan = libre
-/ disponible**, **orange Riftbound = à faire / attention** (bouton principal,
-« À suivre », 5 dernières minutes, « À appeler », texte encre sur orange) ;
-hachures grises = fermé ou hors service, rouge = irréversible ou panne. Le
-focus clavier est un contour plein cyan foncé (`#0B6E7D`, 5,9:1 sur blanc),
-remplacé par un contour couleur système en mode contraste élevé de Windows. Les
-couleurs et les classes communes sont dans `public/shared/theme.css`.
+Direction artistique **« Aurore holographique »** (set Radiance), sur
+l'ergonomie de la version éditoriale retenue : fond nacré perle, halos irisés
+cyan → lavande → rose et cercles concentriques du key art, cartes en verre
+clair aux ombres douces, mot **RADIANCE** en chrome bleu-argent, médaillons de
+table et anneaux de progression irisés, polices **Outfit** (titres, noms,
+chiffres) et **Inter** (texte courant) auto-hébergées, **logo officiel**
+Riftbound posé sur une carte nacrée (jamais à nu sur le halo). Le fond est
+pré-calculé en dégradés **statiques** (aucun `filter: blur`, aucun halo animé,
+pas de `backdrop-filter`) pour rester fluide sur le mini-PC du stand.
+
+Couleurs, avec le même sens sur la TV et à l'accueil : **orange Riftbound =
+action / à faire** (bouton principal, places libres, « À suivre »,
+« À appeler » ; toujours du texte encre sur l'orange, orange foncé `#A84300`
+pour du texte orange), **rose = 5 dernières minutes**, **mauve = stand fermé**
+(« crépuscule ») ou animateur, vert = terminé / remis, hachures grises = hors
+service, rouge = irréversible ou panne ; sur la TV, un cadre **cyan** et
+l'étiquette « Nouveau » désignent les joueurs qui viennent d'être placés.
+Contrastes WCAG 2.1 AA vérifiés, fond irisé compris. Le focus clavier est un
+contour plein cyan foncé (`#1D6F8A`, 5,7:1 sur blanc), remplacé par un contour
+couleur système en mode contraste élevé de Windows. Les couleurs, le fond et
+les composants communs sont dans `public/shared/theme.css`.
 
 **Accueil (`/accueil`)**, organisé autour de la boucle de travail de
 l'hôtesse :
@@ -100,7 +111,8 @@ l'hôtesse :
   Liste mémorisée sur le poste (`localStorage`) ; sur un nouvel appareil, les
   placements des 3 dernières minutes sont repris.
 - **Plan des tables** (au centre) : chaque emplacement montre l'essentiel
-  (lettre, compte à rebours, noms, jauge, « Nouveau » / « À appeler ») ; un
+  (lettre dans un anneau de temps irisé, compte à rebours, noms, « Nouveau » /
+  « À appeler ») ; un
   clic ouvre le **panneau d'actions de l'emplacement** : compte à rebours,
   joueurs avec email et billet, **« Absent »** (avec le délai restant),
   **−5 / +5 min**, **« Libérer l'emplacement… »** isolé en bas (confirmation
@@ -110,15 +122,16 @@ l'hôtesse :
   « Remis » / « Annuler » ; file avec rang, heure de passage estimée,
   « Placer quand même (vs animateur) » visible pour un joueur seul, et
   « Modifier » / « Retirer » dans le menu « ⋯ » de chaque ligne.
-- **Bandeaux** pleine largeur : « Stand fermé » (noir, avec « Rouvrir le
-  stand » ; orange le matin, avec « Nouvelle journée »), « Connexion au serveur
-  perdue » (rouge).
+- **Bandeaux** pleine largeur : « Stand fermé » (mauve, avec « Rouvrir le
+  stand » ; orange foncé le matin, avec « Nouvelle journée »), « Connexion au
+  serveur perdue » (rouge).
 - De 1280 à 1920 px de large : trois colonnes. En dessous (tablette 1024 × 768),
   deux colonnes, avec des onglets Plan / File / Goodies. Cibles tactiles d'au
   moins 44 px.
 
 **Écran TV (`/ecran`)** : en-tête (logo officiel dans une carte nacrée, mot
-« Radiance », horloge, « En direct » / « Reconnexion… »), plan fidèle au stand
+« Radiance » en chrome bleu-argent, horloge, « En direct » / « Reconnexion… »),
+plan fidèle au stand
 (enceinte, entrée en bas, plaques de table numérotées, A à gauche / B à droite,
 joueur 1 en haut / joueur 2 en bas), carte **attente estimée**, liste
 **« À vos tables ! »**, file d'attente (deux colonnes lues ligne par ligne en

@@ -10,16 +10,18 @@
   <link rel="stylesheet" href="/ecran/ecran.css">
 </head>
 <body>
-  <div class="screen rb-halo" id="screen">
-    <div class="rings" aria-hidden="true"></div>
+  <!-- Fond : halo nacré irisé STATIQUE du thème (.rb-aura, dégradés pré-calculés, crépuscule
+       mauve quand le stand est fermé). Aucun filtre ni halo animé. -->
+  <div class="screen rb-aura" id="screen">
 
     <header class="masthead">
       <div class="brand rb-logo-card">
         <img class="logo" src="/assets/riftbound-logo.webp" alt="Riftbound – League of Legends Trading Card Game" width="542" height="238">
       </div>
       <div class="set">
-        <p class="eyebrow"><span class="rb-iris-pill">Nouveau set</span><span class="eyebrow-text">Paris Games Week <span class="dot" aria-hidden="true"></span> Stand Riftbound</span></p>
-        <p class="rb-radiance wordmark">Radiance</p>
+        <p class="kicker"><span class="rb-iris-pill">Nouveau set</span></p>
+        <p class="rb-metal wordmark">Radiance</p>
+        <p class="set-sub">Paris Games Week <span class="dot" aria-hidden="true"></span> Stand Riftbound</p>
       </div>
       <div class="meta">
         <div class="clock" id="clock" aria-label="Heure actuelle">--:--</div>
@@ -58,9 +60,13 @@
       <aside class="side" id="side" aria-label="Attente et file d’attente">
         <!-- Attente estimée pour une nouvelle inscription (masquée stand fermé). En paysage, ecran.js
              la place dans l'en-tête (à côté de l'horloge) pour laisser la colonne à la file. -->
-        <section class="panel wait" id="wait" hidden>
-          <p class="wait-eyebrow"><span class="gem" aria-hidden="true"></span><span class="wait-eyebrow-text" id="waitEyebrow">Attente estimée</span></p>
-          <p class="wait-line"><span class="wait-value" id="waitValue"></span><span class="wait-sub" id="waitSub"></span></p>
+        <section class="wait" id="wait" hidden>
+          <span class="wait-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><circle cx="24" cy="26" r="16" fill="none" stroke="currentColor" stroke-width="3.4"/><path d="M24 17v10l6 4" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 5h10" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>
+          </span>
+          <p class="wait-eyebrow" id="waitEyebrow">Attente estimée</p>
+          <p class="wait-value" id="waitValue"></p>
+          <p class="wait-sub" id="waitSub"></p>
         </section>
 
         <!-- Joueurs placés depuis moins de 3 minutes : « où vais-je jouer ? ». -->
@@ -78,6 +84,7 @@
           <div class="queue-body" id="queueBody">
             <ol class="queue-list" id="queueList"></ol>
             <div class="queue-empty" id="queueEmpty" hidden>
+              <span class="qe-halo" aria-hidden="true"></span>
               <p class="qe-title">Aucune attente</p>
               <p class="qe-text">Présentez-vous à l’accueil&nbsp;!</p>
               <p class="qe-sub" id="queueEmptySub"></p>
@@ -92,9 +99,9 @@
             </div>
             <!-- Mode d'emploi pour le public : grand si la file est courte, masqué si elle a besoin de la place. -->
             <ol class="howto" id="howto" aria-label="Comment jouer">
-              <li><b>1</b><span>Inscrivez-vous à l’accueil</span></li>
+              <li><b>1</b><span><span class="nb">Inscrivez-vous</span> à l’accueil</span></li>
               <li><b>2</b><span>Suivez votre nom à l’écran</span></li>
-              <li><b>3</b><span>Installez-vous à votre table</span></li>
+              <li><b>3</b><span><span class="nb">Installez-vous</span> à votre table</span></li>
             </ol>
           </div>
         </section>
@@ -103,7 +110,9 @@
 
     <footer class="cta" id="cta">
       <div class="cta-main cta-open">
-        <svg class="cta-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5.5 19.5 12 13 18.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="cta-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
         <span>Inscrivez-vous à l’accueil pour jouer&nbsp;!</span>
       </div>
       <div class="cta-main cta-closed">

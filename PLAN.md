@@ -164,10 +164,15 @@ plan des tables et la file d'attente.
 
 ## Direction artistique
 
-Thème clair fidèle à la DA Riftbound – Radiance (set 5) : fond nacré éclairé
-par un halo irisé statique (cyan, lavande, rose, cercles concentriques),
-panneaux blancs, police Inter, **orange Riftbound** pour l'action et l'urgence,
-**cyan** pour les places libres. Logo officiel Riftbound posé sur fond clair ;
+Direction « Aurore holographique » (lauréate du concours de design pour le
+look), appliquée à l'ergonomie de la version éditoriale (lauréate pour
+l'ergonomie) : fond nacré perle à halos irisés cyan → lavande → rose et cercles
+concentriques du key art (dégradés statiques pré-calculés, aucun flou en
+direct), cartes en verre clair, mot RADIANCE en chrome bleu-argent, médaillons
+et anneaux de progression irisés, polices Outfit et Inter, crépuscule mauve
+quand le stand est fermé. **Orange Riftbound** pour l'action (places libres,
+« À appeler », bouton principal ; texte encre sur l'orange), **rose** pour les
+5 dernières minutes. Logo officiel Riftbound posé sur une carte nacrée claire ;
 le logotype Radiance et un visuel HD sont attendus d'UVS (propriété de Riot
 Games / UVS Games, voir `public/assets/README.md`). Détails dans le README
 (section « Interface »).
